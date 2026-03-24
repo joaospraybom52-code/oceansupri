@@ -15,26 +15,35 @@ interface PedidoModalProps {
     onDelete?: (id: string) => void
 }
 
+function getInitialSum(pedido: PedidoCompra, pedidosGroup: PedidoCompra[] | undefined, field: keyof PedidoCompra) {
+    if (pedidosGroup && pedidosGroup.length > 0) {
+        const sum = pedidosGroup.reduce((acc, p) => acc + (Number(p[field]) || 0), 0);
+        return sum > 0 ? sum.toString() : '';
+    }
+    const val = pedido[field];
+    return val != null ? val.toString() : '';
+}
+
 export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, onDelete }: PedidoModalProps) {
     const [dataPrevisao, setDataPrevisao] = useState(pedido.data_previsao_entrega || '')
     const [dataEntregaReal, setDataEntregaReal] = useState(pedido.data_entrega_real || '')
-    const [valorOrcado, setValorOrcado] = useState(pedido.valor_orcado?.toString() || '')
-    const [valorFechado, setValorFechado] = useState(pedido.valor_fechado?.toString() || '')
-    const [valorFrete, setValorFrete] = useState(pedido.valor_frete?.toString() || '')
+    const [valorOrcado, setValorOrcado] = useState(getInitialSum(pedido, pedidosGroup, 'valor_orcado'))
+    const [valorFechado, setValorFechado] = useState(getInitialSum(pedido, pedidosGroup, 'valor_fechado'))
+    const [valorFrete, setValorFrete] = useState(getInitialSum(pedido, pedidosGroup, 'valor_frete'))
     const [dataSaiuEntrega, setDataSaiuEntrega] = useState(pedido.data_saiu_entrega?.split('T')[0] || '')
     const [categoriaCap, setCategoriaCap] = useState(pedido.categoria_cap || '')
     const [numeroPedido, setNumeroPedido] = useState(pedido.numero_pedido || '')
     const [codigoUau, setCodigoUau] = useState(pedido.codigo_uau || '')
     const [numeroOrdemCompra, setNumeroOrdemCompra] = useState(pedido.numero_ordem_compra || '')
     const [fornecedor1Id, setFornecedor1Id] = useState(pedido.fornecedor_1_id || '')
-    const [fornecedor1Orcado, setFornecedor1Orcado] = useState(pedido.fornecedor_1_valor_orcado?.toString() || '')
-    const [fornecedor1Negociado, setFornecedor1Negociado] = useState(pedido.fornecedor_1_valor_negociado?.toString() || '')
+    const [fornecedor1Orcado, setFornecedor1Orcado] = useState(getInitialSum(pedido, pedidosGroup, 'fornecedor_1_valor_orcado'))
+    const [fornecedor1Negociado, setFornecedor1Negociado] = useState(getInitialSum(pedido, pedidosGroup, 'fornecedor_1_valor_negociado'))
     const [fornecedor2Id, setFornecedor2Id] = useState(pedido.fornecedor_2_id || '')
-    const [fornecedor2Orcado, setFornecedor2Orcado] = useState(pedido.fornecedor_2_valor_orcado?.toString() || '')
-    const [fornecedor2Negociado, setFornecedor2Negociado] = useState(pedido.fornecedor_2_valor_negociado?.toString() || '')
+    const [fornecedor2Orcado, setFornecedor2Orcado] = useState(getInitialSum(pedido, pedidosGroup, 'fornecedor_2_valor_orcado'))
+    const [fornecedor2Negociado, setFornecedor2Negociado] = useState(getInitialSum(pedido, pedidosGroup, 'fornecedor_2_valor_negociado'))
     const [fornecedor3Id, setFornecedor3Id] = useState(pedido.fornecedor_3_id || '')
-    const [fornecedor3Orcado, setFornecedor3Orcado] = useState(pedido.fornecedor_3_valor_orcado?.toString() || '')
-    const [fornecedor3Negociado, setFornecedor3Negociado] = useState(pedido.fornecedor_3_valor_negociado?.toString() || '')
+    const [fornecedor3Orcado, setFornecedor3Orcado] = useState(getInitialSum(pedido, pedidosGroup, 'fornecedor_3_valor_orcado'))
+    const [fornecedor3Negociado, setFornecedor3Negociado] = useState(getInitialSum(pedido, pedidosGroup, 'fornecedor_3_valor_negociado'))
     const [fornecedorVencedor, setFornecedorVencedor] = useState<number | null>(pedido.fornecedor_vencedor || null)
     const [justificativa, setJustificativa] = useState(pedido.justificativa_fornecedor || '')
     const [fornecedores, setFornecedores] = useState<{ id: string, razao_social: string }[]>([])
@@ -83,8 +92,10 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
         }
     }
 
-    const savingAbs = calcSavingAbsoluto(pedido.valor_orcado, pedido.valor_fechado)
-    const savingPct = calcSavingPercentual(pedido.valor_orcado, pedido.valor_fechado)
+    const totalOrcadoDisplay = Number(valorOrcado) || 0
+    const totalFechadoDisplay = Number(valorFechado) || 0
+    const savingAbs = calcSavingAbsoluto(totalOrcadoDisplay, totalFechadoDisplay)
+    const savingPct = calcSavingPercentual(totalOrcadoDisplay, totalFechadoDisplay)
     const leadTimeTotal = calcLeadTimeDays(pedido.data_requisicao, pedido.data_entrega_real)
 
     const timestampFields: { key: keyof PedidoCompra; label: string }[] = [
@@ -115,14 +126,17 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
             updateData.data_entrega_real = dataEntregaReal
             updateData.status_fsm = 'entregue'
         }
+
+        const divisor = (pedidosGroup && pedidosGroup.length > 0) ? pedidosGroup.length : 1
+
         if (valorOrcado) {
-            updateData.valor_orcado = parseFloat(valorOrcado)
+            updateData.valor_orcado = parseFloat(valorOrcado) / divisor
         }
         if (valorFechado) {
-            const vf = parseFloat(valorFechado)
+            const vf = parseFloat(valorFechado) / divisor
             updateData.valor_fechado = vf
 
-            const vo = valorOrcado ? parseFloat(valorOrcado) : pedido.valor_orcado
+            const vo = valorOrcado ? parseFloat(valorOrcado) / divisor : pedido.valor_orcado
             if (vo) {
                 updateData.desconto_absoluto = vo - vf
                 updateData.desconto_percentual = ((vo - vf) / vo) * 100
@@ -134,17 +148,17 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
         }
 
         updateData.fornecedor_1_id = fornecedor1Id || null
-        updateData.fornecedor_1_valor_orcado = fornecedor1Orcado ? parseFloat(fornecedor1Orcado) : null
-        updateData.fornecedor_1_valor_negociado = fornecedor1Negociado ? parseFloat(fornecedor1Negociado) : null
+        updateData.fornecedor_1_valor_orcado = fornecedor1Orcado ? parseFloat(fornecedor1Orcado) / divisor : null
+        updateData.fornecedor_1_valor_negociado = fornecedor1Negociado ? parseFloat(fornecedor1Negociado) / divisor : null
         updateData.fornecedor_2_id = fornecedor2Id || null
-        updateData.fornecedor_2_valor_orcado = fornecedor2Orcado ? parseFloat(fornecedor2Orcado) : null
-        updateData.fornecedor_2_valor_negociado = fornecedor2Negociado ? parseFloat(fornecedor2Negociado) : null
+        updateData.fornecedor_2_valor_orcado = fornecedor2Orcado ? parseFloat(fornecedor2Orcado) / divisor : null
+        updateData.fornecedor_2_valor_negociado = fornecedor2Negociado ? parseFloat(fornecedor2Negociado) / divisor : null
         updateData.fornecedor_3_id = fornecedor3Id || null
-        updateData.fornecedor_3_valor_orcado = fornecedor3Orcado ? parseFloat(fornecedor3Orcado) : null
-        updateData.fornecedor_3_valor_negociado = fornecedor3Negociado ? parseFloat(fornecedor3Negociado) : null
+        updateData.fornecedor_3_valor_orcado = fornecedor3Orcado ? parseFloat(fornecedor3Orcado) / divisor : null
+        updateData.fornecedor_3_valor_negociado = fornecedor3Negociado ? parseFloat(fornecedor3Negociado) / divisor : null
         updateData.fornecedor_vencedor = fornecedorVencedor
         updateData.justificativa_fornecedor = justificativa || null
-        updateData.valor_frete = valorFrete ? parseFloat(valorFrete) : null
+        updateData.valor_frete = valorFrete ? parseFloat(valorFrete) / divisor : null
         updateData.categoria_cap = categoriaCap || null
         updateData.numero_pedido = numeroPedido || null
         updateData.codigo_uau = codigoUau || null
@@ -325,11 +339,11 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '24px' }}>
                     <div style={{ padding: '12px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
                         <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>Valor Orçado</p>
-                        <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>{pedido.valor_orcado ? formatCurrency(pedido.valor_orcado) : '—'}</p>
+                        <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>{totalOrcadoDisplay > 0 ? formatCurrency(totalOrcadoDisplay) : '—'}</p>
                     </div>
                     <div style={{ padding: '12px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
                         <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>Valor Fechado</p>
-                        <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent-blue)' }}>{pedido.valor_fechado ? formatCurrency(pedido.valor_fechado) : '—'}</p>
+                        <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent-blue)' }}>{totalFechadoDisplay > 0 ? formatCurrency(totalFechadoDisplay) : '—'}</p>
                     </div>
                     <div style={{ padding: '12px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
                         <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>Saving</p>
