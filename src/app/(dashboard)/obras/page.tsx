@@ -33,6 +33,8 @@ export default function ObrasPage() {
     async function handleUpdate(id: string) {
         await supabase.from('obras').update(form).eq('id', id)
         setEditingId(null)
+        setForm({ nome: '', codigo: '', endereco: '', engenheiro_responsavel: '' })
+        setShowForm(false)
         loadObras()
     }
 
@@ -83,7 +85,7 @@ export default function ObrasPage() {
 
             {showForm && (
                 <div className="glass-card" style={{ padding: '20px', marginBottom: '16px' }}>
-                    <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+                    <form onSubmit={editingId ? (e) => { e.preventDefault(); handleUpdate(editingId) } : handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
                         <div>
                             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Nome da Obra *</label>
                             <input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} className="input-field" required placeholder="Residencial Solar" />
@@ -101,8 +103,12 @@ export default function ObrasPage() {
                             <input value={form.engenheiro_responsavel} onChange={(e) => setForm({ ...form, engenheiro_responsavel: e.target.value })} className="input-field" placeholder="Nome" />
                         </div>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                            <button type="submit" className="btn-primary" style={{ padding: '10px 16px' }}><Check size={16} /></button>
-                            <button type="button" onClick={() => setShowForm(false)} className="btn-secondary" style={{ padding: '10px 16px' }}><X size={16} /></button>
+                            <button type="submit" className="btn-primary" style={{ padding: '10px 16px' }} title={editingId ? "Salvar Edição" : "Salvar"}><Check size={16} /></button>
+                            <button type="button" onClick={() => {
+                                setShowForm(false)
+                                setEditingId(null)
+                                setForm({ nome: '', codigo: '', endereco: '', engenheiro_responsavel: '' })
+                            }} className="btn-secondary" style={{ padding: '10px 16px' }}><X size={16} /></button>
                         </div>
                     </form>
                 </div>
@@ -121,10 +127,32 @@ export default function ObrasPage() {
                                     <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{obra.codigo}</p>
                                 </div>
                             </div>
-                            <span className="badge" style={{ background: obra.ativo ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: obra.ativo ? 'var(--accent-green)' : 'var(--accent-red)', cursor: 'pointer' }}
-                                onClick={() => toggleAtivo(obra.id, obra.ativo)}>
-                                {obra.ativo ? 'Ativa' : 'Inativa'}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <button
+                                    onClick={() => {
+                                        setForm({
+                                            nome: obra.nome,
+                                            codigo: obra.codigo || '',
+                                            endereco: obra.endereco || '',
+                                            engenheiro_responsavel: obra.engenheiro_responsavel || ''
+                                        })
+                                        setEditingId(obra.id)
+                                        setShowForm(true)
+                                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                                    }}
+                                    style={{
+                                        background: 'transparent', border: 'none', cursor: 'pointer',
+                                        color: 'var(--text-muted)', display: 'flex', alignItems: 'center'
+                                    }}
+                                    title="Editar Obra"
+                                >
+                                    <Edit2 size={16} />
+                                </button>
+                                <span className="badge" style={{ background: obra.ativo ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: obra.ativo ? 'var(--accent-green)' : 'var(--accent-red)', cursor: 'pointer' }}
+                                    onClick={() => toggleAtivo(obra.id, obra.ativo)}>
+                                    {obra.ativo ? 'Ativa' : 'Inativa'}
+                                </span>
+                            </div>
                         </div>
                         {(obra.endereco || obra.engenheiro_responsavel) && (
                             <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-glass)' }}>

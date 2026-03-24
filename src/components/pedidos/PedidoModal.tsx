@@ -22,6 +22,10 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
     const [valorFechado, setValorFechado] = useState(pedido.valor_fechado?.toString() || '')
     const [valorFrete, setValorFrete] = useState(pedido.valor_frete?.toString() || '')
     const [dataSaiuEntrega, setDataSaiuEntrega] = useState(pedido.data_saiu_entrega?.split('T')[0] || '')
+    const [categoriaCap, setCategoriaCap] = useState(pedido.categoria_cap || '')
+    const [numeroPedido, setNumeroPedido] = useState(pedido.numero_pedido || '')
+    const [codigoUau, setCodigoUau] = useState(pedido.codigo_uau || '')
+    const [numeroOrdemCompra, setNumeroOrdemCompra] = useState(pedido.numero_ordem_compra || '')
     const [fornecedor1Id, setFornecedor1Id] = useState(pedido.fornecedor_1_id || '')
     const [fornecedor1Orcado, setFornecedor1Orcado] = useState(pedido.fornecedor_1_valor_orcado?.toString() || '')
     const [fornecedor1Negociado, setFornecedor1Negociado] = useState(pedido.fornecedor_1_valor_negociado?.toString() || '')
@@ -141,6 +145,10 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
         updateData.fornecedor_vencedor = fornecedorVencedor
         updateData.justificativa_fornecedor = justificativa || null
         updateData.valor_frete = valorFrete ? parseFloat(valorFrete) : null
+        updateData.categoria_cap = categoriaCap || null
+        updateData.numero_pedido = numeroPedido || null
+        updateData.codigo_uau = codigoUau || null
+        updateData.numero_ordem_compra = numeroOrdemCompra || null
 
         if (Object.keys(updateData).length > 0) {
             let query = supabase.from('pedidos_compra').update(updateData)
@@ -289,14 +297,14 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
                     <div style={{ padding: '10px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
                         <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Nº Cotação</p>
-                        <p style={{ fontSize: '13px', fontWeight: 600 }}>{pedido.categoria_cap || '—'}</p>
+                        <p style={{ fontSize: '13px', fontWeight: 600 }}>{categoriaCap || '—'}</p>
                     </div>
                     <div style={{ padding: '10px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
                         <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Nº Pedido (Sistema UAU)</p>
                         <p style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'pre-wrap' }}>
                             {pedidosGroup && pedidosGroup.length > 1
                                 ? pedidosGroup.map(p => p.numero_pedido).filter(Boolean).join(', ')
-                                : (pedido.numero_pedido || '—')}
+                                : (numeroPedido || '—')}
                         </p>
                     </div>
                     <div style={{ padding: '10px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
@@ -304,12 +312,12 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                         <p style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'pre-wrap' }}>
                             {pedidosGroup && pedidosGroup.length > 1
                                 ? pedidosGroup.map(p => p.codigo_uau).filter(Boolean).join(', ')
-                                : (pedido.codigo_uau || '—')}
+                                : (codigoUau || '—')}
                         </p>
                     </div>
                     <div style={{ padding: '10px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
                         <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Nº Ordem de Compra</p>
-                        <p style={{ fontSize: '13px', fontWeight: 600 }}>{pedido.numero_ordem_compra || '—'}</p>
+                        <p style={{ fontSize: '13px', fontWeight: 600 }}>{numeroOrdemCompra || '—'}</p>
                     </div>
                 </div>
 
@@ -379,6 +387,46 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                         gap: '12px',
                         marginBottom: '16px'
                     }}>
+                        <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '26px' }}>Nº Cotação</label>
+                            <input
+                                type="text"
+                                value={categoriaCap}
+                                onChange={(e) => setCategoriaCap(e.target.value)}
+                                className="input-field"
+                                placeholder="Nº Cotação"
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '26px' }}>Nº Pedido (UAU)</label>
+                            <input
+                                type="text"
+                                value={numeroPedido}
+                                onChange={(e) => setNumeroPedido(e.target.value)}
+                                className="input-field"
+                                placeholder="Nº Pedido"
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '26px' }}>Código da Obra</label>
+                            <input
+                                type="text"
+                                value={codigoUau}
+                                onChange={(e) => setCodigoUau(e.target.value)}
+                                className="input-field"
+                                placeholder="Cód. Obra"
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '26px' }}>Nº Ordem Compra</label>
+                            <input
+                                type="text"
+                                value={numeroOrdemCompra}
+                                onChange={(e) => setNumeroOrdemCompra(e.target.value)}
+                                className="input-field"
+                                placeholder="Nº OP"
+                            />
+                        </div>
                         <div>
                             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '26px' }}>Valor Orçado (R$)</label>
                             <input
