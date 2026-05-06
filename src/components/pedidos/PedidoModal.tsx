@@ -293,9 +293,27 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                         <User size={16} style={{ color: 'var(--accent-green)' }} />
                         <div style={{ flex: 1 }}>
                             <p style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Comprador Responsável</p>
-                            <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                {compradores.find(c => c.id === compradorId)?.nome || 'Sem Comprador'}
-                            </p>
+                            <select
+                                value={compradorId}
+                                onChange={(e) => setCompradorId(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    outline: 'none',
+                                    padding: 0,
+                                    marginTop: '2px'
+                                }}
+                            >
+                                <option value="" style={{ color: '#000' }}>Sem Comprador</option>
+                                {compradores.map(c => (
+                                    <option key={c.id} value={c.id} style={{ color: '#000' }}>{c.nome}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
