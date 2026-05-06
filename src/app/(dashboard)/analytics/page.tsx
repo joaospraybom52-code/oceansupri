@@ -5,11 +5,12 @@ import { createClient } from '@/lib/supabase/client'
 import { PedidoCompra } from '@/lib/types/database'
 import { formatCurrency, formatPercent, calcSavingAbsoluto, calcSavingPercentual, calcLeadTimeDays } from '@/lib/utils/kpi-calculations'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users } from 'lucide-react'
+import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar } from 'lucide-react'
 
 export default function AnalyticsPage() {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
     const [loading, setLoading] = useState(true)
+    const [mesFiltro, setMesFiltro] = useState('')
     const supabase = createClient()
 
     useEffect(() => { loadData() }, [])
@@ -22,24 +23,30 @@ export default function AnalyticsPage() {
         setLoading(false)
     }
 
-    // KPI calculations
-    const pedidosComSaving = pedidos.filter(p => p.valor_orcado && p.valor_fechado)
+    // Filtra os pedidos pela data de criação se houver mesFiltro ativo (para KPIs gerais)
+    const filteredPedidos = pedidos.filter(p => {
+        if (!mesFiltro) return true;
+        return p.created_at?.startsWith(mesFiltro);
+    })
+
+    // KPI calculations using filteredPedidos
+    const pedidosComSaving = filteredPedidos.filter(p => p.valor_orcado && p.valor_fechado)
     const savingTotal = pedidosComSaving.reduce((sum, p) => sum + (calcSavingAbsoluto(p.valor_orcado, p.valor_fechado) || 0), 0)
     const savingPercentualMedio = pedidosComSaving.length > 0
         ? pedidosComSaving.reduce((sum, p) => sum + (calcSavingPercentual(p.valor_orcado, p.valor_fechado) || 0), 0) / pedidosComSaving.length
         : 0
 
-    const pedidosEntregues = pedidos.filter(p => p.data_entrega_real)
+    const pedidosEntregues = filteredPedidos.filter(p => p.data_entrega_real)
     const leadTimeMedio = pedidosEntregues.length > 0
         ? pedidosEntregues.reduce((sum, p) => sum + (calcLeadTimeDays(p.data_requisicao, p.data_entrega_real!) || 0), 0) / pedidosEntregues.length
         : 0
 
-    const totalEmergenciais = pedidos.filter(p => p.emergencial).length
-    const percentEmergenciais = pedidos.length > 0 ? (totalEmergenciais / pedidos.length) * 100 : 0
+    const totalEmergenciais = filteredPedidos.filter(p => p.emergencial).length
+    const percentEmergenciais = filteredPedidos.length > 0 ? (totalEmergenciais / filteredPedidos.length) * 100 : 0
 
     // Saving por comprador
     const savingPorComprador: Record<string, { nome: string; saving: number; cotacoes: number }> = {}
-    pedidos.forEach(p => {
+    filteredPedidos.forEach(p => {
         const nome = p.comprador?.nome || 'Sem comprador'
         if (!savingPorComprador[nome]) savingPorComprador[nome] = { nome, saving: 0, cotacoes: 0 }
         savingPorComprador[nome].saving += calcSavingAbsoluto(p.valor_orcado, p.valor_fechado) || 0
@@ -47,7 +54,7 @@ export default function AnalyticsPage() {
     })
     const savingCompradorData = Object.values(savingPorComprador).sort((a, b) => b.saving - a.saving)
 
-    // Desconto mensal
+    // Desconto mensal (sempre mostrar evolução total ou filtrar pelo mês selecionado - evolução geralmente não usa o filtro de 1 mês, mas manteremos coerente)
     const descontoMensal: Record<string, { mes: string; total: number; count: number }> = {}
     pedidosComSaving.forEach(p => {
         const date = new Date(p.created_at || new Date())
@@ -62,7 +69,7 @@ export default function AnalyticsPage() {
         
     // Valor de compra por obra
     const comprasPorObra: Record<string, { nome: string; valorTotal: number }> = {}
-    pedidos.forEach(p => {
+    filteredPedidos.forEach(p => {
         if (!p.valor_fechado) return
         
         const nomeDaObra = p.obra?.nome || 'Sem obra atribuída'
@@ -73,10 +80,31 @@ export default function AnalyticsPage() {
 
     // Emergencial pie
     const pieData = [
-        { name: 'Planejada', value: pedidos.length - totalEmergenciais },
+        { name: 'Planejada', value: filteredPedidos.length - totalEmergenciais },
         { name: 'Emergencial', value: totalEmergenciais },
     ]
     const PIE_COLORS = ['#10b981', '#ef4444']
+
+    // Data for new Transições Chart
+    // Uses the full 'pedidos' array so we can count transitions that happened in 'mesFiltro'
+    // regardless of when the 'created_at' was.
+    const countTransitions = (dateField: keyof PedidoCompra) => {
+        return pedidos.filter(p => {
+            const val = p[dateField] as string | null;
+            if (!val) return false;
+            if (!mesFiltro) return true;
+            return val.startsWith(mesFiltro);
+        }).length;
+    }
+
+    const transicoesData = [
+        { name: 'Requisitado', count: countTransitions('data_requisicao') },
+        { name: 'Em Cotação', count: countTransitions('data_inicio_cotacao') },
+        { name: 'Aguard. Aprov.', count: countTransitions('data_envio_aprovacao') },
+        { name: 'Ordem Gerada', count: countTransitions('data_ordem_compra') },
+        { name: 'Em Trânsito', count: countTransitions('data_saiu_entrega') },
+        { name: 'Entregue', count: countTransitions('data_entrega_real') },
+    ];
 
     if (loading) {
         return (
@@ -88,9 +116,29 @@ export default function AnalyticsPage() {
 
     return (
         <div>
-            <div style={{ marginBottom: '24px' }}>
-                <h1 style={{ fontSize: '22px', fontWeight: 800 }}>Dashboard de KPIs</h1>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Indicadores de desempenho do setor de suprimentos</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                <div>
+                    <h1 style={{ fontSize: '22px', fontWeight: 800 }}>Dashboard de KPIs</h1>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Indicadores de desempenho do setor de suprimentos</p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>Filtrar Mês:</label>
+                    <input 
+                        type="month" 
+                        value={mesFiltro} 
+                        onChange={(e) => setMesFiltro(e.target.value)} 
+                        className="input-field"
+                        style={{ width: 'auto', padding: '8px 12px', height: '36px' }}
+                    />
+                    {mesFiltro && (
+                        <button 
+                            onClick={() => setMesFiltro('')}
+                            style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)', padding: '0 12px', borderRadius: 'var(--radius-sm)', fontSize: '12px', cursor: 'pointer', height: '36px', fontWeight: 600 }}
+                        >
+                            Limpar
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* KPI Cards */}
@@ -124,7 +172,7 @@ export default function AnalyticsPage() {
                         </div>
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Total de Pedidos</span>
                     </div>
-                    <p style={{ fontSize: '28px', fontWeight: 800 }}>{pedidos.length}</p>
+                    <p style={{ fontSize: '28px', fontWeight: 800 }}>{filteredPedidos.length}</p>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{savingCompradorData.length} compradores ativos</p>
                 </div>
 
@@ -138,7 +186,34 @@ export default function AnalyticsPage() {
                     <p style={{ fontSize: '28px', fontWeight: 800, color: percentEmergenciais > 20 ? 'var(--accent-red)' : 'var(--text-primary)' }}>
                         {formatPercent(percentEmergenciais)}
                     </p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{totalEmergenciais} de {pedidos.length} pedidos</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{totalEmergenciais} de {filteredPedidos.length} pedidos</p>
+                </div>
+            </div>
+
+            {/* Transições de Status */}
+            <div style={{ marginBottom: '16px' }}>
+                <div className="chart-container">
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Calendar size={16} style={{ color: 'var(--accent-blue)' }} />
+                        Volume de Transições de Status {mesFiltro ? `em ${mesFiltro.split('-').reverse().join('/')}` : '(Geral)'}
+                    </h3>
+                    <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={transicoesData} margin={{ left: 0, right: 20, top: 20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                            <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} interval={0} />
+                            <YAxis stroke="var(--text-muted)" fontSize={11} allowDecimals={false} />
+                            <Tooltip
+                                contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '12px' }}
+                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                            />
+                            <Bar dataKey="count" name="Pedidos" radius={[4, 4, 0, 0]} barSize={50}>
+                                {transicoesData.map((entry, index) => {
+                                    const colors = ['#8b5cf6', '#3b82f6', '#f59e0b', '#10b981', '#6366f1', '#14b8a6']
+                                    return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                                })}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 
@@ -287,3 +362,4 @@ export default function AnalyticsPage() {
         </div>
     )
 }
+
