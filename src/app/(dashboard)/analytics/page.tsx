@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PedidoCompra } from '@/lib/types/database'
 import { formatCurrency, formatPercent, calcSavingAbsoluto, calcSavingPercentual, calcLeadTimeDays } from '@/lib/utils/kpi-calculations'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
 import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar } from 'lucide-react'
 
 export default function AnalyticsPage() {
@@ -207,6 +207,20 @@ export default function AnalyticsPage() {
                                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                             />
                             <Bar dataKey="count" name="Pedidos" radius={[4, 4, 0, 0]} barSize={50}>
+                                <LabelList 
+                                    dataKey="count" 
+                                    position="top" 
+                                    content={(props: any) => {
+                                        const { x, y, width, value, index } = props;
+                                        if (value === 0) return null;
+                                        const colors = ['#8b5cf6', '#3b82f6', '#f59e0b', '#10b981', '#6366f1', '#14b8a6'];
+                                        return (
+                                            <text x={x + width / 2} y={y - 8} fill={colors[index % colors.length]} textAnchor="middle" fontSize={12} fontWeight={800}>
+                                                {value}
+                                            </text>
+                                        );
+                                    }}
+                                />
                                 {transicoesData.map((entry, index) => {
                                     const colors = ['#8b5cf6', '#3b82f6', '#f59e0b', '#10b981', '#6366f1', '#14b8a6']
                                     return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
