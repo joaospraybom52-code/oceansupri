@@ -179,7 +179,7 @@ export default function KanbanBoard({ initialPedidos }: KanbanBoardProps) {
         <>
             <div style={{
                 display: 'flex', gap: '16px', overflowX: 'auto',
-                paddingBottom: '16px', minHeight: 'calc(100vh - 180px)'
+                paddingBottom: '16px', height: 'calc(100vh - 180px)'
             }}>
                 {KANBAN_COLUMNS.map(status => (
                     <KanbanColumn
