@@ -210,6 +210,7 @@ export default function KanbanBoard({ initialPedidos }: KanbanBoardProps) {
                 <StageTransitionModal
                     pedido={transitionPedido.pedido}
                     newStatus={transitionPedido.newStatus}
+                    compradores={compradores}
                     onClose={() => setTransitionPedido(null)}
                     onConfirm={handleConfirmTransition}
                 />

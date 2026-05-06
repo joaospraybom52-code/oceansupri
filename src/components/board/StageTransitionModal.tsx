@@ -7,14 +7,16 @@ import { X, Check } from 'lucide-react'
 interface StageTransitionModalProps {
     pedido: PedidoCompra
     newStatus: StatusFSM
+    compradores: { id: string, nome: string }[]
     onClose: () => void
     onConfirm: (updateData: Record<string, any>) => void
 }
 
-export default function StageTransitionModal({ pedido, newStatus, onClose, onConfirm }: StageTransitionModalProps) {
+export default function StageTransitionModal({ pedido, newStatus, compradores, onClose, onConfirm }: StageTransitionModalProps) {
     const [submitting, setSubmitting] = useState(false)
     const [formData, setFormData] = useState<Record<string, any>>({
         categoria_cap: pedido.categoria_cap || '',
+        comprador_id: pedido.comprador_id || '',
         valor_orcado: pedido.valor_orcado?.toString() || '',
         valor_fechado: pedido.valor_fechado?.toString() || '',
         numero_ordem_compra: pedido.numero_ordem_compra || '',
@@ -32,6 +34,9 @@ export default function StageTransitionModal({ pedido, newStatus, onClose, onCon
 
         if (newStatus === 'em_cotacao') {
             updateData.categoria_cap = formData.categoria_cap || null
+            if (formData.comprador_id !== (pedido.comprador_id || '')) {
+                updateData.comprador_id = formData.comprador_id || null
+            }
             if (!pedido.data_inicio_cotacao) {
                 updateData.data_inicio_cotacao = new Date().toISOString()
             }
@@ -102,15 +107,31 @@ export default function StageTransitionModal({ pedido, newStatus, onClose, onCon
 
                     {/* Campos para Em Cotação (Entrada na coluna) */}
                     {newStatus === 'em_cotacao' && (
-                        <div>
-                            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Nº Cotação (OPCIONAL)</label>
-                            <input
-                                type="text"
-                                value={formData.categoria_cap}
-                                onChange={(e) => setFormData({ ...formData, categoria_cap: e.target.value })}
-                                className="input-field"
-                                placeholder="Ex: 12345"
-                            />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div>
+                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Nº Cotação (OPCIONAL)</label>
+                                <input
+                                    type="text"
+                                    value={formData.categoria_cap}
+                                    onChange={(e) => setFormData({ ...formData, categoria_cap: e.target.value })}
+                                    className="input-field"
+                                    placeholder="Ex: 12345"
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>Comprador Responsável *</label>
+                                <select
+                                    value={formData.comprador_id}
+                                    onChange={(e) => setFormData({ ...formData, comprador_id: e.target.value })}
+                                    className="input-field"
+                                    required
+                                >
+                                    <option value="">Selecione o comprador</option>
+                                    {compradores.map(c => (
+                                        <option key={c.id} value={c.id}>{c.nome}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     )}
 
