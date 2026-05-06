@@ -130,36 +130,7 @@ async function syncData() {
         let insertedCount = 0;
 
         for (const row of records) {
-            // Chave composta para evitar duplicidade
-            const codigo_uau = `${row.NumPedido_temp}_${row.Insumo_temp}_${row.Obra_temp}`;
-
-            // Regra de Solicitante: Ignorar e não criar card se for um dos nomes abaixo
-            const solicitante = row.Quem_ped?.toString().trim();
-            const solicitanteUpper = solicitante?.toUpperCase() || '';
-            const ignoredSolicitantes = ['LILIANES', 'AMANDA', 'ARLETE', 'ALINE', 'FINANCEIRO'];
-            
-            if (ignoredSolicitantes.includes(solicitanteUpper)) {
-                continue; // Pula a criação do card
-            }
-
-            // 1. Verifica se já existe o pedido no Supabase
-            const { data: existingPedido, error: checkError } = await supabase
-                .from('pedidos_compra')
-                .select('id')
-                .eq('codigo_uau', codigo_uau)
-                .maybeSingle();
-
-            if (checkError) {
-                console.error(`Erro ao checar codigo_uau ${codigo_uau}:`, checkError.message);
-                continue;
-            }
-
-            if (existingPedido) {
-                // Já existe, pula
-                continue;
-            }
-
-            // 2. Resolve a Obra (busca ou cria)
+            // 1. Resolve a Obra (busca ou cria)
             const obraCodigo = row.Obra_temp?.toString();
             const obraNome = row.Descr_obr?.toString();
             let obraId = null;
@@ -190,16 +161,45 @@ async function syncData() {
                         console.error('Erro ao criar obra', insertObraError?.message);
                     }
                 }
+            // 2. Verifica se já existe o pedido no Supabase
+            const codigo_uau_real = row.Obra_temp?.toString() || null;
+            const descricao_insumo_real = row.Descr_ins || 'Sem descrição';
+            
+            const { data: existingPedido, error: checkError } = await supabase
+                .from('pedidos_compra')
+                .select('id')
+                .eq('numero_pedido', row.NumPedido_temp?.toString())
+                .eq('codigo_uau', codigo_uau_real)
+                .eq('descricao_insumo', descricao_insumo_real)
+                .maybeSingle();
+
+            if (checkError) {
+                console.error(`Erro ao checar pedido ${row.NumPedido_temp}:`, checkError.message);
+                continue;
+            }
+
+            if (existingPedido) {
+                // Já existe, pula
+                continue;
+            }
+
+            // Regra de Solicitante: Ignorar e não criar card se for um dos nomes abaixo
+            const solicitante = row.Quem_ped?.toString().trim();
+            const solicitanteUpper = solicitante?.toUpperCase() || '';
+            const ignoredSolicitantes = ['LILIANES', 'AMANDA', 'ARLETE', 'ALINE', 'FINANCEIRO'];
+            
+            if (ignoredSolicitantes.includes(solicitanteUpper)) {
+                continue; // Pula a criação do card
             }
 
             // 3. Insere o pedido
             const emergencial = row.Tipo_ped === 6;
 
             const novoPedido = {
-                codigo_uau,
+                codigo_uau: codigo_uau_real,
                 status_fsm: 'requisitado', // Definido na regra de negócio
                 obra_id: obraId,
-                descricao_insumo: row.Descr_ins || 'Sem descrição',
+                descricao_insumo: descricao_insumo_real,
                 numero_pedido: row.NumPedido_temp?.toString(),
                 emergencial,
                 valor_orcado: row.VlTotal,
@@ -212,10 +212,10 @@ async function syncData() {
                 .insert(novoPedido);
 
             if (insertError) {
-                console.error(`Erro ao inserir card ${codigo_uau}:`, insertError.message);
+                console.error(`Erro ao inserir card:`, insertError.message);
             } else {
                 insertedCount++;
-                console.log(`+ Inserido novo card: ${codigo_uau} (Pedido: ${row.NumPedido_temp})`);
+                console.log(`+ Inserido novo card: Pedido ${row.NumPedido_temp} - Obra ${codigo_uau_real} - Item ${row.Insumo_temp}`);
             }
         }
 
