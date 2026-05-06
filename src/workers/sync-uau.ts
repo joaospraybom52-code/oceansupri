@@ -161,6 +161,8 @@ async function syncData() {
                         console.error('Erro ao criar obra', insertObraError?.message);
                     }
                 }
+            }
+
             // 2. Verifica se já existe o pedido no Supabase
             const codigo_uau_real = row.Obra_temp?.toString() || null;
             const descricao_insumo_real = row.Descr_ins || 'Sem descrição';
