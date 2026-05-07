@@ -120,10 +120,10 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
         >
             {/* Header: Insumo + Emergency Badge */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
-                <h4 style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.3, flex: 1, pointerEvents: 'none' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.3, flex: 1, pointerEvents: 'none', minWidth: 0, wordBreak: 'break-word' }}>
                     {title}
                 </h4>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                     {isGroup && (
                         <span className="badge" style={{ background: 'rgba(56,189,248,0.15)', color: 'var(--accent-blue)', flexShrink: 0 }}>
                             Agrupado
