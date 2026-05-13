@@ -23,7 +23,9 @@ export async function GET(request: Request) {
         port: parseInt(process.env.UAU_DB_PORT || '14104'),
         options: {
             encrypt: false, 
-            trustServerCertificate: true 
+            trustServerCertificate: true,
+            connectionTimeout: 30000,
+            requestTimeout: 30000
         }
     };
 
