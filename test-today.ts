@@ -18,11 +18,11 @@ async function check() {
     try {
         pool = await sql.connect(sqlConfig);
         const result = await pool.request().query(`
-            SELECT TOP 10 NumPedido_temp, DataAlt_temp, Pedidos.DtPedido_ped
+            SELECT TOP 50 NumPedido_temp, Pedidos.Cod_ped, Pedidos.DtPedido_ped, Quem_ped, Pedidos.Obra_ped, ItensCot_temp.Cotacao_temp, ItensCot_temp.Excluido_temp, ItensCot_temp.Estagio_temp, ItensCot_temp.Cotada_temp, Pedidos.Tipo_ped, ItensCot_temp.Confirmado_temp
             FROM ItensCot_temp 
             LEFT JOIN Pedidos ON Pedidos.Cod_ped = ItensCot_temp.NumPedido_temp
-            WHERE Pedidos.DtPedido_ped >= CONVERT(date, GETDATE()) OR ItensCot_temp.DataAlt_temp >= CONVERT(date, GETDATE())
-            ORDER BY NumPedido_temp DESC
+            WHERE Pedidos.Cod_ped = 21 OR ItensCot_temp.NumPedido_temp = 21
+            ORDER BY Pedidos.DtPedido_ped DESC
         `);
         console.log('Orders today:', result.recordset);
     } catch (e) {
