@@ -116,7 +116,7 @@ export async function GET(request: Request) {
                 AND ItensCot_temp.Excluido_temp = 0
                 AND ItensCot_temp.Estagio_temp NOT IN (6, 7)
                 AND ItensCot_temp.Cotada_temp <> 2
-                AND Pedidos.Tipo_ped IN (0,4,6,7,3,1,9,10)
+                AND Pedidos.Tipo_ped IN (0,4,6,7,3,1,9,10,8)
                 AND ItensCot_temp.Confirmado_temp = 1
                 AND (Pedidos.DtPedido_ped >= CONVERT(date, GETDATE()) OR ItensCot_temp.DataAlt_temp >= CONVERT(date, GETDATE()))
             ORDER BY NumPedido_temp DESC
