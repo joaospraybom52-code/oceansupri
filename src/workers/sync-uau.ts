@@ -131,19 +131,19 @@ async function syncData() {
 
         for (const row of records) {
             // 1. Resolve a Obra (busca ou cria)
-            const obraCodigo = row.Obra_temp?.toString();
-            const obraNome = row.Descr_obr?.toString();
+            const obraCodigo = row.Obra_temp?.toString().trim();
+            const obraNome = row.Descr_obr?.toString().trim();
             let obraId = null;
 
             if (obraCodigo) {
-                const { data: existingObra } = await supabase
+                const { data: existingObras } = await supabase
                     .from('obras')
                     .select('id')
                     .eq('codigo', obraCodigo)
-                    .maybeSingle();
+                    .limit(1);
 
-                if (existingObra) {
-                    obraId = existingObra.id;
+                if (existingObras && existingObras.length > 0) {
+                    obraId = existingObras[0].id;
                 } else {
                     const { data: novaObra, error: insertObraError } = await supabase
                         .from('obras')
