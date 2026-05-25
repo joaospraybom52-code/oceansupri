@@ -73,11 +73,6 @@ async function syncData() {
                     AND Obras.Cod_obr = ItensCot_temp.Obra_temp
                 LEFT JOIN Cidades
                     ON Cidades.Num_cid = Obras.NumCid_obr
-                INNER JOIN (
-                    SELECT * FROM fn_ListEmpObr('4|ADMCO,4|ALMOX,4|AUR01,4|AUR02,4|BC002,4|BV001,4|CAC01,4|CAG01,4|CN001,4|CN003,4|CONS,4|CS001,4|CS002,4|CV001,4|CVENT,4|DP,4|DRT02,4|DRT03,4|DRT04,4|EDT01,4|EJA01,4|EJA03,4|EJA04,4|EJA05,4|EJA06,4|EMIR1,4|ES001,4|EURO1,4|FCC01,4|FS001,4|GB006,4|GR001,4|GURDB,4|KN001,4|KN004,4|KN005,4|LC002,4|LP001,4|LV001,4|LV002,4|LV004,4|MLB01,4|MUNCK,4|NES01,4|NES05,4|NES06,4|NES07,4|NES08,4|NES09,4|NES10,4|NES11,4|NES12,4|NES14,4|NES15,4|NES16,4|NES17,4|NES18,4|NES19,4|NORON,4|PAT1,4|PEN01,4|PER01,4|PMT01,4|PMTCW,4|PUC01,4|REA01,4|REA02,4|RET01,4|RET02,4|RV03,4|SD005,4|STEK1,4|TET01,4|VLDIE,4|VR001',',')
-                ) As EmpObras
-                    ON EmpObras.Empresa = ItensCot_temp.Empresa_temp
-                    AND EmpObras.Obra = ItensCot_temp.Obra_temp
                 OUTER APPLY (
                     SELECT aciu.UF_aciuf, aciu.CodIns_aciuf,
                         CASE
@@ -112,7 +107,8 @@ async function syncData() {
                     WHERE aciu.UF_aciuf = Obras.Uf_obr
                         AND aciu.CodIns_aciuf = ItensCot_temp.Insumo_temp
                 ) As AcordoCorporativoInsumosUF
-            WHERE ItensCot_temp.Cotacao_temp = 0
+            WHERE ItensCot_temp.Empresa_temp = 4
+                AND ItensCot_temp.Cotacao_temp = 0
                 AND ItensCot_temp.Excluido_temp = 0
                 AND ItensCot_temp.Estagio_temp NOT IN (6, 7)
                 AND ItensCot_temp.Cotada_temp <> 2
