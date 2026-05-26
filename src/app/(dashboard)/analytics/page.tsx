@@ -29,8 +29,13 @@ export default function AnalyticsPage() {
         return p.created_at?.startsWith(mesFiltro);
     })
 
-    // KPI calculations using filteredPedidos
-    const pedidosComSaving = filteredPedidos.filter(p => p.valor_orcado && p.valor_fechado)
+    // KPI calculations - Saving usa a mesma lógica da base unificada
+    const pedidosComSaving = pedidos.filter(p => {
+        if (!p.valor_orcado || !p.valor_fechado) return false;
+        if (!mesFiltro) return true;
+        const dataRef = p.data_ordem_compra || p.created_at;
+        return dataRef?.startsWith(mesFiltro);
+    })
     const savingTotal = pedidosComSaving.reduce((sum, p) => sum + (calcSavingAbsoluto(p.valor_orcado, p.valor_fechado) || 0), 0)
     const savingPercentualMedio = pedidosComSaving.length > 0
         ? pedidosComSaving.reduce((sum, p) => sum + (calcSavingPercentual(p.valor_orcado, p.valor_fechado) || 0), 0) / pedidosComSaving.length
@@ -44,15 +49,18 @@ export default function AnalyticsPage() {
     const totalEmergenciais = filteredPedidos.filter(p => p.emergencial).length
     const percentEmergenciais = filteredPedidos.length > 0 ? (totalEmergenciais / filteredPedidos.length) * 100 : 0
 
-    // Orçado vs Fechado por Comprador: pedidos que chegaram em "Ordem Gerada" (data_ordem_compra preenchida)
-    // Filtra pelo mês de data_ordem_compra para acompanhar o filtro global
-    const pedidosOrdemGerada = pedidos.filter(p => {
-        if (!p.data_ordem_compra) return false;
+    // ====== BASE UNIFICADA: pedidos com valor_orcado E valor_fechado (qualquer etapa) ======
+    // Filtro de mês: usa data_ordem_compra se existir, senão created_at como fallback
+    const pedidosComValores = pedidos.filter(p => {
+        if (!p.valor_orcado || !p.valor_fechado) return false;
         if (!mesFiltro) return true;
-        return p.data_ordem_compra.startsWith(mesFiltro);
+        const dataRef = p.data_ordem_compra || p.created_at;
+        return dataRef?.startsWith(mesFiltro);
     })
+
+    // Orçado vs Fechado por Comprador (usa base unificada)
     const orcadoVsFechadoPorComprador: Record<string, { nome: string; valorOrcado: number; valorFechado: number }> = {}
-    pedidosOrdemGerada.forEach(p => {
+    pedidosComValores.forEach(p => {
         const nome = p.comprador?.nome || 'Sem comprador'
         if (!orcadoVsFechadoPorComprador[nome]) orcadoVsFechadoPorComprador[nome] = { nome, valorOrcado: 0, valorFechado: 0 }
         orcadoVsFechadoPorComprador[nome].valorOrcado += p.valor_orcado || 0
@@ -60,9 +68,9 @@ export default function AnalyticsPage() {
     })
     const orcadoVsFechadoData = Object.values(orcadoVsFechadoPorComprador).sort((a, b) => b.valorOrcado - a.valorOrcado)
 
-    // Saving por comprador
+    // Saving por comprador (usa mesma base unificada para bater com Orçado vs Fechado)
     const savingPorComprador: Record<string, { nome: string; saving: number; cotacoes: number }> = {}
-    filteredPedidos.forEach(p => {
+    pedidosComValores.forEach(p => {
         const nome = p.comprador?.nome || 'Sem comprador'
         if (!savingPorComprador[nome]) savingPorComprador[nome] = { nome, saving: 0, cotacoes: 0 }
         savingPorComprador[nome].saving += calcSavingAbsoluto(p.valor_orcado, p.valor_fechado) || 0
