@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { PedidoCompra } from '@/lib/types/database'
 import { formatCurrency, formatPercent, calcSavingAbsoluto, calcSavingPercentual, calcLeadTimeDays } from '@/lib/utils/kpi-calculations'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
-import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar, Banknote } from 'lucide-react'
+import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar, Scale } from 'lucide-react'
 
 export default function AnalyticsPage() {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
@@ -44,15 +44,21 @@ export default function AnalyticsPage() {
     const totalEmergenciais = filteredPedidos.filter(p => p.emergencial).length
     const percentEmergenciais = filteredPedidos.length > 0 ? (totalEmergenciais / filteredPedidos.length) * 100 : 0
 
-    // Valor Comprado: soma valor_orcado dos pedidos que chegaram em "Ordem Gerada" (data_ordem_compra preenchida)
+    // Orçado vs Fechado por Comprador: pedidos que chegaram em "Ordem Gerada" (data_ordem_compra preenchida)
     // Filtra pelo mês de data_ordem_compra para acompanhar o filtro global
     const pedidosOrdemGerada = pedidos.filter(p => {
-        if (!p.data_ordem_compra || !p.valor_orcado) return false;
+        if (!p.data_ordem_compra) return false;
         if (!mesFiltro) return true;
         return p.data_ordem_compra.startsWith(mesFiltro);
     })
-    const valorCompradoTotal = pedidosOrdemGerada.reduce((sum, p) => sum + (p.valor_orcado || 0), 0)
-    const qtdOrdemGerada = pedidosOrdemGerada.length
+    const orcadoVsFechadoPorComprador: Record<string, { nome: string; valorOrcado: number; valorFechado: number }> = {}
+    pedidosOrdemGerada.forEach(p => {
+        const nome = p.comprador?.nome || 'Sem comprador'
+        if (!orcadoVsFechadoPorComprador[nome]) orcadoVsFechadoPorComprador[nome] = { nome, valorOrcado: 0, valorFechado: 0 }
+        orcadoVsFechadoPorComprador[nome].valorOrcado += p.valor_orcado || 0
+        orcadoVsFechadoPorComprador[nome].valorFechado += p.valor_fechado || 0
+    })
+    const orcadoVsFechadoData = Object.values(orcadoVsFechadoPorComprador).sort((a, b) => b.valorOrcado - a.valorOrcado)
 
     // Saving por comprador
     const savingPorComprador: Record<string, { nome: string; saving: number; cotacoes: number }> = {}
@@ -152,7 +158,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* KPI Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
                 <div className="kpi-card green">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -162,17 +168,6 @@ export default function AnalyticsPage() {
                     </div>
                     <p style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(savingTotal)}</p>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Média {formatPercent(savingPercentualMedio)} de desconto</p>
-                </div>
-
-                <div className="kpi-card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Banknote size={18} style={{ color: '#3b82f6' }} />
-                        </div>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Valor Comprado</span>
-                    </div>
-                    <p style={{ fontSize: '28px', fontWeight: 800, color: '#3b82f6' }}>{formatCurrency(valorCompradoTotal)}</p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{qtdOrdemGerada} ordens geradas</p>
                 </div>
 
                 <div className="kpi-card">
@@ -310,24 +305,45 @@ export default function AnalyticsPage() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                {/* Desconto Mensal */}
+                {/* Orçado vs Fechado por Comprador */}
                 <div className="chart-container">
                     <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <DollarSign size={16} style={{ color: 'var(--accent-blue)' }} />
-                        Evolução Mensal do Desconto (%)
+                        <Scale size={16} style={{ color: '#3b82f6' }} />
+                        Orçado vs Fechado por Comprador {mesFiltro ? `em ${mesFiltro.split('-').reverse().join('/')}` : '(Geral)'}
                     </h3>
                     <ResponsiveContainer width="100%" height={250}>
-                        <LineChart data={descontoMensalData}>
+                        <BarChart data={orcadoVsFechadoData} margin={{ bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                            <XAxis dataKey="mes" stroke="var(--text-muted)" fontSize={10} />
-                            <YAxis stroke="var(--text-muted)" fontSize={10} tickFormatter={(v) => `${v.toFixed(0)}%`} />
+                            <XAxis dataKey="nome" stroke="var(--text-muted)" fontSize={10} />
+                            <YAxis stroke="var(--text-muted)" fontSize={10} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
                             <Tooltip
                                 contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '12px' }}
-                                formatter={(value) => [`${(value as number).toFixed(1)}%`, 'Desconto Médio']}
+                                formatter={(value: number, name: string) => [formatCurrency(value), name === 'valorOrcado' ? 'Valor Orçado' : 'Valor Fechado']}
                             />
-                            <Line type="monotone" dataKey="desconto" stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1', r: 4 }} />
-                        </LineChart>
+                            <Bar dataKey="valorOrcado" name="Valor Orçado" fill="url(#orcadoGradient)" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="valorFechado" name="Valor Fechado" fill="url(#fechadoGradient)" radius={[4, 4, 0, 0]} />
+                            <defs>
+                                <linearGradient id="orcadoGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#f59e0b" />
+                                    <stop offset="100%" stopColor="#d97706" />
+                                </linearGradient>
+                                <linearGradient id="fechadoGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#10b981" />
+                                    <stop offset="100%" stopColor="#059669" />
+                                </linearGradient>
+                            </defs>
+                        </BarChart>
                     </ResponsiveContainer>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '2px', background: '#f59e0b' }} />
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Valor Orçado</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '2px', background: '#10b981' }} />
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Valor Fechado</span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Cotações por Comprador */}
