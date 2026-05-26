@@ -318,7 +318,7 @@ export default function AnalyticsPage() {
                             <YAxis stroke="var(--text-muted)" fontSize={10} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
                             <Tooltip
                                 contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '12px' }}
-                                formatter={(value: number, name: string) => [formatCurrency(value), name === 'valorOrcado' ? 'Valor Orçado' : 'Valor Fechado']}
+                                formatter={(value, name) => [formatCurrency(value as number), name === 'valorOrcado' ? 'Valor Orçado' : 'Valor Fechado']}
                             />
                             <Bar dataKey="valorOrcado" name="Valor Orçado" fill="url(#orcadoGradient)" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="valorFechado" name="Valor Fechado" fill="url(#fechadoGradient)" radius={[4, 4, 0, 0]} />
