@@ -24,7 +24,7 @@ const sqlConfig: sql.config = {
     }
 };
 
-const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
+const SYNC_INTERVAL_MS = 1.5 * 60 * 1000; // 1,5 minutos (90 segundos)
 
 async function syncData() {
     console.log(`\n[${new Date().toISOString()}] Iniciando sincronização com o UAU...`);

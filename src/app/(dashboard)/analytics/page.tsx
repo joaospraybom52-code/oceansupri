@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { PedidoCompra } from '@/lib/types/database'
 import { formatCurrency, formatPercent, calcSavingAbsoluto, calcSavingPercentual, calcLeadTimeDays } from '@/lib/utils/kpi-calculations'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
-import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar } from 'lucide-react'
+import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar, Banknote } from 'lucide-react'
 
 export default function AnalyticsPage() {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
@@ -43,6 +43,16 @@ export default function AnalyticsPage() {
 
     const totalEmergenciais = filteredPedidos.filter(p => p.emergencial).length
     const percentEmergenciais = filteredPedidos.length > 0 ? (totalEmergenciais / filteredPedidos.length) * 100 : 0
+
+    // Valor Comprado: soma valor_orcado dos pedidos que chegaram em "Ordem Gerada" (data_ordem_compra preenchida)
+    // Filtra pelo mês de data_ordem_compra para acompanhar o filtro global
+    const pedidosOrdemGerada = pedidos.filter(p => {
+        if (!p.data_ordem_compra || !p.valor_orcado) return false;
+        if (!mesFiltro) return true;
+        return p.data_ordem_compra.startsWith(mesFiltro);
+    })
+    const valorCompradoTotal = pedidosOrdemGerada.reduce((sum, p) => sum + (p.valor_orcado || 0), 0)
+    const qtdOrdemGerada = pedidosOrdemGerada.length
 
     // Saving por comprador
     const savingPorComprador: Record<string, { nome: string; saving: number; cotacoes: number }> = {}
@@ -142,7 +152,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* KPI Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '24px' }}>
                 <div className="kpi-card green">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -152,6 +162,17 @@ export default function AnalyticsPage() {
                     </div>
                     <p style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(savingTotal)}</p>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Média {formatPercent(savingPercentualMedio)} de desconto</p>
+                </div>
+
+                <div className="kpi-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Banknote size={18} style={{ color: '#3b82f6' }} />
+                        </div>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Valor Comprado</span>
+                    </div>
+                    <p style={{ fontSize: '28px', fontWeight: 800, color: '#3b82f6' }}>{formatCurrency(valorCompradoTotal)}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{qtdOrdemGerada} ordens geradas</p>
                 </div>
 
                 <div className="kpi-card">
