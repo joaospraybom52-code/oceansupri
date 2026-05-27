@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { PedidoCompra } from '@/lib/types/database'
 import { formatCurrency, formatPercent, calcSavingAbsoluto, calcSavingPercentual, calcLeadTimeDays } from '@/lib/utils/kpi-calculations'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
-import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar, Scale } from 'lucide-react'
+import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar, Scale, Banknote } from 'lucide-react'
 
 export default function AnalyticsPage() {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
@@ -37,6 +37,7 @@ export default function AnalyticsPage() {
         return dataRef?.startsWith(mesFiltro);
     })
     const savingTotal = pedidosComSaving.reduce((sum, p) => sum + (calcSavingAbsoluto(p.valor_orcado, p.valor_fechado) || 0), 0)
+    const valorTotalFechado = pedidosComSaving.reduce((sum, p) => sum + (p.valor_fechado || 0), 0)
     const savingPercentualMedio = pedidosComSaving.length > 0
         ? pedidosComSaving.reduce((sum, p) => sum + (calcSavingPercentual(p.valor_orcado, p.valor_fechado) || 0), 0) / pedidosComSaving.length
         : 0
@@ -166,7 +167,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* KPI Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '24px' }}>
                 <div className="kpi-card green">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -176,6 +177,17 @@ export default function AnalyticsPage() {
                     </div>
                     <p style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(savingTotal)}</p>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Média {formatPercent(savingPercentualMedio)} de desconto</p>
+                </div>
+
+                <div className="kpi-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Banknote size={18} style={{ color: '#3b82f6' }} />
+                        </div>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Valor Fechado Total</span>
+                    </div>
+                    <p style={{ fontSize: '28px', fontWeight: 800, color: '#3b82f6' }}>{formatCurrency(valorTotalFechado)}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Em {pedidosComSaving.length} pedidos c/ valores</p>
                 </div>
 
                 <div className="kpi-card">
