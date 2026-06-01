@@ -165,6 +165,33 @@ export type Database = {
                 }
                 Relationships: []
             }
+            visualizadores: {
+                Row: {
+                    ativo: boolean | null
+                    auth_user_id: string | null
+                    created_at: string | null
+                    email: string | null
+                    id: string
+                    nome: string
+                }
+                Insert: {
+                    ativo?: boolean | null
+                    auth_user_id?: string | null
+                    created_at?: string | null
+                    email?: string | null
+                    id?: string
+                    nome: string
+                }
+                Update: {
+                    ativo?: boolean | null
+                    auth_user_id?: string | null
+                    created_at?: string | null
+                    email?: string | null
+                    id?: string
+                    nome?: string
+                }
+                Relationships: []
+            }
             pedidos_compra: {
                 Row: {
                     categoria_cap: string | null
@@ -292,6 +319,7 @@ export type StatusFSM = Database["public"]["Enums"]["status_fsm"]
 
 export type Obra = Database["public"]["Tables"]["obras"]["Row"]
 export type Comprador = Database["public"]["Tables"]["compradores"]["Row"]
+export type Visualizador = Database["public"]["Tables"]["visualizadores"]["Row"]
 export type Fornecedor = Database["public"]["Tables"]["fornecedores"]["Row"]
 export type Alerta = Database["public"]["Tables"]["alertas"]["Row"]
 

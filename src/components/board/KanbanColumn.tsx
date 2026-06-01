@@ -11,9 +11,10 @@ interface KanbanColumnProps {
     children: ReactNode
     onDrop: (pedidoId: string) => void
     isDragOver: boolean
+    isReadOnly?: boolean
 }
 
-export default function KanbanColumn({ status, label, color, count, children, onDrop }: KanbanColumnProps) {
+export default function KanbanColumn({ status, label, color, count, children, onDrop, isReadOnly = false }: KanbanColumnProps) {
     const [dragOver, setDragOver] = useState(false)
 
     return (
@@ -27,9 +28,17 @@ export default function KanbanColumn({ status, label, color, count, children, on
                 borderColor: dragOver ? color : undefined,
                 boxShadow: dragOver ? `0 0 20px ${color}22` : undefined,
             }}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-            onDragLeave={() => setDragOver(false)}
+            onDragOver={(e) => { 
+                if (isReadOnly) return
+                e.preventDefault(); 
+                setDragOver(true) 
+            }}
+            onDragLeave={() => {
+                if (isReadOnly) return
+                setDragOver(false)
+            }}
             onDrop={(e) => {
+                if (isReadOnly) return
                 e.preventDefault()
                 setDragOver(false)
 

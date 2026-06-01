@@ -13,6 +13,7 @@ interface PedidoModalProps {
     onClose: () => void
     onUpdate: (updated: PedidoCompra, allUpdated?: PedidoCompra[]) => void
     onDelete?: (id: string) => void
+    isReadOnly?: boolean
 }
 
 function getInitialSum(pedido: PedidoCompra, pedidosGroup: PedidoCompra[] | undefined, field: keyof PedidoCompra) {
@@ -24,7 +25,7 @@ function getInitialSum(pedido: PedidoCompra, pedidosGroup: PedidoCompra[] | unde
     return val != null ? val.toString() : '';
 }
 
-export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, onDelete }: PedidoModalProps) {
+export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, onDelete, isReadOnly = false }: PedidoModalProps) {
     const [dataPrevisao, setDataPrevisao] = useState(pedido.data_previsao_entrega || '')
     const [dataEntregaReal, setDataEntregaReal] = useState(pedido.data_entrega_real || '')
     const [valorOrcado, setValorOrcado] = useState(getInitialSum(pedido, pedidosGroup, 'valor_orcado'))
@@ -231,9 +232,11 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <button type="button" onClick={() => setConfirmingDelete(true)} title="Excluir" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red)' }}>
-                            <Trash2 size={20} />
-                        </button>
+                        {!isReadOnly && (
+                            <button type="button" onClick={() => setConfirmingDelete(true)} title="Excluir" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red)' }}>
+                                <Trash2 size={20} />
+                            </button>
+                        )}
                         <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                             <X size={20} />
                         </button>
@@ -308,6 +311,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                     padding: 0,
                                     marginTop: '2px'
                                 }}
+                                disabled={isReadOnly}
                             >
                                 <option value="" style={{ color: '#000' }}>Sem Comprador</option>
                                 {compradores.map(c => (
@@ -412,7 +416,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
 
                 {/* Editable fields */}
                 <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '20px' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px' }}>Atualizar Dados</h3>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px' }}>{isReadOnly ? 'Detalhes' : 'Atualizar Dados'}</h3>
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
@@ -427,6 +431,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                 onChange={(e) => setCategoriaCap(e.target.value)}
                                 className="input-field"
                                 placeholder="Nº Cotação"
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div>
@@ -437,6 +442,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                 onChange={(e) => setNumeroPedido(e.target.value)}
                                 className="input-field"
                                 placeholder="Nº Pedido"
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div>
@@ -447,6 +453,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                 onChange={(e) => setCodigoUau(e.target.value)}
                                 className="input-field"
                                 placeholder="Cód. Obra"
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div>
@@ -457,6 +464,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                 onChange={(e) => setNumeroOrdemCompra(e.target.value)}
                                 className="input-field"
                                 placeholder="Nº OP"
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div>
@@ -468,6 +476,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                 onChange={(e) => setValorOrcado(e.target.value)}
                                 className="input-field"
                                 placeholder="0,00"
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div>
@@ -479,6 +488,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                 onChange={(e) => setValorFechado(e.target.value)}
                                 className="input-field"
                                 placeholder="0,00"
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div>
@@ -490,6 +500,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                 onChange={(e) => setValorFrete(e.target.value)}
                                 className="input-field"
                                 placeholder="0,00"
+                                disabled={isReadOnly}
                             />
                         </div>
                         {['ordem_gerada', 'em_transito', 'aguardando_entrega', 'entregue'].includes(pedido.status_fsm || '') && (
@@ -500,6 +511,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                     value={dataPrevisao}
                                     onChange={(e) => setDataPrevisao(e.target.value)}
                                     className="input-field"
+                                    disabled={isReadOnly}
                                 />
                             </div>
                         )}
@@ -511,6 +523,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                     value={dataSaiuEntrega}
                                     onChange={(e) => setDataSaiuEntrega(e.target.value)}
                                     className="input-field"
+                                    disabled={isReadOnly}
                                 />
                             </div>
                         )}
@@ -522,6 +535,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                                     value={dataEntregaReal}
                                     onChange={(e) => setDataEntregaReal(e.target.value)}
                                     className="input-field"
+                                    disabled={isReadOnly}
                                 />
                             </div>
                         )}
@@ -532,22 +546,22 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                         <div style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>Fornecedor 1</label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                                    <input type="radio" name="fornecedor_vencedor" checked={fornecedorVencedor === 1} onChange={() => handleSelectWinner(1)} /> Vencedor
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', cursor: isReadOnly ? 'default' : 'pointer' }}>
+                                    <input type="radio" name="fornecedor_vencedor" checked={fornecedorVencedor === 1} onChange={() => handleSelectWinner(1)} disabled={isReadOnly} /> Vencedor
                                 </label>
                             </div>
-                            <select value={fornecedor1Id} onChange={(e) => setFornecedor1Id(e.target.value)} className="input-field" style={{ marginBottom: '8px' }}>
+                            <select value={fornecedor1Id} onChange={(e) => setFornecedor1Id(e.target.value)} className="input-field" style={{ marginBottom: '8px' }} disabled={isReadOnly}>
                                 <option value="">Selecione...</option>
                                 {fornecedores.map(f => <option key={f.id} value={f.id}>{f.razao_social}</option>)}
                             </select>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                 <div>
                                     <label style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '22px' }}>Valor Orçado (R$)</label>
-                                    <input type="number" step="0.01" value={fornecedor1Orcado} onChange={(e) => setFornecedor1Orcado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} />
+                                    <input type="number" step="0.01" value={fornecedor1Orcado} onChange={(e) => setFornecedor1Orcado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} disabled={isReadOnly} />
                                 </div>
                                 <div>
                                     <label style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '22px' }}>Valor Negociado (R$)</label>
-                                    <input type="number" step="0.01" value={fornecedor1Negociado} onChange={(e) => setFornecedor1Negociado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} />
+                                    <input type="number" step="0.01" value={fornecedor1Negociado} onChange={(e) => setFornecedor1Negociado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} disabled={isReadOnly} />
                                 </div>
                             </div>
                         </div>
@@ -556,22 +570,22 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                         <div style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>Fornecedor 2</label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                                    <input type="radio" name="fornecedor_vencedor" checked={fornecedorVencedor === 2} onChange={() => handleSelectWinner(2)} /> Vencedor
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', cursor: isReadOnly ? 'default' : 'pointer' }}>
+                                    <input type="radio" name="fornecedor_vencedor" checked={fornecedorVencedor === 2} onChange={() => handleSelectWinner(2)} disabled={isReadOnly} /> Vencedor
                                 </label>
                             </div>
-                            <select value={fornecedor2Id} onChange={(e) => setFornecedor2Id(e.target.value)} className="input-field" style={{ marginBottom: '8px' }}>
+                            <select value={fornecedor2Id} onChange={(e) => setFornecedor2Id(e.target.value)} className="input-field" style={{ marginBottom: '8px' }} disabled={isReadOnly}>
                                 <option value="">Selecione...</option>
                                 {fornecedores.map(f => <option key={f.id} value={f.id}>{f.razao_social}</option>)}
                             </select>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                 <div>
                                     <label style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '22px' }}>Valor Orçado (R$)</label>
-                                    <input type="number" step="0.01" value={fornecedor2Orcado} onChange={(e) => setFornecedor2Orcado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} />
+                                    <input type="number" step="0.01" value={fornecedor2Orcado} onChange={(e) => setFornecedor2Orcado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} disabled={isReadOnly} />
                                 </div>
                                 <div>
                                     <label style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '22px' }}>Valor Negociado (R$)</label>
-                                    <input type="number" step="0.01" value={fornecedor2Negociado} onChange={(e) => setFornecedor2Negociado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} />
+                                    <input type="number" step="0.01" value={fornecedor2Negociado} onChange={(e) => setFornecedor2Negociado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} disabled={isReadOnly} />
                                 </div>
                             </div>
                         </div>
@@ -580,22 +594,22 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                         <div style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>Fornecedor 3</label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                                    <input type="radio" name="fornecedor_vencedor" checked={fornecedorVencedor === 3} onChange={() => handleSelectWinner(3)} /> Vencedor
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', cursor: isReadOnly ? 'default' : 'pointer' }}>
+                                    <input type="radio" name="fornecedor_vencedor" checked={fornecedorVencedor === 3} onChange={() => handleSelectWinner(3)} disabled={isReadOnly} /> Vencedor
                                 </label>
                             </div>
-                            <select value={fornecedor3Id} onChange={(e) => setFornecedor3Id(e.target.value)} className="input-field" style={{ marginBottom: '8px' }}>
+                            <select value={fornecedor3Id} onChange={(e) => setFornecedor3Id(e.target.value)} className="input-field" style={{ marginBottom: '8px' }} disabled={isReadOnly}>
                                 <option value="">Selecione...</option>
                                 {fornecedores.map(f => <option key={f.id} value={f.id}>{f.razao_social}</option>)}
                             </select>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                 <div>
                                     <label style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '22px' }}>Valor Orçado (R$)</label>
-                                    <input type="number" step="0.01" value={fornecedor3Orcado} onChange={(e) => setFornecedor3Orcado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} />
+                                    <input type="number" step="0.01" value={fornecedor3Orcado} onChange={(e) => setFornecedor3Orcado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} disabled={isReadOnly} />
                                 </div>
                                 <div>
                                     <label style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', display: 'block', minHeight: '22px' }}>Valor Negociado (R$)</label>
-                                    <input type="number" step="0.01" value={fornecedor3Negociado} onChange={(e) => setFornecedor3Negociado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} />
+                                    <input type="number" step="0.01" value={fornecedor3Negociado} onChange={(e) => setFornecedor3Negociado(e.target.value)} className="input-field" placeholder="0,00" style={{ fontSize: '12px', padding: '6px' }} disabled={isReadOnly} />
                                 </div>
                             </div>
                         </div>
@@ -609,14 +623,17 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                             className="input-field"
                             placeholder="Descreva por que este fornecedor foi escolhido..."
                             style={{ minHeight: '60px', resize: 'vertical' }}
+                            disabled={isReadOnly}
                         />
                     </div>
                     <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                        <button onClick={onClose} className="btn-secondary">Cancelar</button>
-                        <button onClick={handleSave} className="btn-primary" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <CheckCircle size={16} />
-                            {saving ? 'Salvando...' : 'Salvar'}
-                        </button>
+                        <button onClick={onClose} className="btn-secondary">{isReadOnly ? 'Fechar' : 'Cancelar'}</button>
+                        {!isReadOnly && (
+                            <button onClick={handleSave} className="btn-primary" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <CheckCircle size={16} />
+                                {saving ? 'Salvando...' : 'Salvar'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

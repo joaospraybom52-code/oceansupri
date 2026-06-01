@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Kanban, BarChart3, Package, Building2, Users, Settings, Truck } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
     { href: '/board', label: 'Board', icon: Kanban },
@@ -14,6 +16,23 @@ const navItems = [
 
 export default function Sidebar() {
     const pathname = usePathname()
+    const [isVisualizador, setIsVisualizador] = useState<boolean>(false)
+    const supabase = createClient()
+
+    useEffect(() => {
+        async function checkRole() {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data } = await supabase.from('visualizadores').select('id').eq('auth_user_id', user.id).single()
+                if (data) setIsVisualizador(true)
+            }
+        }
+        checkRole()
+    }, [])
+
+    const filteredNavItems = isVisualizador 
+        ? navItems.filter(item => item.href === '/board')
+        : navItems
 
     return (
         <aside className="sidebar">
@@ -44,7 +63,7 @@ export default function Sidebar() {
                         Menu principal
                     </span>
                 </div>
-                {navItems.map((item) => {
+                {filteredNavItems.map((item) => {
                     const Icon = item.icon
                     const isActive = pathname.startsWith(item.href)
                     return (
@@ -60,12 +79,14 @@ export default function Sidebar() {
                 })}
             </nav>
 
-            <div style={{ padding: '12px', borderTop: '1px solid var(--border-glass)' }}>
-                <Link href="/configuracoes" className="sidebar-link">
-                    <Settings size={18} />
-                    Configurações
-                </Link>
-            </div>
+            {!isVisualizador && (
+                <div style={{ padding: '12px', borderTop: '1px solid var(--border-glass)' }}>
+                    <Link href="/configuracoes" className="sidebar-link">
+                        <Settings size={18} />
+                        Configurações
+                    </Link>
+                </div>
+            )}
         </aside>
     )
 }

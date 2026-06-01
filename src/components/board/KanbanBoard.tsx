@@ -12,9 +12,10 @@ import AutoGroupModal from './AutoGroupModal'
 
 interface KanbanBoardProps {
     initialPedidos: PedidoCompra[]
+    isReadOnly?: boolean
 }
 
-export default function KanbanBoard({ initialPedidos }: KanbanBoardProps) {
+export default function KanbanBoard({ initialPedidos, isReadOnly = false }: KanbanBoardProps) {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>(initialPedidos)
     const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null)
     const [draggedId, setDraggedId] = useState<string | null>(null)
@@ -190,6 +191,7 @@ export default function KanbanBoard({ initialPedidos }: KanbanBoardProps) {
                         count={getPedidosByStatus(status).length}
                         onDrop={(dragData: string) => handleDrop(status, dragData)}
                         isDragOver={false}
+                        isReadOnly={isReadOnly}
                     >
                         {getGroupedPedidosByStatus(status).map(group => (
                             <KanbanCard
@@ -200,6 +202,7 @@ export default function KanbanBoard({ initialPedidos }: KanbanBoardProps) {
                                 onDropOnCard={handleGroupDrop}
                                 onDelete={(id: string) => setPedidos(prev => prev.filter(p => p.id !== id))}
                                 compradores={compradores}
+                                isReadOnly={isReadOnly}
                             />
                         ))}
                     </KanbanColumn>
@@ -236,6 +239,7 @@ export default function KanbanBoard({ initialPedidos }: KanbanBoardProps) {
                         setPedidos(prev => prev.filter(p => p.id !== id))
                         setSelectedPedido(null)
                     }}
+                    isReadOnly={isReadOnly}
                 />
             )}
 

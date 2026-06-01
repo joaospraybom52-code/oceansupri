@@ -15,9 +15,10 @@ interface KanbanCardProps {
     onDelete?: (id: string) => void
     onCompradorChange?: (pedido: PedidoCompra, newCompradorId: string) => void
     compradores?: { id: string, nome: string }[]
+    isReadOnly?: boolean
 }
 
-export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard, onDelete, onCompradorChange, compradores = [] }: KanbanCardProps) {
+export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard, onDelete, onCompradorChange, compradores = [], isReadOnly = false }: KanbanCardProps) {
     const [deleting, setDeleting] = useState(false)
     const [dragOverCard, setDragOverCard] = useState(false)
     const supabase = createClient()
@@ -72,8 +73,9 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
                 boxShadow: dragOverCard ? '0 0 15px rgba(56, 189, 248, 0.3)' : undefined,
                 borderWidth: isGroup ? '2px' : undefined,
             }}
-            draggable
+            draggable={!isReadOnly}
             onDragStart={(e) => {
+                if (isReadOnly) return
                 if (e.dataTransfer) {
                     e.dataTransfer.effectAllowed = 'copyMove'
                     e.dataTransfer.setData('text/plain', `${dragData}|${master.status_fsm}`)
@@ -81,24 +83,25 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
                 onDragStart(dragData)
             }}
             onDragEnter={(e) => {
-                if (!onDropOnCard) return;
+                if (isReadOnly || !onDropOnCard) return;
                 e.preventDefault();
                 setDragOverCard(true);
             }}
             onDragOver={(e) => {
-                if (!onDropOnCard) return;
+                if (isReadOnly || !onDropOnCard) return;
                 e.preventDefault(); // Obrigatório no React para permitir o Drop
                 e.dataTransfer.dropEffect = 'move'
                 setDragOverCard(true);
             }}
             onDragLeave={(e) => {
+                if (isReadOnly) return
                 e.preventDefault();
                 // Ensure we don't flash on child elements
                 if (e.currentTarget.contains(e.relatedTarget as Node)) return;
                 setDragOverCard(false);
             }}
             onDrop={(e) => {
-                if (!onDropOnCard) return;
+                if (isReadOnly || !onDropOnCard) return;
 
                 const rawDragData = e.dataTransfer.getData('text/plain');
                 if (!rawDragData) return;
@@ -135,17 +138,19 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
                             Urgente
                         </span>
                     )}
-                    <button
-                        type="button"
-                        onClick={handleDelete}
-                        title="Excluir"
-                        disabled={deleting}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', opacity: deleting ? 0.5 : 1 }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-red)'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                    >
-                        <Trash2 size={14} />
-                    </button>
+                    {!isReadOnly && (
+                        <button
+                            type="button"
+                            onClick={handleDelete}
+                            title="Excluir"
+                            disabled={deleting}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', opacity: deleting ? 0.5 : 1 }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-red)'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                        >
+                            <Trash2 size={14} />
+                        </button>
+                    )}
                 </div>
             </div>
 

@@ -40,5 +40,20 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url)
     }
 
+    if (user && !request.nextUrl.pathname.startsWith('/login')) {
+        // Verifica se é visualizador
+        const { data: isVisualizador } = await supabase
+            .from('visualizadores')
+            .select('id')
+            .eq('auth_user_id', user.id)
+            .single()
+
+        if (isVisualizador && request.nextUrl.pathname !== '/board' && !request.nextUrl.pathname.startsWith('/api')) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/board'
+            return NextResponse.redirect(url)
+        }
+    }
+
     return supabaseResponse
 }

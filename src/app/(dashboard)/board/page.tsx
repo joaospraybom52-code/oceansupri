@@ -18,9 +18,18 @@ export default function BoardPage() {
     const [filterObraId, setFilterObraId] = useState<string>('all')
     const [filterCotacao, setFilterCotacao] = useState<string>('')
     const [loading, setLoading] = useState(true)
+    const [isVisualizador, setIsVisualizador] = useState(false)
     const supabase = createClient()
 
     useEffect(() => {
+        async function checkRole() {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data } = await supabase.from('visualizadores').select('id').eq('auth_user_id', user.id).single()
+                if (data) setIsVisualizador(true)
+            }
+        }
+        checkRole()
         loadPedidos()
         loadObras()
 
@@ -145,9 +154,11 @@ export default function BoardPage() {
                         <RefreshCw size={14} />
                     </button>
 
-                    <button onClick={() => setShowNewForm(true)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Plus size={16} /> Novo Pedido
-                    </button>
+                    {!isVisualizador && (
+                        <button onClick={() => setShowNewForm(true)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Plus size={16} /> Novo Pedido
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -158,7 +169,7 @@ export default function BoardPage() {
                     <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                 </div>
             ) : view === 'kanban' ? (
-                <KanbanBoard initialPedidos={filteredPedidos} />
+                <KanbanBoard initialPedidos={filteredPedidos} isReadOnly={isVisualizador} />
             ) : (
                 <TimelineView pedidos={filteredPedidos} onSelectPedido={setSelectedPedido} />
             )}
@@ -173,6 +184,7 @@ export default function BoardPage() {
             {selectedPedido && (
                 <PedidoModal
                     pedido={selectedPedido}
+                    isReadOnly={isVisualizador}
                     onClose={() => setSelectedPedido(null)}
                     onUpdate={(updated) => {
                         setPedidos(prev => prev.map(p => p.id === updated.id ? updated : p))
