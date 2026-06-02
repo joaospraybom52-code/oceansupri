@@ -16,6 +16,7 @@ export default function BoardPage() {
     const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null)
     const [obras, setObras] = useState<any[]>([])
     const [filterObraId, setFilterObraId] = useState<string>('all')
+    const [filterCodigoObra, setFilterCodigoObra] = useState<string>('')
     const [filterCotacao, setFilterCotacao] = useState<string>('')
     const [loading, setLoading] = useState(true)
     const [isVisualizador, setIsVisualizador] = useState(false)
@@ -74,7 +75,11 @@ export default function BoardPage() {
             (p.numero_pedido?.toLowerCase().includes(searchUpper)) ||
             (p.codigo_uau?.toLowerCase().includes(searchUpper))
 
-        return matchesObra && matchesCotacao
+        const searchCodigoUpper = filterCodigoObra.toLowerCase()
+        const matchesCodigoObra = !filterCodigoObra ||
+            ((p as any).obra?.codigo?.toLowerCase().includes(searchCodigoUpper))
+
+        return matchesObra && matchesCotacao && matchesCodigoObra
     })
 
     // Contagem de cotações únicas (grupos de cotação ou pedidos sem grupo)
@@ -108,6 +113,14 @@ export default function BoardPage() {
                                 </option>
                             ))}
                         </select>
+                        <input
+                            type="text"
+                            placeholder="Buscar por cód. obra..."
+                            value={filterCodigoObra}
+                            onChange={(e) => setFilterCodigoObra(e.target.value)}
+                            className="input-field"
+                            style={{ flex: 1, maxWidth: '200px' }}
+                        />
                         <input
                             type="text"
                             placeholder="Buscar por Nº Cotação..."
