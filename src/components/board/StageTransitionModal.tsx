@@ -79,7 +79,7 @@ export default function StageTransitionModal({ pedido, newStatus, compradores, o
     }
 
     const titles: Record<StatusFSM, string> = {
-        requisitado: 'Mover para Requisitado',
+        requisitado: 'Mover para Pedido Confirmado',
         em_cotacao: 'Colocar Em Cotação',
         aguardando_aprovacao: 'Enviar para Aprovação',
         aprovado: 'Aprovar Compra',

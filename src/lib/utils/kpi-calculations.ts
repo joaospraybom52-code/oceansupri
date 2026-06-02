@@ -1,7 +1,7 @@
 import { StatusFSM } from '@/lib/types/database'
 
 export const STATUS_LABELS: Record<StatusFSM, string> = {
-    requisitado: 'Requisitado',
+    requisitado: 'Pedido Confirmado',
     em_cotacao: 'Em Cotação',
     aguardando_aprovacao: 'Aguard. Aprovação',
     aprovado: 'Aprovado',

@@ -123,7 +123,7 @@ export default function AnalyticsPage() {
     }
 
     const transicoesData = [
-        { name: 'Requisitado', count: countTransitions('data_requisicao') },
+        { name: 'Pedido Confirmado', count: countTransitions('data_requisicao') },
         { name: 'Ordem Gerada', count: countTransitions('data_ordem_compra') },
         { name: 'Entregue', count: countTransitions('data_entrega_real') },
     ];
