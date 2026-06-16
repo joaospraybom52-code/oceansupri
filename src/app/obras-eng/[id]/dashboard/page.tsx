@@ -2,16 +2,21 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { BarChart3 } from 'lucide-react'
 
 export default async function ObraDashboardPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = await params
-    const supabase = await createServerSupabaseClient()
-    const { data: itens } = await supabase
-        .from('itens_orcamento')
-        .select('valor_total_orcado')
-        .eq('obra_id', id)
+    try {
+        const { id } = await params
+        const supabase = await createServerSupabaseClient()
+        const { data: itens, error } = await supabase
+            .from('itens_orcamento')
+            .select('valor_total_orcado')
+            .eq('obra_id', id)
 
-    const totalOrcamento = itens?.reduce((acc, item) => acc + (item.valor_total_orcado || 0), 0) || 0
+        if (error) {
+            throw new Error(error.message)
+        }
 
-    return (
+        const totalOrcamento = itens?.reduce((acc, item) => acc + (item.valor_total_orcado || 0), 0) || 0
+
+        return (
         <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
                 <div className="glass-card" style={{ padding: '24px' }}>
@@ -29,5 +34,15 @@ export default async function ObraDashboardPage({ params }: { params: Promise<{ 
                 {/* Outros cards de KPI virão aqui depois */}
             </div>
         </div>
-    )
+        )
+    } catch (err: any) {
+        return (
+            <div style={{ padding: '24px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px' }}>
+                <h3 style={{ color: 'var(--accent-red)', marginBottom: '8px' }}>Erro ao carregar Dashboard</h3>
+                <pre style={{ fontSize: '12px', color: 'var(--accent-red-light)', whiteSpace: 'pre-wrap' }}>
+                    {err.message || String(err)}
+                </pre>
+            </div>
+        )
+    }
 }

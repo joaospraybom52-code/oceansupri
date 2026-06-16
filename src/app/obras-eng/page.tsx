@@ -5,10 +5,15 @@ import Link from 'next/link'
 export const dynamic = 'force-dynamic'
 
 export default async function ObrasListPage() {
-    const supabase = await createServerSupabaseClient()
-    const { data: obras } = await supabase.from('obras_eng').select('*').order('created_at', { ascending: false })
+    try {
+        const supabase = await createServerSupabaseClient()
+        const { data: obras, error } = await supabase.from('obras_eng').select('*').order('created_at', { ascending: false })
 
-    return (
+        if (error) {
+            throw new Error(error.message)
+        }
+
+        return (
         <div>
             {/* Header */}
             <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -106,5 +111,19 @@ export default async function ObrasListPage() {
                 </div>
             )}
         </div>
-    )
+        )
+    } catch (err: any) {
+        return (
+            <div style={{ padding: '40px', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', padding: '24px' }}>
+                    <h2 style={{ color: 'var(--accent-red)', marginBottom: '16px', fontSize: '20px' }}>Erro interno no Servidor</h2>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>Ocorreu um erro ao carregar esta página:</p>
+                    <pre style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px', textAlign: 'left', overflowX: 'auto', color: 'var(--accent-red-light)', fontSize: '13px' }}>
+                        {err.message || String(err)}
+                        {err.stack && `\n\nStack:\n${err.stack}`}
+                    </pre>
+                </div>
+            </div>
+        )
+    }
 }
