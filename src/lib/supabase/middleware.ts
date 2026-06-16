@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 
 export async function updateSession(request: NextRequest) {
-    let supabaseResponse = NextResponse.next({ request })
+    try {
+        let supabaseResponse = NextResponse.next({ request })
 
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -84,5 +85,11 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
-    return supabaseResponse
+        return supabaseResponse
+    } catch (err: any) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/erro-middleware'
+        url.searchParams.set('msg', err.message || String(err))
+        return NextResponse.redirect(url)
+    }
 }
