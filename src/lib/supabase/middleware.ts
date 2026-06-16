@@ -47,11 +47,19 @@ export async function updateSession(request: NextRequest) {
     if (user) {
         // Controle de acesso ao módulo Obras
         if (request.nextUrl.pathname.startsWith('/obras-eng')) {
-            const { data: permissao } = await supabase
-                .from('permissoes_obras')
-                .select('email')
-                .eq('email', user.email)
-                .single()
+            let permissao = null
+            try {
+                if (user.email) {
+                    const { data } = await supabase
+                        .from('permissoes_obras')
+                        .select('email')
+                        .eq('email', user.email)
+                        .single()
+                    permissao = data
+                }
+            } catch (err) {
+                console.error('Middleware check access error:', err)
+            }
 
             if (!permissao) {
                 const url = request.nextUrl.clone()
