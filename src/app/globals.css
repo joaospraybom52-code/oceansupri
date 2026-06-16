@@ -80,6 +80,14 @@ body {
   box-shadow: var(--shadow-glow-blue);
 }
 
+.hover-lift {
+  transition: transform 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+}
+
 /* KPI Card */
 .kpi-card {
   background: var(--bg-card);

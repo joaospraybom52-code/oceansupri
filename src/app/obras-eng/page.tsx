@@ -68,9 +68,7 @@ export default async function ObrasListPage() {
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
                     {obras.map(obra => (
-                        <div key={obra.id} className="glass-card" style={{ padding: '20px', transition: 'transform 0.2s ease', cursor: 'pointer' }}
-                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                        <div key={obra.id} className="glass-card hover-lift" style={{ padding: '20px', cursor: 'pointer' }}>
                             
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
