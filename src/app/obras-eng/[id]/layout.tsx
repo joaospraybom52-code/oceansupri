@@ -1,4 +1,4 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { LayoutDashboard, Ruler, CalendarDays, AlertTriangle } from 'lucide-react'
@@ -8,13 +8,14 @@ export default async function ObraContextLayout({
     params,
 }: {
     children: React.ReactNode
-    params: { id: string }
+    params: Promise<{ id: string }>
 }) {
-    const supabase = await createServerClient()
+    const { id } = await params
+    const supabase = await createServerSupabaseClient()
     const { data: obra } = await supabase
         .from('obras_eng')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
 
     if (!obra) {
@@ -22,10 +23,10 @@ export default async function ObraContextLayout({
     }
 
     const navItems = [
-        { href: `/obras-eng/${params.id}/dashboard`, label: 'Resumo', icon: LayoutDashboard },
-        { href: `/obras-eng/${params.id}/medicao`, label: 'Medições', icon: Ruler },
-        { href: `/obras-eng/${params.id}/programacao`, label: 'Programação Semanal', icon: CalendarDays },
-        { href: `/obras-eng/${params.id}/restricoes`, label: 'Restrições', icon: AlertTriangle },
+        { href: `/obras-eng/${id}/dashboard`, label: 'Resumo', icon: LayoutDashboard },
+        { href: `/obras-eng/${id}/medicao`, label: 'Medições', icon: Ruler },
+        { href: `/obras-eng/${id}/programacao`, label: 'Programação Semanal', icon: CalendarDays },
+        { href: `/obras-eng/${id}/restricoes`, label: 'Restrições', icon: AlertTriangle },
     ]
 
     return (

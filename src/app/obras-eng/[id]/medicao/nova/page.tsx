@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Calendar, Save } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-export default function NovaMedicaoPage({ params }: { params: { id: string } }) {
+export default function NovaMedicaoPage() {
     const router = useRouter()
+    const { id } = useParams<{ id: string }>()
     const supabase = createClient()
     const [inicio, setInicio] = useState('')
     const [fim, setFim] = useState('')
@@ -29,7 +30,7 @@ export default function NovaMedicaoPage({ params }: { params: { id: string } }) 
             const { data, error } = await supabase
                 .from('medicoes')
                 .insert({
-                    obra_id: params.id,
+                    obra_id: id,
                     periodo_inicio: inicio,
                     periodo_fim: fim,
                     status: 'Rascunho'
@@ -39,7 +40,7 @@ export default function NovaMedicaoPage({ params }: { params: { id: string } }) 
 
             if (error) throw error
 
-            router.push(`/obras-eng/${params.id}/medicao/${data.id}`)
+            router.push(`/obras-eng/${id}/medicao/${data.id}`)
         } catch (err: any) {
             setError(err.message)
             setLoading(false)
@@ -48,7 +49,7 @@ export default function NovaMedicaoPage({ params }: { params: { id: string } }) 
 
     return (
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <Link href={`/obras-eng/${params.id}/medicao`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'none', marginBottom: '16px' }}>
+            <Link href={`/obras-eng/${id}/medicao`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'none', marginBottom: '16px' }}>
                 <ArrowLeft size={16} /> Voltar
             </Link>
             
@@ -90,7 +91,7 @@ export default function NovaMedicaoPage({ params }: { params: { id: string } }) 
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
-                        <button type="button" onClick={() => router.push(`/obras-eng/${params.id}/medicao`)} className="btn-secondary" disabled={loading}>
+                        <button type="button" onClick={() => router.push(`/obras-eng/${id}/medicao`)} className="btn-secondary" disabled={loading}>
                             Cancelar
                         </button>
                         <button type="submit" className="btn-primary" disabled={loading} style={{ minWidth: '140px' }}>

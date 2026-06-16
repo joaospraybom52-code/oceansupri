@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 
-export default function ObraRootPage({ params }: { params: { id: string } }) {
+export default async function ObraRootPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
     // Redireciona a raiz da obra para o dashboard (Resumo)
-    redirect(`/obras-eng/${params.id}/dashboard`)
+    redirect(`/obras-eng/${id}/dashboard`)
 }

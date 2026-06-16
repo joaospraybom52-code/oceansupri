@@ -1,17 +1,18 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Plus, Ruler } from 'lucide-react'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-export default async function MedicoesListPage({ params }: { params: { id: string } }) {
-    const supabase = await createServerClient()
+export default async function MedicoesListPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
+    const supabase = await createServerSupabaseClient()
     
     // Buscar medições da obra
     const { data: medicoes } = await supabase
         .from('medicoes')
         .select('*')
-        .eq('obra_id', params.id)
+        .eq('obra_id', id)
         .order('periodo_inicio', { ascending: false })
 
     return (
@@ -19,7 +20,7 @@ export default async function MedicoesListPage({ params }: { params: { id: strin
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Controle de Medições</h2>
                 
-                <Link href={`/obras-eng/${params.id}/medicao/nova`} className="btn-primary" style={{
+                <Link href={`/obras-eng/${id}/medicao/nova`} className="btn-primary" style={{
                     display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 16px', fontSize: '14px', textDecoration: 'none'
                 }}>
                     <Plus size={16} />
@@ -70,7 +71,7 @@ export default async function MedicoesListPage({ params }: { params: { id: strin
                                         {new Date(med.created_at || '').toLocaleDateString('pt-BR')}
                                     </td>
                                     <td style={{ padding: '16px', textAlign: 'right' }}>
-                                        <Link href={`/obras-eng/${params.id}/medicao/${med.id}`} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none' }}>
+                                        <Link href={`/obras-eng/${id}/medicao/${med.id}`} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none' }}>
                                             Ver Detalhes
                                         </Link>
                                     </td>

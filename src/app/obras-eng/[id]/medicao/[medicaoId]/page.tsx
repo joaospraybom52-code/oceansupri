@@ -1,33 +1,34 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import MedicaoClient from './MedicaoClient'
 import { redirect } from 'next/navigation'
 
-export default async function MedicaoDetalhePage({ params }: { params: { id: string, medicaoId: string } }) {
-    const supabase = await createServerClient()
+export default async function MedicaoDetalhePage({ params }: { params: Promise<{ id: string, medicaoId: string }> }) {
+    const { id, medicaoId } = await params
+    const supabase = await createServerSupabaseClient()
 
     // 1. Buscar a Medição Atual
     const { data: medicao } = await supabase
         .from('medicoes')
         .select('*')
-        .eq('id', params.medicaoId)
+        .eq('id', medicaoId)
         .single()
 
     if (!medicao) {
-        redirect(`/obras-eng/${params.id}/medicao`)
+        redirect(`/obras-eng/${id}/medicao`)
     }
 
     // 2. Buscar o Orçamento da Obra
     const { data: itensOrcamento } = await supabase
         .from('itens_orcamento')
         .select('*')
-        .eq('obra_id', params.id)
+        .eq('obra_id', id)
         .order('codigo', { ascending: true })
 
     // 3. Buscar medições ANTERIORES para calcular acumulado (onde data < medicao.periodo_inicio)
     const { data: medicoesAnteriores } = await supabase
         .from('medicoes')
         .select('id')
-        .eq('obra_id', params.id)
+        .eq('obra_id', id)
         .lt('periodo_inicio', medicao.periodo_inicio)
 
     const idsAnteriores = medicoesAnteriores?.map(m => m.id) || []
@@ -45,7 +46,7 @@ export default async function MedicaoDetalhePage({ params }: { params: { id: str
     const { data: medicaoItensAtual } = await supabase
         .from('medicao_itens')
         .select('*')
-        .eq('medicao_id', params.medicaoId)
+        .eq('medicao_id', medicaoId)
 
     // Compilar dados para o Client Component
     const dadosTabela = itensOrcamento?.map(item => {
@@ -70,7 +71,7 @@ export default async function MedicaoDetalhePage({ params }: { params: { id: str
 
     return (
         <MedicaoClient 
-            obraId={params.id} 
+            obraId={id} 
             medicao={medicao} 
             dadosTabela={dadosTabela} 
         />

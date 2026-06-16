@@ -1,12 +1,13 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { BarChart3 } from 'lucide-react'
 
-export default async function ObraDashboardPage({ params }: { params: { id: string } }) {
-    const supabase = await createServerClient()
+export default async function ObraDashboardPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params
+    const supabase = await createServerSupabaseClient()
     const { data: itens } = await supabase
         .from('itens_orcamento')
         .select('valor_total_orcado')
-        .eq('obra_id', params.id)
+        .eq('obra_id', id)
 
     const totalOrcamento = itens?.reduce((acc, item) => acc + (item.valor_total_orcado || 0), 0) || 0
 

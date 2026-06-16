@@ -1,11 +1,11 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { HardHat, Plus, Calendar, Settings2, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ObrasListPage() {
-    const supabase = await createServerClient()
+    const supabase = await createServerSupabaseClient()
     const { data: obras } = await supabase.from('obras_eng').select('*').order('created_at', { ascending: false })
 
     return (
