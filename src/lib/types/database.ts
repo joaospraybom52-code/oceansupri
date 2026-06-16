@@ -287,6 +287,267 @@ export type Database = {
                 }
                 Relationships: []
             }
+            obras_eng: {
+                Row: {
+                    id: string
+                    nome: string
+                    status: string
+                    data_inicio: string | null
+                    data_fim: string | null
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    nome: string
+                    status?: string
+                    data_inicio?: string | null
+                    data_fim?: string | null
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    nome?: string
+                    status?: string
+                    data_inicio?: string | null
+                    data_fim?: string | null
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
+            itens_orcamento: {
+                Row: {
+                    id: string
+                    obra_id: string | null
+                    codigo: string
+                    descricao: string
+                    unidade: string | null
+                    quantidade_orcada: number | null
+                    valor_unitario_orcado: number | null
+                    valor_total_orcado: number | null
+                    peso_percentual: number | null
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    obra_id?: string | null
+                    codigo: string
+                    descricao: string
+                    unidade?: string | null
+                    quantidade_orcada?: number | null
+                    valor_unitario_orcado?: number | null
+                    valor_total_orcado?: number | null
+                    peso_percentual?: number | null
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    obra_id?: string | null
+                    codigo?: string
+                    descricao?: string
+                    unidade?: string | null
+                    quantidade_orcada?: number | null
+                    valor_unitario_orcado?: number | null
+                    valor_total_orcado?: number | null
+                    peso_percentual?: number | null
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
+            medicoes: {
+                Row: {
+                    id: string
+                    obra_id: string | null
+                    periodo_inicio: string
+                    periodo_fim: string
+                    status: string
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    obra_id?: string | null
+                    periodo_inicio: string
+                    periodo_fim: string
+                    status?: string
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    obra_id?: string | null
+                    periodo_inicio?: string
+                    periodo_fim?: string
+                    status?: string
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
+            medicao_itens: {
+                Row: {
+                    id: string
+                    medicao_id: string | null
+                    item_id: string | null
+                    quantidade_medida: number | null
+                    valor_medido: number | null
+                    percentual_medido: number | null
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    medicao_id?: string | null
+                    item_id?: string | null
+                    quantidade_medida?: number | null
+                    valor_medido?: number | null
+                    percentual_medido?: number | null
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    medicao_id?: string | null
+                    item_id?: string | null
+                    quantidade_medida?: number | null
+                    valor_medido?: number | null
+                    percentual_medido?: number | null
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
+            programacoes_semanais: {
+                Row: {
+                    id: string
+                    obra_id: string | null
+                    data_inicio: string
+                    data_fim: string
+                    ppc: number | null
+                    observacoes: string | null
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    obra_id?: string | null
+                    data_inicio: string
+                    data_fim: string
+                    ppc?: number | null
+                    observacoes?: string | null
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    obra_id?: string | null
+                    data_inicio?: string
+                    data_fim?: string
+                    ppc?: number | null
+                    observacoes?: string | null
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
+            tarefas: {
+                Row: {
+                    id: string
+                    programacao_id: string | null
+                    descricao: string
+                    responsavel: string | null
+                    data_prevista: string | null
+                    status: string
+                    motivo_nao_conclusao: string | null
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    programacao_id?: string | null
+                    descricao: string
+                    responsavel?: string | null
+                    data_prevista?: string | null
+                    status?: string
+                    motivo_nao_conclusao?: string | null
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    programacao_id?: string | null
+                    descricao?: string
+                    responsavel?: string | null
+                    data_prevista?: string | null
+                    status?: string
+                    motivo_nao_conclusao?: string | null
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
+            restricoes: {
+                Row: {
+                    id: string
+                    obra_id: string | null
+                    descricao: string
+                    tipo: string | null
+                    data_identificacao: string
+                    data_resolucao: string | null
+                    status: string
+                    responsavel: string | null
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    obra_id?: string | null
+                    descricao: string
+                    tipo?: string | null
+                    data_identificacao?: string
+                    data_resolucao?: string | null
+                    status?: string
+                    responsavel?: string | null
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    obra_id?: string | null
+                    descricao?: string
+                    tipo?: string | null
+                    data_identificacao?: string
+                    data_resolucao?: string | null
+                    status?: string
+                    responsavel?: string | null
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
+            analises_5porques: {
+                Row: {
+                    id: string
+                    tarefa_id: string | null
+                    problema: string
+                    porque_1: string | null
+                    porque_2: string | null
+                    porque_3: string | null
+                    porque_4: string | null
+                    porque_5: string | null
+                    acao_corretiva: string | null
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    tarefa_id?: string | null
+                    problema: string
+                    porque_1?: string | null
+                    porque_2?: string | null
+                    porque_3?: string | null
+                    porque_4?: string | null
+                    porque_5?: string | null
+                    acao_corretiva?: string | null
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    tarefa_id?: string | null
+                    problema?: string
+                    porque_1?: string | null
+                    porque_2?: string | null
+                    porque_3?: string | null
+                    porque_4?: string | null
+                    porque_5?: string | null
+                    acao_corretiva?: string | null
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
         }
         Views: {
             [_ in never]: never
@@ -322,6 +583,15 @@ export type Comprador = Database["public"]["Tables"]["compradores"]["Row"]
 export type Visualizador = Database["public"]["Tables"]["visualizadores"]["Row"]
 export type Fornecedor = Database["public"]["Tables"]["fornecedores"]["Row"]
 export type Alerta = Database["public"]["Tables"]["alertas"]["Row"]
+
+export type ObraEng = Database["public"]["Tables"]["obras_eng"]["Row"]
+export type ItemOrcamento = Database["public"]["Tables"]["itens_orcamento"]["Row"]
+export type Medicao = Database["public"]["Tables"]["medicoes"]["Row"]
+export type MedicaoItem = Database["public"]["Tables"]["medicao_itens"]["Row"]
+export type ProgramacaoSemanal = Database["public"]["Tables"]["programacoes_semanais"]["Row"]
+export type Tarefa = Database["public"]["Tables"]["tarefas"]["Row"]
+export type Restricao = Database["public"]["Tables"]["restricoes"]["Row"]
+export type Analise5Porques = Database["public"]["Tables"]["analises_5porques"]["Row"]
 
 // PedidoCompra with joined relations
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
