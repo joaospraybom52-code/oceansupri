@@ -19,6 +19,7 @@ export default function BoardPage() {
     const [filterCodigoObra, setFilterCodigoObra] = useState<string>('')
     const [filterCotacao, setFilterCotacao] = useState<string>('')
     const [loading, setLoading] = useState(true)
+    const [errorMsg, setErrorMsg] = useState<string | null>(null)
     const [isVisualizador, setIsVisualizador] = useState(false)
     const supabase = createClient()
 
@@ -52,18 +53,31 @@ export default function BoardPage() {
     }, [])
 
     async function loadObras() {
-        const { data } = await supabase.from('obras').select('id, nome, codigo').order('nome')
-        if (data) setObras(data)
+        try {
+            const { data } = await supabase.from('obras').select('id, nome, codigo').order('nome')
+            if (data) setObras(data)
+        } catch (err: any) {
+            console.error('Erro loadObras:', err)
+        }
     }
 
     async function loadPedidos() {
         setLoading(true)
-        const { data } = await supabase
-            .from('pedidos_compra')
-            .select('*, obra:obras(*), comprador:compradores(*)')
-            .order('created_at', { ascending: false })
-        if (data) setPedidos(data as unknown as PedidoCompra[])
-        setLoading(false)
+        setErrorMsg(null)
+        try {
+            const { data, error } = await supabase
+                .from('pedidos_compra')
+                .select('*, obra:obras(*), comprador:compradores(*)')
+                .order('created_at', { ascending: false })
+            
+            if (error) throw error
+            if (data) setPedidos(data as unknown as PedidoCompra[])
+        } catch (err: any) {
+            console.error('Erro loadPedidos:', err)
+            setErrorMsg(err.message || 'Erro desconhecido ao carregar pedidos')
+        } finally {
+            setLoading(false)
+        }
     }
 
     const filteredPedidos = pedidos.filter(p => {
@@ -176,6 +190,12 @@ export default function BoardPage() {
             </div>
 
             {/* Content */}
+            {errorMsg && (
+                <div style={{ padding: '20px', background: 'var(--bg-secondary)', color: 'var(--accent-red)', borderRadius: '8px', marginBottom: '20px', border: '1px solid var(--accent-red)' }}>
+                    <strong>Erro ao carregar dados:</strong> {errorMsg}
+                </div>
+            )}
+
             {loading ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', color: 'var(--text-muted)' }}>
                     <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} />
