@@ -1,18 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-/**
- * Verifica se o email tem acesso ao módulo Obras.
- * Comparação case-insensitive contra a env OBRAS_ALLOWED_EMAILS.
- */
-function checkObrasAccess(email: string): boolean {
-    const allowedRaw = process.env.OBRAS_ALLOWED_EMAILS || ''
-    const allowedEmails = allowedRaw
-        .split(',')
-        .map(e => e.trim().toLowerCase())
-        .filter(Boolean)
-    return allowedEmails.includes(email.toLowerCase())
-}
 
 export async function updateSession(request: NextRequest) {
     let supabaseResponse = NextResponse.next({ request })
@@ -59,8 +47,13 @@ export async function updateSession(request: NextRequest) {
     if (user) {
         // Controle de acesso ao módulo Obras
         if (request.nextUrl.pathname.startsWith('/obras-eng')) {
-            const hasAccess = checkObrasAccess(user.email || '')
-            if (!hasAccess) {
+            const { data: permissao } = await supabase
+                .from('permissoes_obras')
+                .select('email')
+                .eq('email', user.email)
+                .single()
+
+            if (!permissao) {
                 const url = request.nextUrl.clone()
                 url.pathname = '/sem-acesso'
                 return NextResponse.redirect(url)
