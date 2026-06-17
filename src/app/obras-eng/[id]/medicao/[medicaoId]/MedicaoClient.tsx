@@ -31,12 +31,12 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
 
         if (field === 'atual_quantidade') {
             item.atual_quantidade = val
-            item.atual_valor = val * (item.valor_unitario_orcado || 0)
             item.atual_percentual = item.quantidade_orcada > 0 ? (val / item.quantidade_orcada) * 100 : 0
+            item.atual_valor = item.quantidade_orcada > 0 ? (val / item.quantidade_orcada) * (item.valor_total_orcado || 0) : 0
         } else {
             item.atual_percentual = val
             item.atual_quantidade = item.quantidade_orcada > 0 ? (val / 100) * item.quantidade_orcada : 0
-            item.atual_valor = item.atual_quantidade * (item.valor_unitario_orcado || 0)
+            item.atual_valor = (val / 100) * (item.valor_total_orcado || 0)
         }
 
         setItens(newItens)
@@ -83,6 +83,20 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
         }
     }
 
+    const handleReopen = async () => {
+        setSaving(true)
+        try {
+            const { error } = await supabase.from('medicoes').update({ status: 'Em Andamento' }).eq('id', medicao.id)
+            if (error) throw error
+            router.refresh()
+        } catch (error: any) {
+            console.error(error)
+            alert('Erro ao reabrir medição: ' + (error.message || JSON.stringify(error)))
+        } finally {
+            setSaving(false)
+        }
+    }
+
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
@@ -105,7 +119,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     {saved && <span style={{ color: 'var(--accent-green)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={16}/> Salvo</span>}
                     
-                    {medicao.status !== 'Concluída' && (
+                    {medicao.status !== 'Concluída' ? (
                         <>
                             <button onClick={() => handleSave(false)} className="btn-secondary" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Save size={16} /> Salvar Rascunho
@@ -114,6 +128,10 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                                 Concluir Medição
                             </button>
                         </>
+                    ) : (
+                        <button onClick={handleReopen} className="btn-secondary" disabled={saving}>
+                            Reabrir Medição
+                        </button>
                     )}
                 </div>
             </div>
@@ -130,7 +148,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-muted)' }}>PESO %</th>
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--accent-blue)', borderLeft: '1px solid var(--border-glass)' }}>ACUM. ANTERIOR</th>
                             <th style={{ padding: '12px', textAlign: 'center', fontSize: '11px', color: 'var(--accent-green)', borderLeft: '1px solid var(--border-glass)' }} colSpan={2}>NO PERÍODO (ATUAL)</th>
-                            <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-primary)', borderLeft: '1px solid var(--border-glass)' }}>ACUM. TOTAL</th>
+                            <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-primary)', borderLeft: '1px solid var(--border-glass)' }}>VALOR MEDIDO</th>
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--accent-red)', borderLeft: '1px solid var(--border-glass)' }}>SALDO</th>
                         </tr>
                         <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
