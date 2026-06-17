@@ -1,18 +1,19 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-export default function NovaProgramacaoPage() {
+function NovaProgramacaoForm() {
     const router = useRouter()
     const { id } = useParams<{ id: string }>()
+    const searchParams = useSearchParams()
     const supabase = createClient()
 
-    const [inicio, setInicio] = useState('')
-    const [fim, setFim] = useState('')
+    const [inicio, setInicio] = useState(searchParams.get('inicio') || '')
+    const [fim, setFim] = useState(searchParams.get('fim') || '')
     const [prazo, setPrazo] = useState('')
     const [responsavel, setResponsavel] = useState('')
     
@@ -154,5 +155,13 @@ export default function NovaProgramacaoPage() {
                 </form>
             </div>
         </div>
+    )
+}
+
+export default function NovaProgramacaoPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: '24px', textAlign: 'center' }}>Carregando...</div>}>
+            <NovaProgramacaoForm />
+        </Suspense>
     )
 }
