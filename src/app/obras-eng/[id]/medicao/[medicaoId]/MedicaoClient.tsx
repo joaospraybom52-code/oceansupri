@@ -5,6 +5,7 @@ import { ArrowLeft, Save, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId: string, medicao: any, dadosTabela: any[] }) {
     const supabase = createClient()
@@ -72,12 +73,13 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                 router.push(`/obras-eng/${obraId}/medicao`)
             } else {
                 setSaved(true)
+                toast.success('Medição salva com sucesso!')
                 setTimeout(() => setSaved(false), 3000)
             }
 
         } catch (error: any) {
             console.error(error)
-            alert('Erro ao salvar medição: ' + (error.message || JSON.stringify(error)))
+            toast.error('Erro ao salvar medição: ' + (error.message || JSON.stringify(error)))
         } finally {
             setSaving(false)
         }
@@ -91,7 +93,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
             router.refresh()
         } catch (error: any) {
             console.error(error)
-            alert('Erro ao reabrir medição: ' + (error.message || JSON.stringify(error)))
+            toast.error('Erro ao reabrir medição: ' + (error.message || JSON.stringify(error)))
         } finally {
             setSaving(false)
         }

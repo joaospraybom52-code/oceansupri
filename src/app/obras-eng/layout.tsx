@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { HardHat, LayoutDashboard, ArrowLeftRight, LogOut, List } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { Toaster } from 'sonner'
 
 const navItems = [
     { href: '/obras-eng', label: 'Obras', icon: List, exact: true },
@@ -94,6 +95,21 @@ export default function ObrasLayout({ children }: { children: React.ReactNode })
                     {children}
                 </main>
             </div>
+
+            <Toaster 
+                position="top-right" 
+                toastOptions={{
+                    style: {
+                        background: 'rgba(15, 15, 35, 0.95)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: '#fff',
+                        backdropFilter: 'blur(12px)',
+                        fontSize: '14px',
+                    },
+                }}
+                richColors
+                closeButton
+            />
         </div>
     )
 }

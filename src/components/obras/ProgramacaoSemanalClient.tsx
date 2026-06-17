@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, HelpCircle, Save, Plus, X } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 
 export default function ProgramacaoSemanalClient({
     obraId,
@@ -66,6 +67,9 @@ export default function ProgramacaoSemanalClient({
             setTarefas([...tarefas, data])
             setNovaTarefa({ descricao: '', responsavel: '', item_orcamento_id: '', data_planejada: '' })
             setShowNovaTarefa(false)
+            toast.success('Tarefa adicionada com sucesso!')
+        } else if (error) {
+            toast.error('Erro ao adicionar tarefa: ' + error.message)
         }
         setLoading(false)
     }
@@ -89,6 +93,9 @@ export default function ProgramacaoSemanalClient({
             setRestricoes([...restricoes, data])
             setNovaRestricao({ descricao: '', categoria: 'outros', responsavel: '', prazo_remocao: '', tarefa_id: '' })
             setShowNovaRestricao(false)
+            toast.success('Restrição registrada com sucesso!')
+        } else if (error) {
+            toast.error('Erro ao registrar restrição: ' + error.message)
         }
         setLoading(false)
     }
@@ -100,6 +107,9 @@ export default function ProgramacaoSemanalClient({
         
         if (!error) {
             setTarefas(tarefas.map(t => t.id === id ? { ...t, status: newStatus, motivo_nao_conclusao: motivo || null } : t))
+            toast.success('Status da tarefa atualizado!')
+        } else {
+            toast.error('Erro ao atualizar tarefa: ' + error.message)
         }
     }
 
@@ -111,6 +121,9 @@ export default function ProgramacaoSemanalClient({
         
         if (!error) {
             setRestricoes(restricoes.map(r => r.id === id ? { ...r, status: newStatus, data_remocao: dataRemocao } : r))
+            toast.success('Restrição atualizada!')
+        } else {
+            toast.error('Erro ao atualizar restrição: ' + error.message)
         }
     }
 
@@ -120,7 +133,10 @@ export default function ProgramacaoSemanalClient({
             .eq('id', programacao.id)
         
         if (!error) {
+            toast.success('Programação fechada com sucesso!')
             router.refresh()
+        } else {
+            toast.error('Erro ao fechar programação: ' + error.message)
         }
     }
 

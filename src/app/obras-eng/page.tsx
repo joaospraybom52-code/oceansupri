@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { HardHat, Plus, Calendar, Settings2, BarChart3 } from 'lucide-react'
+import { HardHat, Plus, Calendar, CalendarDays, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -100,8 +100,8 @@ export default async function ObrasListPage() {
                                 <Link href={`/obras-eng/${obra.id}/medicao`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)', textDecoration: 'none', padding: '8px', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.03)' }}>
                                     <Calendar size={14} /> Medição
                                 </Link>
-                                <Link href={`/obras-eng/${obra.id}/config`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', color: 'var(--text-muted)', textDecoration: 'none', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.03)' }}>
-                                    <Settings2 size={16} />
+                                <Link href={`/obras-eng/${obra.id}/programacao`} title="Programação Semanal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', color: 'var(--text-muted)', textDecoration: 'none', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.03)' }}>
+                                    <CalendarDays size={16} />
                                 </Link>
                             </div>
                         </div>
