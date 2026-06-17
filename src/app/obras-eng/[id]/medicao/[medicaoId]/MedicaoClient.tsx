@@ -143,12 +143,13 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
 
             {/* Planilha de Medição */}
             <div className="glass-card" style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1200px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1300px' }}>
                     <thead>
                         <tr style={{ borderBottom: '2px solid var(--border-glass)', background: 'rgba(0,0,0,0.2)' }}>
                             <th style={{ padding: '12px', textAlign: 'left', fontSize: '11px', color: 'var(--text-muted)' }}>ITEM</th>
                             <th style={{ padding: '12px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>UND</th>
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-muted)', borderLeft: '1px solid var(--border-glass)' }}>QTD ORÇADA</th>
+                            <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-muted)' }}>QTD RESTANTE</th>
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-muted)' }}>VL. TOTAL</th>
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-muted)' }}>PESO %</th>
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--accent-blue)', borderLeft: '1px solid var(--border-glass)' }}>ACUM. ANTERIOR</th>
@@ -157,7 +158,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--accent-red)', borderLeft: '1px solid var(--border-glass)' }}>SALDO</th>
                         </tr>
                         <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
-                            <th colSpan={6}></th>
+                            <th colSpan={7}></th>
                             <th style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', borderLeft: '1px solid var(--border-glass)' }}>QTD</th>
                             <th style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>%</th>
                             <th colSpan={2}></th>
@@ -165,10 +166,11 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                     </thead>
                     <tbody>
                         {itens.map((item, index) => {
-                            const acumuladoQtd = item.anterior_quantidade + item.atual_quantidade
-                            const acumuladoValor = item.anterior_valor + item.atual_valor
-                            const acumuladoPerc = item.quantidade_orcada > 0 ? (acumuladoQtd / item.quantidade_orcada) * 100 : 0
-                            const saldoValor = item.valor_total_orcado - acumuladoValor
+                            const acumuladoQtd = Number(item.anterior_quantidade || 0) + Number(item.atual_quantidade || 0)
+                            const acumuladoValor = Number(item.anterior_valor || 0) + Number(item.atual_valor || 0)
+                            const acumuladoPerc = Number(item.quantidade_orcada || 0) > 0 ? (acumuladoQtd / Number(item.quantidade_orcada || 0)) * 100 : 0
+                            const saldoValor = Number(item.valor_total_orcado || 0) - acumuladoValor
+                            const saldoQtd = Number(item.quantidade_orcada || 0) - acumuladoQtd
 
                             return (
                                 <tr key={item.id} style={{ borderBottom: '1px solid var(--border-glass)', transition: 'background 0.1s' }} className="table-row-hover">
@@ -181,16 +183,17 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                                     <td style={{ padding: '12px', fontSize: '12px', textAlign: 'center', color: 'var(--text-secondary)' }}>{item.unidade}</td>
                                     
                                     {/* Orçado */}
-                                    <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', borderLeft: '1px solid var(--border-glass)' }}>{formatNumber(item.quantidade_orcada)}</td>
-                                    <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right' }}>{formatCurrency(item.valor_total_orcado)}</td>
+                                    <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', borderLeft: '1px solid var(--border-glass)' }}>{formatNumber(Number(item.quantidade_orcada || 0))}</td>
+                                    <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', color: saldoQtd < 0 ? 'var(--accent-red)' : 'var(--text-secondary)' }}>{formatNumber(saldoQtd)}</td>
+                                    <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right' }}>{formatCurrency(Number(item.valor_total_orcado || 0))}</td>
                                     <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', fontWeight: 600 }}>
-                                        {formatNumber(totalOrcado > 0 ? (item.valor_total_orcado / totalOrcado) * 100 : 0)}%
+                                        {formatNumber(totalOrcado > 0 ? (Number(item.valor_total_orcado || 0) / totalOrcado) * 100 : 0)}%
                                     </td>
 
                                     {/* Anterior */}
                                     <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', color: 'var(--accent-blue-light)', borderLeft: '1px solid var(--border-glass)' }}>
-                                        <div style={{ fontWeight: 600 }}>{formatCurrency(item.anterior_valor)}</div>
-                                        <div style={{ fontSize: '10px', opacity: 0.8 }}>{formatNumber(item.quantidade_orcada > 0 ? (item.anterior_quantidade/item.quantidade_orcada)*100 : 0)}%</div>
+                                        <div style={{ fontWeight: 600 }}>{formatCurrency(Number(item.anterior_valor || 0))}</div>
+                                        <div style={{ fontSize: '10px', opacity: 0.8 }}>{formatNumber(Number(item.quantidade_orcada || 0) > 0 ? (Number(item.anterior_quantidade || 0) / Number(item.quantidade_orcada || 0)) * 100 : 0)}%</div>
                                     </td>
 
                                     {/* Atual */}
