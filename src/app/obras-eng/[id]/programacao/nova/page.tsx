@@ -1,0 +1,158 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
+import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+
+export default function NovaProgramacaoPage() {
+    const router = useRouter()
+    const { id } = useParams<{ id: string }>()
+    const supabase = createClient()
+
+    const [inicio, setInicio] = useState('')
+    const [fim, setFim] = useState('')
+    const [prazo, setPrazo] = useState('')
+    const [responsavel, setResponsavel] = useState('')
+    
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
+    const [success, setSuccess] = useState('')
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault()
+        if (!inicio || !fim || !prazo || !responsavel) {
+            setError('Preencha todos os campos.')
+            return
+        }
+
+        setError('')
+        setSuccess('')
+        setLoading(true)
+
+        try {
+            const { data, error: insertError } = await supabase
+                .from('programacoes_semanais')
+                .insert({
+                    obra_id: id,
+                    semana_referente_inicio: inicio,
+                    semana_referente_fim: fim,
+                    prazo_envio: new Date(prazo).toISOString(),
+                    responsavel: responsavel,
+                    status_envio: 'pendente'
+                })
+                .select('id')
+                .single()
+
+            if (insertError) throw insertError
+
+            setSuccess('Programação criada com sucesso!')
+            setTimeout(() => {
+                router.push(`/obras-eng/${id}/programacao/${data.id}`)
+                router.refresh()
+            }, 1000)
+        } catch (err: any) {
+            setError(err.message)
+            setLoading(false)
+        }
+    }
+
+    return (
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <div style={{ marginBottom: '24px' }}>
+                <Link href={`/obras-eng/${id}/programacao`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'none', marginBottom: '16px' }}>
+                    <ArrowLeft size={16} /> Voltar para Programações
+                </Link>
+                <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px' }}>
+                    Nova Programação Semanal
+                </h1>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+                    Crie um novo ciclo de planejamento (Last Planner) para a obra.
+                </p>
+            </div>
+
+            <div className="glass-card" style={{ padding: '32px' }}>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Início da Semana (Segunda)
+                            </label>
+                            <input
+                                type="date"
+                                value={inicio}
+                                onChange={(e) => setInicio(e.target.value)}
+                                className="input-field"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Fim da Semana (Sexta/Sábado)
+                            </label>
+                            <input
+                                type="date"
+                                value={fim}
+                                onChange={(e) => setFim(e.target.value)}
+                                className="input-field"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Prazo Máximo para Envio
+                            </label>
+                            <input
+                                type="datetime-local"
+                                value={prazo}
+                                onChange={(e) => setPrazo(e.target.value)}
+                                className="input-field"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Engenheiro Responsável
+                            </label>
+                            <input
+                                type="text"
+                                value={responsavel}
+                                onChange={(e) => setResponsavel(e.target.value)}
+                                className="input-field"
+                                placeholder="Nome do engenheiro"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    {error && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-sm)', padding: '12px', fontSize: '13px', color: 'var(--accent-red-light)' }}>
+                            <AlertCircle size={16} />
+                            {error}
+                        </div>
+                    )}
+
+                    {success && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 'var(--radius-sm)', padding: '12px', fontSize: '13px', color: 'var(--accent-green-light)' }}>
+                            <CheckCircle2 size={16} />
+                            {success}
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+                        <button type="button" onClick={() => router.push(`/obras-eng/${id}/programacao`)} className="btn-secondary" disabled={loading}>
+                            Cancelar
+                        </button>
+                        <button type="submit" className="btn-primary" disabled={loading} style={{ minWidth: '140px' }}>
+                            {loading ? 'Criando...' : 'Criar Programação'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    )
+}

@@ -414,29 +414,41 @@ export type Database = {
                 Row: {
                     id: string
                     obra_id: string | null
-                    data_inicio: string
-                    data_fim: string
-                    ppc: number | null
-                    observacoes: string | null
+                    semana_referente_inicio: string
+                    semana_referente_fim: string
+                    prazo_envio: string
+                    data_envio: string | null
+                    status_envio: string | null
+                    responsavel: string | null
                     created_at: string | null
+                    updated_at: string | null
+                    created_by: string | null
                 }
                 Insert: {
                     id?: string
                     obra_id?: string | null
-                    data_inicio: string
-                    data_fim: string
-                    ppc?: number | null
-                    observacoes?: string | null
+                    semana_referente_inicio: string
+                    semana_referente_fim: string
+                    prazo_envio: string
+                    data_envio?: string | null
+                    status_envio?: string | null
+                    responsavel?: string | null
                     created_at?: string | null
+                    updated_at?: string | null
+                    created_by?: string | null
                 }
                 Update: {
                     id?: string
                     obra_id?: string | null
-                    data_inicio?: string
-                    data_fim?: string
-                    ppc?: number | null
-                    observacoes?: string | null
+                    semana_referente_inicio?: string
+                    semana_referente_fim?: string
+                    prazo_envio?: string
+                    data_envio?: string | null
+                    status_envio?: string | null
+                    responsavel?: string | null
                     created_at?: string | null
+                    updated_at?: string | null
+                    created_by?: string | null
                 }
                 Relationships: []
             }
@@ -445,67 +457,85 @@ export type Database = {
                     id: string
                     programacao_id: string | null
                     descricao: string
+                    item_orcamento_id: string | null
                     responsavel: string | null
-                    data_prevista: string | null
-                    status: string
+                    data_planejada: string | null
+                    status: string | null
                     motivo_nao_conclusao: string | null
                     created_at: string | null
+                    updated_at: string | null
                 }
                 Insert: {
                     id?: string
                     programacao_id?: string | null
                     descricao: string
+                    item_orcamento_id?: string | null
                     responsavel?: string | null
-                    data_prevista?: string | null
-                    status?: string
+                    data_planejada?: string | null
+                    status?: string | null
                     motivo_nao_conclusao?: string | null
                     created_at?: string | null
+                    updated_at?: string | null
                 }
                 Update: {
                     id?: string
                     programacao_id?: string | null
                     descricao?: string
+                    item_orcamento_id?: string | null
                     responsavel?: string | null
-                    data_prevista?: string | null
-                    status?: string
+                    data_planejada?: string | null
+                    status?: string | null
                     motivo_nao_conclusao?: string | null
                     created_at?: string | null
+                    updated_at?: string | null
                 }
                 Relationships: []
             }
             restricoes: {
                 Row: {
                     id: string
+                    programacao_id: string | null
                     obra_id: string | null
+                    tarefa_id: string | null
                     descricao: string
-                    tipo: string | null
-                    data_identificacao: string
-                    data_resolucao: string | null
-                    status: string
+                    categoria: string
                     responsavel: string | null
+                    data_identificacao: string
+                    prazo_remocao: string
+                    data_remocao: string | null
+                    status: string | null
                     created_at: string | null
+                    updated_at: string | null
                 }
                 Insert: {
                     id?: string
+                    programacao_id?: string | null
                     obra_id?: string | null
+                    tarefa_id?: string | null
                     descricao: string
-                    tipo?: string | null
-                    data_identificacao?: string
-                    data_resolucao?: string | null
-                    status?: string
+                    categoria: string
                     responsavel?: string | null
+                    data_identificacao: string
+                    prazo_remocao: string
+                    data_remocao?: string | null
+                    status?: string | null
                     created_at?: string | null
+                    updated_at?: string | null
                 }
                 Update: {
                     id?: string
+                    programacao_id?: string | null
                     obra_id?: string | null
+                    tarefa_id?: string | null
                     descricao?: string
-                    tipo?: string | null
-                    data_identificacao?: string
-                    data_resolucao?: string | null
-                    status?: string
+                    categoria?: string
                     responsavel?: string | null
+                    data_identificacao?: string
+                    prazo_remocao?: string
+                    data_remocao?: string | null
+                    status?: string | null
                     created_at?: string | null
+                    updated_at?: string | null
                 }
                 Relationships: []
             }
@@ -513,38 +543,56 @@ export type Database = {
                 Row: {
                     id: string
                     tarefa_id: string | null
+                    restricao_id: string | null
                     problema: string
                     porque_1: string | null
                     porque_2: string | null
                     porque_3: string | null
                     porque_4: string | null
                     porque_5: string | null
+                    causa_raiz: string | null
+                    categoria_causa: string | null
                     acao_corretiva: string | null
+                    responsavel_acao: string | null
+                    prazo_acao: string | null
                     created_at: string | null
+                    updated_at: string | null
                 }
                 Insert: {
                     id?: string
                     tarefa_id?: string | null
+                    restricao_id?: string | null
                     problema: string
                     porque_1?: string | null
                     porque_2?: string | null
                     porque_3?: string | null
                     porque_4?: string | null
                     porque_5?: string | null
+                    causa_raiz?: string | null
+                    categoria_causa?: string | null
                     acao_corretiva?: string | null
+                    responsavel_acao?: string | null
+                    prazo_acao?: string | null
                     created_at?: string | null
+                    updated_at?: string | null
                 }
                 Update: {
                     id?: string
                     tarefa_id?: string | null
+                    restricao_id?: string | null
                     problema?: string
                     porque_1?: string | null
                     porque_2?: string | null
                     porque_3?: string | null
                     porque_4?: string | null
                     porque_5?: string | null
+                    causa_raiz?: string | null
+                    categoria_causa?: string | null
                     acao_corretiva?: string | null
+                    responsavel_acao?: string | null
+                    prazo_acao?: string | null
                     created_at?: string | null
+                    updated_at?: string | null
                 }
                 Relationships: []
             }
