@@ -30,14 +30,17 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
         const newItens = [...itens]
         const item = newItens[index]
 
+        const qtyOrcada = Number(item.quantidade_orcada || 0)
+        const valTotalOrcado = Number(item.valor_total_orcado || 0)
+
         if (field === 'atual_quantidade') {
             item.atual_quantidade = val
-            item.atual_percentual = item.quantidade_orcada > 0 ? (val / item.quantidade_orcada) * 100 : 0
-            item.atual_valor = item.quantidade_orcada > 0 ? (val / item.quantidade_orcada) * (item.valor_total_orcado || 0) : 0
+            item.atual_percentual = qtyOrcada > 0 ? (val / qtyOrcada) * 100 : 0
+            item.atual_valor = qtyOrcada > 0 ? (val / qtyOrcada) * valTotalOrcado : 0
         } else {
             item.atual_percentual = val
-            item.atual_quantidade = item.quantidade_orcada > 0 ? (val / 100) * item.quantidade_orcada : 0
-            item.atual_valor = (val / 100) * (item.valor_total_orcado || 0)
+            item.atual_quantidade = qtyOrcada > 0 ? (val / 100) * qtyOrcada : 0
+            item.atual_valor = (val / 100) * valTotalOrcado
         }
 
         setItens(newItens)
