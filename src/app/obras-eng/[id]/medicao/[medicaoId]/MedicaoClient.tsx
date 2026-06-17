@@ -75,9 +75,9 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                 setTimeout(() => setSaved(false), 3000)
             }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error(error)
-            alert('Erro ao salvar medição')
+            alert('Erro ao salvar medição: ' + (error.message || JSON.stringify(error)))
         } finally {
             setSaving(false)
         }
