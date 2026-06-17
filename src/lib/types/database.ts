@@ -295,6 +295,8 @@ export type Database = {
                     data_inicio: string | null
                     data_fim: string | null
                     created_at: string | null
+                    codigo_uau: string | null
+                    local: string | null
                 }
                 Insert: {
                     id?: string
@@ -303,6 +305,8 @@ export type Database = {
                     data_inicio?: string | null
                     data_fim?: string | null
                     created_at?: string | null
+                    codigo_uau?: string | null
+                    local?: string | null
                 }
                 Update: {
                     id?: string
@@ -311,6 +315,8 @@ export type Database = {
                     data_inicio?: string | null
                     data_fim?: string | null
                     created_at?: string | null
+                    codigo_uau?: string | null
+                    local?: string | null
                 }
                 Relationships: []
             }

@@ -50,8 +50,18 @@ export default async function ObraContextLayout({
                                 {obra.status}
                             </span>
                         </div>
-                        <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-                            Cadastrada em {new Date(obra.created_at || '').toLocaleDateString('pt-BR')}
+                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                            <span>Cadastrada em {new Date(obra.created_at || '').toLocaleDateString('pt-BR')}</span>
+                            {obra.codigo_uau && (
+                                <span style={{ color: 'var(--accent-blue-light)', fontWeight: 600 }}>
+                                    Código UAU: {obra.codigo_uau}
+                                </span>
+                            )}
+                            {obra.local && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    📍 {obra.local}
+                                </span>
+                            )}
                         </p>
                     </div>
                 </div>

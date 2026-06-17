@@ -81,14 +81,27 @@ export default async function ObrasListPage() {
                                     </div>
                                     <div>
                                         <h3 style={{ fontSize: '16px', fontWeight: 600 }}>{obra.nome}</h3>
-                                        <span style={{ 
-                                            fontSize: '11px', fontWeight: 600, 
-                                            color: obra.status === 'Ativa' ? 'var(--accent-green)' : 'var(--text-muted)',
-                                            background: obra.status === 'Ativa' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)',
-                                            padding: '2px 8px', borderRadius: '12px', display: 'inline-block', marginTop: '4px'
-                                        }}>
-                                            {obra.status}
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                            <span style={{ 
+                                                fontSize: '10px', fontWeight: 700, 
+                                                color: obra.status === 'Ativa' ? 'var(--accent-green)' : 'var(--text-muted)',
+                                                background: obra.status === 'Ativa' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)',
+                                                padding: '2px 8px', borderRadius: '12px', display: 'inline-block',
+                                                textTransform: 'uppercase', letterSpacing: '0.3px'
+                                            }}>
+                                                {obra.status}
+                                            </span>
+                                            {obra.codigo_uau && (
+                                                <span style={{ fontSize: '11px', color: 'var(--accent-blue-light)', fontWeight: 600, background: 'rgba(99, 102, 241, 0.08)', padding: '2px 8px', borderRadius: '12px' }}>
+                                                    UAU: {obra.codigo_uau}
+                                                </span>
+                                            )}
+                                            {obra.local && (
+                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '3px' }} title={obra.local}>
+                                                    📍 {obra.local}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

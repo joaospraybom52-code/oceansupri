@@ -6,6 +6,8 @@ export async function POST(request: Request) {
     try {
         const formData = await request.formData()
         const nome = formData.get('nome') as string
+        const codigoUau = formData.get('codigoUau') as string || null
+        const local = formData.get('local') as string || null
         const file = formData.get('file') as File
 
         if (!nome || !file) {
@@ -41,6 +43,8 @@ export async function POST(request: Request) {
             .insert({
                 nome: nome,
                 status: 'Ativa',
+                codigo_uau: codigoUau,
+                local: local,
             })
             .select('id')
             .single()

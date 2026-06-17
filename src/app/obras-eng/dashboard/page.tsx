@@ -467,6 +467,11 @@ export default async function GlobalDashboardPage() {
                                                     >
                                                         {obra.nome}
                                                     </span>
+                                                    {rawObra?.codigo_uau && (
+                                                        <span style={{ fontSize: '11px', color: 'var(--accent-blue-light)', fontWeight: 500 }}>
+                                                            UAU: {rawObra.codigo_uau} {rawObra.local ? `· 📍 ${rawObra.local}` : ''}
+                                                        </span>
+                                                    )}
                                                     {rawObra?.data_inicio && (
                                                         <span
                                                             style={{

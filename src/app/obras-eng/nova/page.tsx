@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, HardHat } from 'lucide-react'
+import { ArrowLeft, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, HardHat, MapPin, Hash } from 'lucide-react'
 import Link from 'next/link'
 
 export default function NovaObraPage() {
     const router = useRouter()
     const [nome, setNome] = useState('')
+    const [codigoUau, setCodigoUau] = useState('')
+    const [local, setLocal] = useState('')
     const [file, setFile] = useState<File | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -30,6 +32,8 @@ export default function NovaObraPage() {
 
         const formData = new FormData()
         formData.append('nome', nome)
+        formData.append('codigoUau', codigoUau)
+        formData.append('local', local)
         formData.append('file', file)
 
         try {
@@ -91,6 +95,48 @@ export default function NovaObraPage() {
                             />
                         </div>
                     </div>
+
+                    {/* Código UAU & Local da Obra */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Código da Obra no UAU
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                                    <Hash size={18} />
+                                </div>
+                                <input
+                                    type="text"
+                                    value={codigoUau}
+                                    onChange={(e) => setCodigoUau(e.target.value)}
+                                    className="input-field"
+                                    style={{ paddingLeft: '40px' }}
+                                    placeholder="Ex: 001"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Local da Obra
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                                    <MapPin size={18} />
+                                </div>
+                                <input
+                                    type="text"
+                                    value={local}
+                                    onChange={(e) => setLocal(e.target.value)}
+                                    className="input-field"
+                                    style={{ paddingLeft: '40px' }}
+                                    placeholder="Ex: São Paulo - SP"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
 
                     {/* Upload de Excel */}
                     <div>
