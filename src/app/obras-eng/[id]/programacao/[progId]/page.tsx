@@ -65,9 +65,8 @@ export default async function ProgramacaoDetalhePage({ params }: { params: Promi
         // 5. Busca itens do orçamento da obra para usar nos selects (opcional, mas bom ter)
         const { data: itensOrcamento } = await supabase
             .from('itens_orcamento')
-            .select('id, descricao, codigo, is_folha')
+            .select('id, descricao, codigo')
             .eq('obra_id', id)
-            .eq('is_folha', true)
 
         return (
             <ProgramacaoSemanalClient 
