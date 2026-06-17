@@ -19,7 +19,9 @@ import { BarChart3, TrendingUp } from 'lucide-react'
 /* ────────────────────────── Types ────────────────────────── */
 
 export interface MedicaoChartItem {
+  id: string
   label: string
+  periodoLabel?: string
   valorMedido: number
   acumulado: number
 }
@@ -81,9 +83,10 @@ const tooltipRow: React.CSSProperties = {
 
 function MedicaoTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
   if (!active || !payload?.length) return null
+  const itemLabel = payload[0]?.payload?.periodoLabel || payload[0]?.payload?.label || label
   return (
     <div style={tooltipStyle}>
-      <p style={tooltipLabel}>{label}</p>
+      <p style={tooltipLabel}>{itemLabel}</p>
       {payload.map((entry: any, i: number) => (
         <div key={i} style={tooltipRow}>
           <span
@@ -100,7 +103,7 @@ function MedicaoTooltip({ active, payload, label }: { active?: boolean; payload?
             {entry.name === 'valorMedido' ? 'Medido' : 'Acumulado'}:
           </span>
           <span style={{ color: '#f1f5f9', fontWeight: 700 }}>
-            {formatCurrency(entry.value ?? 0)}
+            {formatCurrency(Number(entry.value ?? 0))}
           </span>
         </div>
       ))}
@@ -258,11 +261,15 @@ export default function DashboardCharts({ medicoesData, ppcData }: DashboardChar
                 vertical={false}
               />
               <XAxis
-                dataKey="label"
+                dataKey="id"
                 tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
                 axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
                 tickLine={false}
                 dy={8}
+                tickFormatter={(id) => {
+                  const item = medicoesData.find((d) => d.id === id)
+                  return item ? item.label : ''
+                }}
               />
               <YAxis
                 yAxisId="left"

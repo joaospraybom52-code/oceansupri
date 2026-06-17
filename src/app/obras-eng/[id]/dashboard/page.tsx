@@ -66,11 +66,13 @@ export default async function ObraDashboardPage({
     const medicoesChartData: MedicaoChartItem[] = (medicoes ?? []).map((m) => {
       const valorMedido = allMedicaoItens
         .filter((mi) => mi.medicao_id === m.id)
-        .reduce((sum, mi) => sum + (mi.valor_medido || 0), 0)
+        .reduce((sum, mi) => sum + (Number(mi.valor_medido) || 0), 0)
       acumulado += valorMedido
       const inicio = new Date(m.periodo_inicio + 'T00:00:00')
+      const fim = new Date(m.periodo_fim + 'T00:00:00')
       const label = inicio.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
-      return { label, valorMedido, acumulado }
+      const periodoLabel = `${inicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+      return { id: m.id, label, periodoLabel, valorMedido, acumulado }
     })
 
     const totalMedido = acumulado
