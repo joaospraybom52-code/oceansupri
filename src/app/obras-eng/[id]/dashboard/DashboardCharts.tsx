@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import {
   BarChart,
   Bar,
@@ -209,6 +210,12 @@ function SectionHeader({
 /* ═══════════════════════════ MAIN COMPONENT ═══════════════════════════ */
 
 export default function DashboardCharts({ medicoesData, ppcData }: DashboardChartsProps) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
     <div
       style={{
@@ -225,6 +232,10 @@ export default function DashboardCharts({ medicoesData, ppcData }: DashboardChar
             icon={BarChart3}
             text="Nenhuma medição registrada ainda. Os dados aparecerão aqui conforme medições forem criadas."
           />
+        ) : !mounted ? (
+          <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+            Carregando gráfico...
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height={320}>
             <ComposedChart
@@ -349,6 +360,10 @@ export default function DashboardCharts({ medicoesData, ppcData }: DashboardChar
             icon={TrendingUp}
             text="Nenhuma programação semanal encontrada. O PPC será exibido quando houver tarefas cadastradas."
           />
+        ) : !mounted ? (
+          <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+            Carregando gráfico...
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height={320}>
             <AreaChart data={ppcData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>

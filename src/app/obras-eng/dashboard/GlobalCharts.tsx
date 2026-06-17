@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
     BarChart,
     Bar,
@@ -272,6 +272,11 @@ interface GlobalChartsProps {
 }
 
 export default function GlobalCharts({ obras }: GlobalChartsProps) {
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
     // Bar chart data – sorted by valorMedido descending
     const barData = [...obras]
         .filter((o) => o.valorMedido > 0 || o.valorOrcado > 0)
@@ -335,6 +340,10 @@ export default function GlobalCharts({ obras }: GlobalChartsProps) {
 
                 {barData.length === 0 ? (
                     <EmptyState icon={BarChart3} text="Nenhuma medição registrada ainda" />
+                ) : !mounted ? (
+                    <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+                        Carregando gráfico...
+                    </div>
                 ) : (
                     <ResponsiveContainer width="100%" height={Math.max(280, barData.length * 50)}>
                         <BarChart
@@ -413,6 +422,10 @@ export default function GlobalCharts({ obras }: GlobalChartsProps) {
 
                 {pieData.length === 0 ? (
                     <EmptyState icon={PieChartIcon} text="Nenhuma obra cadastrada para exibir" />
+                ) : !mounted ? (
+                    <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
+                        Carregando gráfico...
+                    </div>
                 ) : (
                     <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
