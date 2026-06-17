@@ -10,6 +10,8 @@ export default function NovaObraPage() {
     const [nome, setNome] = useState('')
     const [codigoUau, setCodigoUau] = useState('')
     const [local, setLocal] = useState('')
+    const [previsaoInicio, setPrevisaoInicio] = useState('')
+    const [previsaoTermino, setPrevisaoTermino] = useState('')
     const [file, setFile] = useState<File | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -34,6 +36,8 @@ export default function NovaObraPage() {
         formData.append('nome', nome)
         formData.append('codigoUau', codigoUau)
         formData.append('local', local)
+        if (previsaoInicio) formData.append('previsaoInicio', previsaoInicio)
+        if (previsaoTermino) formData.append('previsaoTermino', previsaoTermino)
         formData.append('file', file)
 
         try {
@@ -134,6 +138,33 @@ export default function NovaObraPage() {
                                     placeholder="Ex: São Paulo - SP"
                                 />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Previsão de Início & Término */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Previsão de Início
+                            </label>
+                            <input
+                                type="date"
+                                value={previsaoInicio}
+                                onChange={(e) => setPrevisaoInicio(e.target.value)}
+                                className="input-field"
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Previsão de Término
+                            </label>
+                            <input
+                                type="date"
+                                value={previsaoTermino}
+                                onChange={(e) => setPrevisaoTermino(e.target.value)}
+                                className="input-field"
+                            />
                         </div>
                     </div>
 

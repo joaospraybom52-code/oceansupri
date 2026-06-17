@@ -13,7 +13,9 @@ export default function EditarObraClient({ obra }: { obra: any }) {
     const [nome, setNome] = useState(obra.nome)
     const [codigoUau, setCodigoUau] = useState(obra.codigo_uau || '')
     const [local, setLocal] = useState(obra.local || '')
-    const [status, setStatus] = useState(obra.status)
+    const [status, setStatus] = useState(obra.status || 'em_andamento')
+    const [previsaoInicio, setPrevisaoInicio] = useState(obra.previsao_inicio || '')
+    const [previsaoTermino, setPrevisaoTermino] = useState(obra.previsao_termino || '')
     const [loading, setLoading] = useState(false)
 
     async function handleSave(e: React.FormEvent) {
@@ -31,6 +33,8 @@ export default function EditarObraClient({ obra }: { obra: any }) {
                     nome,
                     codigo_uau: codigoUau || null,
                     local: local || null,
+                    previsao_inicio: previsaoInicio || null,
+                    previsao_termino: previsaoTermino || null,
                     status
                 })
                 .eq('id', obra.id)
@@ -115,6 +119,33 @@ export default function EditarObraClient({ obra }: { obra: any }) {
                                     placeholder="Ex: São Paulo - SP"
                                 />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Previsão de Início e Término */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Previsão de Início
+                            </label>
+                            <input
+                                type="date"
+                                value={previsaoInicio}
+                                onChange={(e) => setPrevisaoInicio(e.target.value)}
+                                className="input-field"
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Previsão de Término
+                            </label>
+                            <input
+                                type="date"
+                                value={previsaoTermino}
+                                onChange={(e) => setPrevisaoTermino(e.target.value)}
+                                className="input-field"
+                            />
                         </div>
                     </div>
 

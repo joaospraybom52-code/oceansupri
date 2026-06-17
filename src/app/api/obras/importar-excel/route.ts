@@ -8,6 +8,8 @@ export async function POST(request: Request) {
         const nome = formData.get('nome') as string
         const codigoUau = formData.get('codigoUau') as string || null
         const local = formData.get('local') as string || null
+        const previsaoInicio = formData.get('previsaoInicio') as string || null
+        const previsaoTermino = formData.get('previsaoTermino') as string || null
         const file = formData.get('file') as File
 
         if (!nome || !file) {
@@ -45,6 +47,8 @@ export async function POST(request: Request) {
                 status: 'Ativa',
                 codigo_uau: codigoUau,
                 local: local,
+                previsao_inicio: previsaoInicio,
+                previsao_termino: previsaoTermino,
             })
             .select('id')
             .single()
