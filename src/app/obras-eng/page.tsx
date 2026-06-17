@@ -102,6 +102,14 @@ export default async function ObrasListPage() {
                                                 </span>
                                             )}
                                         </div>
+                                        {((obra as any).previsao_inicio || (obra as any).previsao_termino) && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                                <Calendar size={13} />
+                                                <span>
+                                                    Previsão: {(obra as any).previsao_inicio ? new Date((obra as any).previsao_inicio + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não def.'} — {(obra as any).previsao_termino ? new Date((obra as any).previsao_termino + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não def.'}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
