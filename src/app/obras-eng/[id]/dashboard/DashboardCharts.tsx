@@ -288,7 +288,12 @@ export default function DashboardCharts({ medicoesData, ppcData }: DashboardChar
                 tickFormatter={formatCurrencyShort}
                 width={70}
               />
-              <Tooltip content={<MedicaoTooltip />} />
+              <Tooltip 
+                content={<MedicaoTooltip />} 
+                wrapperStyle={{ zIndex: 100 }} 
+                cursor={{ fill: 'rgba(255,255,255,0.05)' }} 
+                isAnimationActive={false} 
+              />
               <Bar
                 yAxisId="left"
                 dataKey="valorMedido"
@@ -401,7 +406,12 @@ export default function DashboardCharts({ medicoesData, ppcData }: DashboardChar
                 tickFormatter={(v: number) => `${v}%`}
                 width={50}
               />
-              <Tooltip content={<PPCTooltip />} />
+              <Tooltip 
+                content={<PPCTooltip />} 
+                wrapperStyle={{ zIndex: 100 }} 
+                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} 
+                isAnimationActive={false} 
+              />
               <Area
                 type="monotone"
                 dataKey="ppc"
