@@ -23,10 +23,14 @@ interface WeekCardData {
 
 export default function ProgramacaoGridClient({
     programacoes,
-    obraId
+    obraId,
+    previsaoInicio,
+    previsaoTermino
 }: {
     programacoes: Programacao[]
     obraId: string
+    previsaoInicio?: string
+    previsaoTermino?: string
 }) {
     const router = useRouter()
     const [year, setYear] = useState(new Date().getFullYear())
@@ -71,7 +75,7 @@ export default function ProgramacaoGridClient({
 
     // Combina as semanas geradas com os dados do banco
     const weekCards: WeekCardData[] = useMemo(() => {
-        return weeks.map((w) => {
+        let cards = weeks.map((w) => {
             // Formatar localmente para 'YYYY-MM-DD' para comparar com string do banco
             const inicioStr = w.inicio.toISOString().split('T')[0]
             
@@ -83,9 +87,49 @@ export default function ProgramacaoGridClient({
                 fim: w.fim,
                 status: found ? found.status_envio : 'nao_cadastrada',
                 progId: found ? found.id : undefined
-            }
+            } as WeekCardData
         })
-    }, [weeks, programacoes])
+
+        let projectFirstMonday: Date | null = null
+
+        if (previsaoInicio) {
+            const startDate = new Date(previsaoInicio + 'T00:00:00')
+            
+            // Calculate the Monday of the project's start week
+            const day = startDate.getDay()
+            const diff = startDate.getDate() - day + (day === 0 ? -6 : 1)
+            projectFirstMonday = new Date(startDate.getTime())
+            projectFirstMonday.setDate(diff)
+            projectFirstMonday.setHours(0,0,0,0)
+
+            // Keep weeks where the end of the week is on or after the project start date
+            cards = cards.filter(c => c.fim >= startDate)
+        }
+
+        if (previsaoTermino) {
+            const endDate = new Date(previsaoTermino + 'T23:59:59')
+            // Keep weeks where the start of the week is on or before the project end date
+            cards = cards.filter(c => c.inicio <= endDate)
+        }
+
+        // If we have a start date, renumber the weeks so Week 1 is the project's first week
+        if (projectFirstMonday) {
+            return cards.map(c => {
+                const weekMonday = new Date(c.inicio.getTime())
+                weekMonday.setHours(0,0,0,0)
+                
+                const utc1 = Date.UTC(weekMonday.getFullYear(), weekMonday.getMonth(), weekMonday.getDate())
+                const utc2 = Date.UTC(projectFirstMonday!.getFullYear(), projectFirstMonday!.getMonth(), projectFirstMonday!.getDate())
+                
+                const diffDays = Math.floor((utc1 - utc2) / (1000 * 60 * 60 * 24))
+                const relativeWeekNum = Math.floor(diffDays / 7) + 1
+                
+                return { ...c, weekNum: relativeWeekNum }
+            })
+        }
+
+        return cards
+    }, [weeks, programacoes, previsaoInicio, previsaoTermino])
 
     const handleCardClick = (card: WeekCardData) => {
         if (card.progId) {

@@ -19,9 +19,21 @@ export default async function ProgramacaoListPage({ params }: { params: Promise<
             throw new Error(error.message)
         }
 
+        // Buscar detalhes da obra (previsão de início e término)
+        const { data: obra } = await supabase
+            .from('obras_eng')
+            .select('previsao_inicio, previsao_termino')
+            .eq('id', id)
+            .single()
+
         return (
             <div>
-                <ProgramacaoGridClient programacoes={(programacoes as any) || []} obraId={id} />
+                <ProgramacaoGridClient 
+                    programacoes={(programacoes as any) || []} 
+                    obraId={id} 
+                    previsaoInicio={(obra as any)?.previsao_inicio}
+                    previsaoTermino={(obra as any)?.previsao_termino}
+                />
             </div>
         )
     } catch (err: any) {
