@@ -105,7 +105,7 @@ export default async function ObraDashboardPage({
         const tarefasDaProg = allTarefas.filter((t) => t.programacao_id === p.id)
         const total = tarefasDaProg.length
         if (total === 0) return null
-        const concluidas = tarefasDaProg.filter((t) => t.status === 'Concluída').length
+        const concluidas = tarefasDaProg.filter((t) => t.status === 'concluida').length
         const ppc = (concluidas / total) * 100
         const inicio = new Date(p.semana_referente_inicio + 'T00:00:00')
         const label = `Sem ${inicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
