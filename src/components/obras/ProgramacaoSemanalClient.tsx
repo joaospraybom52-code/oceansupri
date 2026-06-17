@@ -218,17 +218,44 @@ export default function ProgramacaoSemanalClient({
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {tarefas.map(t => (
-                            <div key={t.id} className="glass-card" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: t.status === 'concluida' ? '4px solid var(--accent-green)' : (t.status === 'nao_concluida' ? '4px solid var(--accent-red)' : '4px solid var(--text-muted)') }}>
-                                <div>
-                                    <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)', marginBottom: '4px' }}>{t.descricao}</div>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                        {t.responsavel && <span style={{ marginRight: '16px' }}>Resp: {t.responsavel}</span>}
-                                        {t.data_planejada && <span>Prazo: {new Date(t.data_planejada).toLocaleDateString('pt-BR')}</span>}
-                                    </div>
-                                    {t.itens_orcamento && <div style={{ fontSize: '11px', color: 'var(--accent-blue)', marginTop: '4px' }}>Item: {t.itens_orcamento.codigo} - {t.itens_orcamento.descricao}</div>}
-                                    {t.motivo_nao_conclusao && <div style={{ fontSize: '12px', color: 'var(--accent-red)', marginTop: '4px' }}>Motivo: {t.motivo_nao_conclusao}</div>}
+                            <div key={t.id} className="glass-card" style={{ 
+                                padding: '16px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '16px',
+                                borderLeft: t.status === 'concluida' ? '4px solid var(--accent-green)' : (t.status === 'nao_concluida' ? '4px solid var(--accent-red)' : '4px solid var(--text-muted)'),
+                                marginBottom: '4px'
+                            }}>
+                                {/* Coluna 1: Descrição e Item */}
+                                <div style={{ flex: 2, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)', marginBottom: '4px', textTransform: 'capitalize' }}>{t.descricao}</div>
+                                    {t.itens_orcamento ? (
+                                        <div style={{ fontSize: '11px', color: 'var(--accent-blue)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={`${t.itens_orcamento.codigo} - ${t.itens_orcamento.descricao}`}>
+                                            Item: {t.itens_orcamento.codigo} - {t.itens_orcamento.descricao}
+                                        </div>
+                                    ) : (
+                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sem item de orçamento</div>
+                                    )}
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
+
+                                {/* Coluna 2: Responsável */}
+                                <div style={{ flex: 1, minWidth: 0, paddingLeft: '8px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Responsável</div>
+                                    <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {t.responsavel || '-'}
+                                    </div>
+                                </div>
+
+                                {/* Coluna 3: Prazo */}
+                                <div style={{ flex: 1, minWidth: 0, paddingLeft: '8px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Prazo</div>
+                                    <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        {t.data_planejada ? new Date(t.data_planejada).toLocaleDateString('pt-BR') : '-'}
+                                    </div>
+                                </div>
+
+                                {/* Coluna 4: Status */}
+                                <div style={{ width: '150px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                                     <select value={t.status} onChange={(e) => {
                                         if (e.target.value === 'nao_concluida') {
                                             const motivo = prompt('Qual o motivo da não conclusão? (material, mao_de_obra, projeto, equipamento, area_frente, clima, planejamento, terceiros, outros)')
@@ -236,11 +263,16 @@ export default function ProgramacaoSemanalClient({
                                         } else {
                                             updateTarefaStatus(t.id, e.target.value)
                                         }
-                                    }} className="select-field" style={{ width: '140px', padding: '6px 10px', fontSize: '12px' }}>
+                                    }} className="select-field" style={{ width: '140px', padding: '6px 10px', fontSize: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)' }}>
                                         <option value="planejada">Planejada</option>
                                         <option value="concluida">Concluída</option>
                                         <option value="nao_concluida">Não Concluída</option>
                                     </select>
+                                    {t.motivo_nao_conclusao && (
+                                        <div style={{ fontSize: '11px', color: 'var(--accent-red)', fontWeight: 500, textAlign: 'right', marginTop: '2px' }} title={t.motivo_nao_conclusao}>
+                                            Motivo: {t.motivo_nao_conclusao}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -290,22 +322,61 @@ export default function ProgramacaoSemanalClient({
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {restricoes.map(r => (
-                            <div key={r.id} className="glass-card" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: r.status === 'removida' ? '4px solid var(--accent-green)' : '4px solid var(--accent-amber)' }}>
-                                <div>
-                                    <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)', marginBottom: '4px' }}>
-                                        {r.descricao}
-                                        <span style={{ marginLeft: '8px', fontSize: '10px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>{r.categoria}</span>
+                            <div key={r.id} className="glass-card" style={{ 
+                                padding: '16px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '16px',
+                                borderLeft: r.status === 'removida' ? '4px solid var(--accent-green)' : '4px solid var(--accent-amber)',
+                                marginBottom: '4px'
+                            }}>
+                                {/* Coluna 1: Descrição e Categoria */}
+                                <div style={{ flex: 2, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                        <span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)' }}>{r.descricao}</span>
+                                        <span style={{ 
+                                            fontSize: '9px', 
+                                            fontWeight: 700,
+                                            background: 'rgba(255,255,255,0.08)', 
+                                            border: '1px solid var(--border-glass)',
+                                            color: 'var(--text-secondary)',
+                                            padding: '2px 8px', 
+                                            borderRadius: '12px', 
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px'
+                                        }}>{r.categoria}</span>
                                     </div>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                        <span style={{ marginRight: '16px' }}>Resp: {r.responsavel}</span>
-                                        <span style={{ marginRight: '16px' }}>Identificada: {new Date(r.data_identificacao).toLocaleDateString('pt-BR')}</span>
-                                        <span style={{ color: r.status === 'pendente' && new Date(r.prazo_remocao) < new Date() ? 'var(--accent-red)' : 'inherit' }}>
-                                            Prazo: {new Date(r.prazo_remocao).toLocaleDateString('pt-BR')}
-                                        </span>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                        Identificada em: {new Date(r.data_identificacao).toLocaleDateString('pt-BR')}
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <select value={r.status} onChange={(e) => updateRestricaoStatus(r.id, e.target.value)} className="select-field" style={{ width: '120px', padding: '6px 10px', fontSize: '12px' }}>
+
+                                {/* Coluna 2: Responsável */}
+                                <div style={{ flex: 1, minWidth: 0, paddingLeft: '8px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Responsável</div>
+                                    <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {r.responsavel || '-'}
+                                    </div>
+                                </div>
+
+                                {/* Coluna 3: Prazo Remoção */}
+                                <div style={{ flex: 1, minWidth: 0, paddingLeft: '8px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Prazo Remoção</div>
+                                    <div style={{ 
+                                        fontWeight: 600, 
+                                        fontSize: '13px', 
+                                        color: r.status === 'pendente' && new Date(r.prazo_remocao) < new Date() ? 'var(--accent-red)' : 'var(--text-secondary)' 
+                                    }}>
+                                        {r.prazo_remocao ? new Date(r.prazo_remocao).toLocaleDateString('pt-BR') : '-'}
+                                        {r.status === 'pendente' && new Date(r.prazo_remocao) < new Date() && (
+                                            <span style={{ fontSize: '10px', marginLeft: '4px', color: 'var(--accent-red)' }}>(Atrasado)</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Coluna 4: Status */}
+                                <div style={{ width: '150px', display: 'flex', justifyContent: 'flex-end' }}>
+                                    <select value={r.status} onChange={(e) => updateRestricaoStatus(r.id, e.target.value)} className="select-field" style={{ width: '140px', padding: '6px 10px', fontSize: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)' }}>
                                         <option value="pendente">Pendente</option>
                                         <option value="removida">Removida</option>
                                     </select>
