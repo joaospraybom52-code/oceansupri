@@ -31,7 +31,6 @@ export default async function ObraContextLayout({
             { href: `/obras-eng/${id}/dashboard`, label: 'Resumo', icon: LayoutDashboard },
             { href: `/obras-eng/${id}/medicao`, label: 'Medições', icon: Ruler },
             { href: `/obras-eng/${id}/programacao`, label: 'Programação Semanal', icon: CalendarDays },
-            { href: `/obras-eng/${id}/restricoes`, label: 'Restrições', icon: AlertTriangle },
         ]
 
         return (
