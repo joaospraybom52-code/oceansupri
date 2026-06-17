@@ -109,7 +109,7 @@ export default async function ObraDashboardPage({
         const ppc = (concluidas / total) * 100
         const inicio = new Date(p.semana_referente_inicio + 'T00:00:00')
         const label = `Sem ${inicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
-        return { label, ppc }
+        return { id: p.id, label, ppc, programadas: total, executadas: concluidas }
       })
       .filter(Boolean) as PPCChartItem[]
 

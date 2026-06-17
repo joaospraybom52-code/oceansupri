@@ -13,6 +13,7 @@ import {
   ComposedChart,
   AreaChart,
   Area,
+  Cell,
 } from 'recharts'
 import { BarChart3, TrendingUp } from 'lucide-react'
 
@@ -27,8 +28,11 @@ export interface MedicaoChartItem {
 }
 
 export interface PPCChartItem {
+  id: string
   label: string
   ppc: number
+  programadas: number
+  executadas: number
 }
 
 interface DashboardChartsProps {
@@ -214,6 +218,7 @@ function SectionHeader({
 
 export default function DashboardCharts({ medicoesData, ppcData }: DashboardChartsProps) {
   const [mounted, setMounted] = useState(false)
+  const [selectedPpcId, setSelectedPpcId] = useState<string>('all')
 
   useEffect(() => {
     setMounted(true)
@@ -364,9 +369,26 @@ export default function DashboardCharts({ medicoesData, ppcData }: DashboardChar
         )}
       </div>
 
-      {/* ─── Evolução PPC (AreaChart) ─── */}
+      {/* ─── Evolução PPC (AreaChart / BarChart) ─── */}
       <div className="glass-card" style={{ padding: '28px' }}>
-        <SectionHeader icon={TrendingUp} title="Evolução PPC — Planos Concluídos" color="#10b981" />
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+            <SectionHeader icon={TrendingUp} title="Evolução PPC — Planos Concluídos" color="#10b981" />
+            
+            {ppcData.length > 0 && (
+                <select 
+                    value={selectedPpcId}
+                    onChange={(e) => setSelectedPpcId(e.target.value)}
+                    className="input-field"
+                    style={{ width: '180px', padding: '8px 12px', fontSize: '13px' }}
+                >
+                    <option value="all">Todas as Semanas</option>
+                    {ppcData.map(p => (
+                        <option key={p.id} value={p.id}>{p.label}</option>
+                    ))}
+                </select>
+            )}
+        </div>
+        
         {ppcData.length === 0 ? (
           <EmptyState
             icon={TrendingUp}
@@ -376,7 +398,7 @@ export default function DashboardCharts({ medicoesData, ppcData }: DashboardChar
           <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
             Carregando gráfico...
           </div>
-        ) : (
+        ) : selectedPpcId === 'all' ? (
           <ResponsiveContainer width="100%" height={320}>
             <AreaChart data={ppcData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
               <defs>
@@ -433,8 +455,49 @@ export default function DashboardCharts({ medicoesData, ppcData }: DashboardChar
               />
             </AreaChart>
           </ResponsiveContainer>
+        ) : (
+          <ResponsiveContainer width="100%" height={320}>
+            {(() => {
+                const weekData = ppcData.find(p => p.id === selectedPpcId)
+                if (!weekData) return null
+                const barData = [
+                    { name: 'Programadas', valor: weekData.programadas, fill: '#64748b' },
+                    { name: 'Executadas', valor: weekData.executadas, fill: '#10b981' }
+                ]
+                return (
+                    <BarChart data={barData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.08)' }} tickLine={false} dy={8} />
+                        <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+                        <Tooltip
+                            content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null
+                                return (
+                                    <div style={tooltipStyle}>
+                                        <p style={tooltipLabel}>{payload[0].payload.name}</p>
+                                        <div style={tooltipRow}>
+                                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: payload[0].payload.fill, display: 'inline-block', flexShrink: 0 }} />
+                                            <span style={{ color: '#cbd5e1' }}>Quantidade:</span>
+                                            <span style={{ color: '#f1f5f9', fontWeight: 700 }}>{payload[0].value}</span>
+                                        </div>
+                                    </div>
+                                )
+                            }}
+                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                            isAnimationActive={false}
+                            wrapperStyle={{ zIndex: 100 }}
+                        />
+                        <Bar dataKey="valor" radius={[6, 6, 0, 0]} maxBarSize={60}>
+                            {barData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                )
+            })()}
+          </ResponsiveContainer>
         )}
-        {ppcData.length > 0 && (
+        {ppcData.length > 0 && selectedPpcId === 'all' && (
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div
