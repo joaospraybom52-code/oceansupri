@@ -45,6 +45,21 @@ export default function ProgramacaoSemanalClient({
     const [tarefaIdParaMotivo, setTarefaIdParaMotivo] = useState('')
     const [motivoSelecionado, setMotivoSelecionado] = useState('material')
 
+    const getMotivoLabel = (motivo: string) => {
+        const map: Record<string, string> = {
+            'material': 'Falta de Material',
+            'mao_de_obra': 'Falta de Mão de Obra',
+            'projeto': 'Problema de Projeto',
+            'equipamento': 'Falha em Equipamento',
+            'area_frente': 'Área/Frente Indisponível',
+            'clima': 'Condições Climáticas',
+            'planejamento': 'Erro de Planejamento',
+            'terceiros': 'Atraso de Terceiros',
+            'outros': 'Outros'
+        }
+        return map[motivo] || motivo.replace(/_/g, ' ')
+    }
+
     // Cálculos de KPI
     const totalTarefas = tarefas.length
     const tarefasConcluidas = tarefas.filter(t => t.status === 'concluida').length
@@ -259,8 +274,20 @@ export default function ProgramacaoSemanalClient({
                                     </div>
                                 </div>
 
-                                {/* Coluna 4: Status */}
-                                <div style={{ width: '150px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                {/* Coluna 4: Motivo */}
+                                <div style={{ flex: 1, minWidth: 0, paddingLeft: '8px' }}>
+                                    {t.status === 'nao_concluida' && (
+                                        <>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Motivo</div>
+                                            <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--accent-red)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={t.motivo_nao_conclusao ? getMotivoLabel(t.motivo_nao_conclusao) : '-'}>
+                                                {t.motivo_nao_conclusao ? getMotivoLabel(t.motivo_nao_conclusao) : '-'}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Coluna 5: Status */}
+                                <div style={{ width: '150px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                                     <select value={t.status} onChange={(e) => {
                                         if (e.target.value === 'nao_concluida') {
                                             setTarefaIdParaMotivo(t.id)
@@ -274,11 +301,6 @@ export default function ProgramacaoSemanalClient({
                                         <option value="concluida">Concluída</option>
                                         <option value="nao_concluida">Não Concluída</option>
                                     </select>
-                                    {t.motivo_nao_conclusao && (
-                                        <div style={{ fontSize: '11px', color: 'var(--accent-red)', fontWeight: 500, textAlign: 'right', marginTop: '2px' }} title={t.motivo_nao_conclusao}>
-                                            Motivo: {t.motivo_nao_conclusao}
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         ))}
