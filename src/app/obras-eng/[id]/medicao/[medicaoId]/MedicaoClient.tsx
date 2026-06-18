@@ -193,7 +193,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                                     {/* Anterior */}
                                     <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', color: 'var(--accent-blue-light)', borderLeft: '1px solid var(--border-glass)' }}>
                                         <div style={{ fontWeight: 600 }}>{formatCurrency(Number(item.anterior_valor || 0))}</div>
-                                        <div style={{ fontSize: '10px', opacity: 0.8 }}>{formatNumber(Number(item.quantidade_orcada || 0) > 0 ? (Number(item.anterior_quantidade || 0) / Number(item.quantidade_orcada || 0)) * 100 : 0)}%</div>
+                                        <div style={{ marginTop: '4px', fontSize: '10px', opacity: 0.8 }}>{formatNumber(Number(item.quantidade_orcada || 0) > 0 ? (Number(item.anterior_quantidade || 0) / Number(item.quantidade_orcada || 0)) * 100 : 0)}%</div>
                                     </td>
 
                                     {/* Atual */}
@@ -230,7 +230,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                                     {/* Acumulado */}
                                     <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', borderLeft: '1px solid var(--border-glass)' }}>
                                         <div style={{ fontWeight: 600 }}>{formatCurrency(acumuladoValor)}</div>
-                                        <div style={{ fontSize: '10px', color: acumuladoPerc >= 100 ? 'var(--accent-green)' : 'var(--text-muted)' }}>{formatNumber(acumuladoPerc)}%</div>
+                                        <div style={{ marginTop: '4px', fontSize: '10px', color: acumuladoPerc >= 100 ? 'var(--accent-green)' : 'var(--text-muted)' }}>{formatNumber(acumuladoPerc)}%</div>
                                     </td>
 
                                     {/* Saldo */}
