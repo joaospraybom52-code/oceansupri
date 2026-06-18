@@ -115,14 +115,14 @@ export default async function ObrasListPage() {
                             </div>
 
                             <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
-                                <Link href={`/obras-eng/${obra.id}/dashboard`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)', textDecoration: 'none', padding: '8px', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.03)' }}>
-                                    <BarChart3 size={14} /> Painel
+                                <Link href={`/obras-eng/${obra.id}/dashboard`} className="btn-secondary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, padding: '10px 0' }}>
+                                    <BarChart3 size={16} /> Painel
                                 </Link>
-                                <Link href={`/obras-eng/${obra.id}/medicao`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)', textDecoration: 'none', padding: '8px', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.03)' }}>
-                                    <Calendar size={14} /> Medição
+                                <Link href={`/obras-eng/${obra.id}/medicao`} className="btn-secondary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, padding: '10px 0' }}>
+                                    <Calendar size={16} /> Medição
                                 </Link>
-                                <Link href={`/obras-eng/${obra.id}/editar`} title="Editar Obra" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', color: 'var(--text-muted)', textDecoration: 'none', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.03)' }}>
-                                    <Pencil size={15} />
+                                <Link href={`/obras-eng/${obra.id}/editar`} className="btn-secondary" title="Editar Obra" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', padding: 0 }}>
+                                    <Pencil size={16} />
                                 </Link>
                             </div>
                         </div>
