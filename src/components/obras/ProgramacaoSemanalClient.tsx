@@ -45,6 +45,10 @@ export default function ProgramacaoSemanalClient({
     const [tarefaIdParaMotivo, setTarefaIdParaMotivo] = useState('')
     const [motivoSelecionado, setMotivoSelecionado] = useState('material')
 
+    // Estado para Visualizar Motivo Longo
+    const [modalVerMotivoAberto, setModalVerMotivoAberto] = useState(false)
+    const [motivoParaVer, setMotivoParaVer] = useState('')
+
     const getMotivoLabel = (motivo: string) => {
         const map: Record<string, string> = {
             'material': 'Falta de Material',
@@ -279,7 +283,14 @@ export default function ProgramacaoSemanalClient({
                                     {t.status === 'nao_concluida' && (
                                         <>
                                             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Motivo</div>
-                                            <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--accent-red)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={t.motivo_nao_conclusao ? getMotivoLabel(t.motivo_nao_conclusao) : '-'}>
+                                            <div 
+                                                onClick={() => {
+                                                    setMotivoParaVer(t.motivo_nao_conclusao ? getMotivoLabel(t.motivo_nao_conclusao) : '')
+                                                    setModalVerMotivoAberto(true)
+                                                }}
+                                                style={{ fontWeight: 500, fontSize: '13px', color: 'var(--accent-red)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', textDecoration: 'underline' }} 
+                                                title="Clique para ver o motivo completo"
+                                            >
                                                 {t.motivo_nao_conclusao ? getMotivoLabel(t.motivo_nao_conclusao) : '-'}
                                             </div>
                                         </>
@@ -487,6 +498,30 @@ export default function ProgramacaoSemanalClient({
                                 setModalMotivoAberto(false)
                             }} className="btn-primary">
                                 Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Ver Motivo */}
+            {modalVerMotivoAberto && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '400px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Motivo da Não Conclusão</h3>
+                            <button onClick={() => setModalVerMotivoAberto(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div style={{ marginBottom: '24px', fontSize: '15px', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                            {motivoParaVer}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setModalVerMotivoAberto(false)} className="btn-primary">
+                                Fechar
                             </button>
                         </div>
                     </div>
