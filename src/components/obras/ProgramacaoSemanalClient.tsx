@@ -204,7 +204,7 @@ export default function ProgramacaoSemanalClient({
                             <form onSubmit={handleAddTarefa} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
                                     <input type="text" placeholder="Descrição da Tarefa *" value={novaTarefa.descricao} onChange={e => setNovaTarefa({...novaTarefa, descricao: e.target.value})} className="input-field" required />
-                                    <input type="text" placeholder="Responsável" value={novaTarefa.responsavel} onChange={e => setNovaTarefa({...novaTarefa, responsavel: e.target.value})} className="input-field" />
+                                    <input type="text" placeholder="Responsável *" value={novaTarefa.responsavel} onChange={e => setNovaTarefa({...novaTarefa, responsavel: e.target.value})} className="input-field" required />
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
                                     <select value={novaTarefa.item_orcamento_id} onChange={e => setNovaTarefa({...novaTarefa, item_orcamento_id: e.target.value})} className="select-field">
