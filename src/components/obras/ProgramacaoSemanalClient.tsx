@@ -40,6 +40,11 @@ export default function ProgramacaoSemanalClient({
     const [novaRestricao, setNovaRestricao] = useState({ descricao: '', categoria: 'outros', responsavel: '', prazo_remocao: '', tarefa_id: '' })
     const [showNovaRestricao, setShowNovaRestricao] = useState(false)
 
+    // Estado para Modal de Motivo de Não Conclusão
+    const [modalMotivoAberto, setModalMotivoAberto] = useState(false)
+    const [tarefaIdParaMotivo, setTarefaIdParaMotivo] = useState('')
+    const [motivoSelecionado, setMotivoSelecionado] = useState('material')
+
     // Cálculos de KPI
     const totalTarefas = tarefas.length
     const tarefasConcluidas = tarefas.filter(t => t.status === 'concluida').length
@@ -258,8 +263,9 @@ export default function ProgramacaoSemanalClient({
                                 <div style={{ width: '150px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                                     <select value={t.status} onChange={(e) => {
                                         if (e.target.value === 'nao_concluida') {
-                                            const motivo = prompt('Qual o motivo da não conclusão? (material, mao_de_obra, projeto, equipamento, area_frente, clima, planejamento, terceiros, outros)')
-                                            if (motivo) updateTarefaStatus(t.id, 'nao_concluida', motivo)
+                                            setTarefaIdParaMotivo(t.id)
+                                            setMotivoSelecionado('material') // reset para padrão
+                                            setModalMotivoAberto(true)
                                         } else {
                                             updateTarefaStatus(t.id, e.target.value)
                                         }
@@ -414,6 +420,53 @@ export default function ProgramacaoSemanalClient({
                                 </div>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Motivo Não Conclusão */}
+            {modalMotivoAberto && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '400px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Motivo da Não Conclusão</h3>
+                            <button onClick={() => setModalMotivoAberto(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                Selecione o motivo principal
+                            </label>
+                            <select 
+                                value={motivoSelecionado}
+                                onChange={(e) => setMotivoSelecionado(e.target.value)}
+                                className="select-field"
+                            >
+                                <option value="material">Falta de Material</option>
+                                <option value="mao_de_obra">Falta de Mão de Obra</option>
+                                <option value="projeto">Problema de Projeto</option>
+                                <option value="equipamento">Falha em Equipamento</option>
+                                <option value="area_frente">Área/Frente Indisponível</option>
+                                <option value="clima">Condições Climáticas</option>
+                                <option value="planejamento">Erro de Planejamento</option>
+                                <option value="terceiros">Atraso de Terceiros</option>
+                                <option value="outros">Outros</option>
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button onClick={() => setModalMotivoAberto(false)} className="btn-secondary">
+                                Cancelar
+                            </button>
+                            <button onClick={() => {
+                                updateTarefaStatus(tarefaIdParaMotivo, 'nao_concluida', motivoSelecionado)
+                                setModalMotivoAberto(false)
+                            }} className="btn-primary">
+                                Confirmar
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
