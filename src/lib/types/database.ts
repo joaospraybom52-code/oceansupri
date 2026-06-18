@@ -545,60 +545,63 @@ export type Database = {
                 }
                 Relationships: []
             }
-            analises_5porques: {
+            analises_5w2h: {
                 Row: {
                     id: string
+                    created_at: string | null
                     tarefa_id: string | null
                     restricao_id: string | null
-                    problema: string
-                    porque_1: string | null
-                    porque_2: string | null
-                    porque_3: string | null
-                    porque_4: string | null
-                    porque_5: string | null
-                    causa_raiz: string | null
-                    categoria_causa: string | null
-                    acao_corretiva: string | null
-                    responsavel_acao: string | null
-                    prazo_acao: string | null
-                    created_at: string | null
-                    updated_at: string | null
+                    what_o_que: string | null
+                    why_por_que: string | null
+                    where_onde: string | null
+                    when_quando: string | null
+                    who_quem: string | null
+                    how_como: string | null
+                    how_much_quanto: string | null
                 }
                 Insert: {
                     id?: string
+                    created_at?: string | null
                     tarefa_id?: string | null
                     restricao_id?: string | null
-                    problema: string
-                    porque_1?: string | null
-                    porque_2?: string | null
-                    porque_3?: string | null
-                    porque_4?: string | null
-                    porque_5?: string | null
-                    causa_raiz?: string | null
-                    categoria_causa?: string | null
-                    acao_corretiva?: string | null
-                    responsavel_acao?: string | null
-                    prazo_acao?: string | null
-                    created_at?: string | null
-                    updated_at?: string | null
+                    what_o_que?: string | null
+                    why_por_que?: string | null
+                    where_onde?: string | null
+                    when_quando?: string | null
+                    who_quem?: string | null
+                    how_como?: string | null
+                    how_much_quanto?: string | null
                 }
                 Update: {
                     id?: string
+                    created_at?: string | null
                     tarefa_id?: string | null
                     restricao_id?: string | null
-                    problema?: string
-                    porque_1?: string | null
-                    porque_2?: string | null
-                    porque_3?: string | null
-                    porque_4?: string | null
-                    porque_5?: string | null
-                    causa_raiz?: string | null
-                    categoria_causa?: string | null
-                    acao_corretiva?: string | null
-                    responsavel_acao?: string | null
-                    prazo_acao?: string | null
+                    what_o_que?: string | null
+                    why_por_que?: string | null
+                    where_onde?: string | null
+                    when_quando?: string | null
+                    who_quem?: string | null
+                    how_como?: string | null
+                    how_much_quanto?: string | null
+                }
+                Relationships: []
+            }
+            permissoes_obras: {
+                Row: {
+                    id: string
+                    email: string
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    email: string
                     created_at?: string | null
-                    updated_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    email?: string
+                    created_at?: string | null
                 }
                 Relationships: []
             }
@@ -645,7 +648,8 @@ export type MedicaoItem = Database["public"]["Tables"]["medicao_itens"]["Row"]
 export type ProgramacaoSemanal = Database["public"]["Tables"]["programacoes_semanais"]["Row"]
 export type Tarefa = Database["public"]["Tables"]["tarefas"]["Row"]
 export type Restricao = Database["public"]["Tables"]["restricoes"]["Row"]
-export type Analise5Porques = Database["public"]["Tables"]["analises_5porques"]["Row"]
+export type Analise5w2h = Database["public"]["Tables"]["analises_5w2h"]["Row"]
+export type PermissaoObra = Database["public"]["Tables"]["permissoes_obras"]["Row"]
 
 // PedidoCompra with joined relations
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
