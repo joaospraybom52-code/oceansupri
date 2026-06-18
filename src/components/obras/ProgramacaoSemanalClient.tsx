@@ -79,6 +79,11 @@ export default function ProgramacaoSemanalClient({
         return map[motivo] || motivo.replace(/_/g, ' ')
     }
 
+    const getTaskCode = (taskId: string) => {
+        const idx = tarefas.findIndex(t => t.id === taskId)
+        return idx >= 0 ? `T-${(idx + 1).toString().padStart(2, '0')}` : '-'
+    }
+
     // Cálculos de KPI
     const totalTarefas = tarefas.length
     const tarefasConcluidas = tarefas.filter(t => t.status === 'concluida').length
@@ -310,6 +315,11 @@ export default function ProgramacaoSemanalClient({
                                 borderLeft: t.status === 'concluida' ? '4px solid var(--accent-green)' : (t.status === 'nao_concluida' ? '4px solid var(--accent-red)' : '4px solid var(--text-muted)'),
                                 marginBottom: '4px'
                             }}>
+                                {/* Coluna 0: Código */}
+                                <div style={{ width: '40px', fontWeight: 700, fontSize: '13px', color: 'var(--accent-blue)' }}>
+                                    {getTaskCode(t.id)}
+                                </div>
+
                                 {/* Coluna 1: Descrição e Item */}
                                 <div style={{ flex: 2, minWidth: 0 }}>
                                     <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)', marginBottom: '4px', textTransform: 'capitalize' }}>{t.descricao}</div>
@@ -429,6 +439,11 @@ export default function ProgramacaoSemanalClient({
                                 borderLeft: r.status === 'removida' ? '4px solid var(--accent-green)' : '4px solid var(--accent-amber)',
                                 marginBottom: '4px'
                             }}>
+                                {/* Coluna 0: Código da Tarefa */}
+                                <div style={{ width: '40px', fontWeight: 700, fontSize: '13px', color: 'var(--accent-blue)' }} title="Código da Tarefa vinculada">
+                                    {r.tarefa_id ? getTaskCode(r.tarefa_id) : '-'}
+                                </div>
+
                                 {/* Coluna 1: Descrição e Categoria */}
                                 <div style={{ flex: 2, minWidth: 0 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -562,20 +577,35 @@ export default function ProgramacaoSemanalClient({
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                        {analises.map(a => (
+                        {analises.map(a => {
+                            const t = a.tarefa_id ? tarefas.find(tar => tar.id === a.tarefa_id) : null
+                            return (
                             <div key={a.id} className="glass-card" style={{ padding: '20px' }}>
-                                <h4 style={{ color: 'var(--accent-blue)', marginBottom: '12px', fontWeight: 600 }}>Plano de Ação</h4>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                                    <h4 style={{ color: 'var(--accent-blue)', fontWeight: 600, margin: 0 }}>Plano de Ação</h4>
+                                    {t && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--accent-blue)' }}>{getTaskCode(t.id)}</span>
+                                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t.descricao}</span>
+                                            {t.itens_orcamento && (
+                                                <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>
+                                                    Item: {t.itens_orcamento.codigo}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
-                                    <div><strong style={{ color: 'var(--text-primary)' }}>What:</strong> {a.what_o_que}</div>
-                                    <div><strong style={{ color: 'var(--text-primary)' }}>Why:</strong> {a.why_por_que}</div>
-                                    <div><strong style={{ color: 'var(--text-primary)' }}>Where:</strong> {a.where_onde}</div>
-                                    <div><strong style={{ color: 'var(--text-primary)' }}>When:</strong> {a.when_quando ? new Date(a.when_quando).toLocaleDateString('pt-BR') : '-'}</div>
-                                    <div><strong style={{ color: 'var(--text-primary)' }}>Who:</strong> {a.who_quem}</div>
-                                    <div><strong style={{ color: 'var(--text-primary)' }}>How:</strong> {a.how_como}</div>
-                                    <div style={{ gridColumn: 'span 2' }}><strong style={{ color: 'var(--text-primary)' }}>How Much:</strong> {a.how_much_quanto || '-'}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>O que (What):</strong> {a.what_o_que}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>Por que (Why):</strong> {a.why_por_que}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>Onde (Where):</strong> {a.where_onde}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>Quando (When):</strong> {a.when_quando ? new Date(a.when_quando).toLocaleDateString('pt-BR') : '-'}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>Quem (Who):</strong> {a.who_quem}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>Como (How):</strong> {a.how_como}</div>
+                                    <div style={{ gridColumn: 'span 2' }}><strong style={{ color: 'var(--text-primary)' }}>Quanto (How Much):</strong> {a.how_much_quanto || '-'}</div>
                                 </div>
                             </div>
-                        ))}
+                        )})}
                     </div>
                 </div>
             )}
