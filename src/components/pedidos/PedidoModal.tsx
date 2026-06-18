@@ -19,10 +19,18 @@ interface PedidoModalProps {
 function getInitialSum(pedido: PedidoCompra, pedidosGroup: PedidoCompra[] | undefined, field: keyof PedidoCompra) {
     if (pedidosGroup && pedidosGroup.length > 0) {
         const sum = pedidosGroup.reduce((acc, p) => acc + (Number(p[field]) || 0), 0);
-        return sum > 0 ? sum.toString() : '';
+        return sum > 0 ? (Math.round(sum * 100) / 100).toString() : '';
     }
     const val = pedido[field];
     return val != null ? val.toString() : '';
+}
+
+function getInitialStr(pedido: PedidoCompra, pedidosGroup: PedidoCompra[] | undefined, field: keyof PedidoCompra) {
+    if (pedidosGroup && pedidosGroup.length > 1) {
+        const vals = Array.from(new Set(pedidosGroup.map(p => p[field]).filter(Boolean)));
+        return vals.join(', ');
+    }
+    return (pedido[field] as string) || '';
 }
 
 export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, onDelete, isReadOnly = false }: PedidoModalProps) {
@@ -32,10 +40,10 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
     const [valorFechado, setValorFechado] = useState(getInitialSum(pedido, pedidosGroup, 'valor_fechado'))
     const [valorFrete, setValorFrete] = useState(getInitialSum(pedido, pedidosGroup, 'valor_frete'))
     const [dataSaiuEntrega, setDataSaiuEntrega] = useState(pedido.data_saiu_entrega?.split('T')[0] || '')
-    const [categoriaCap, setCategoriaCap] = useState(pedido.categoria_cap || '')
-    const [numeroPedido, setNumeroPedido] = useState(pedido.numero_pedido || '')
-    const [codigoUau, setCodigoUau] = useState(pedido.codigo_uau || '')
-    const [numeroOrdemCompra, setNumeroOrdemCompra] = useState(pedido.numero_ordem_compra || '')
+    const [categoriaCap, setCategoriaCap] = useState(getInitialStr(pedido, pedidosGroup, 'categoria_cap'))
+    const [numeroPedido, setNumeroPedido] = useState(getInitialStr(pedido, pedidosGroup, 'numero_pedido'))
+    const [codigoUau, setCodigoUau] = useState(getInitialStr(pedido, pedidosGroup, 'codigo_uau'))
+    const [numeroOrdemCompra, setNumeroOrdemCompra] = useState(getInitialStr(pedido, pedidosGroup, 'numero_ordem_compra'))
     const [fornecedor1Id, setFornecedor1Id] = useState(pedido.fornecedor_1_id || '')
     const [fornecedor1Orcado, setFornecedor1Orcado] = useState(getInitialSum(pedido, pedidosGroup, 'fornecedor_1_valor_orcado'))
     const [fornecedor1Negociado, setFornecedor1Negociado] = useState(getInitialSum(pedido, pedidosGroup, 'fornecedor_1_valor_negociado'))
@@ -110,6 +118,14 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
         { key: 'data_entrega_real', label: 'Entrega Real' },
     ]
 
+    const parseNum = (val: string | number) => {
+        if (!val && val !== 0 && val !== '0') return null;
+        // In case it's a string with comma like "1804,98" due to a text input pasting or locale
+        const str = String(val).replace(',', '.');
+        const parsed = parseFloat(str);
+        return isNaN(parsed) ? null : parsed;
+    }
+
     async function handleSave() {
         setSaving(true)
         const updateData: Record<string, unknown> = {}
@@ -130,18 +146,18 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
 
         const divisor = (pedidosGroup && pedidosGroup.length > 0) ? pedidosGroup.length : 1
 
-        if (valorOrcado) {
-            updateData.valor_orcado = parseFloat(valorOrcado) / divisor
-        }
-        if (valorFechado) {
-            const vf = parseFloat(valorFechado) / divisor
-            updateData.valor_fechado = vf
+        const vOrcado = parseNum(valorOrcado)
+        updateData.valor_orcado = vOrcado !== null ? vOrcado / divisor : null
 
-            const vo = valorOrcado ? parseFloat(valorOrcado) / divisor : pedido.valor_orcado
-            if (vo) {
-                updateData.desconto_absoluto = vo - vf
-                updateData.desconto_percentual = ((vo - vf) / vo) * 100
-            }
+        const vFechado = parseNum(valorFechado)
+        updateData.valor_fechado = vFechado !== null ? vFechado / divisor : null
+
+        if (vOrcado !== null && vFechado !== null) {
+            updateData.desconto_absoluto = (vOrcado - vFechado) / divisor
+            updateData.desconto_percentual = ((vOrcado - vFechado) / vOrcado) * 100
+        } else {
+            updateData.desconto_absoluto = null
+            updateData.desconto_percentual = null
         }
 
         if (['em_transito', 'aguardando_entrega', 'entregue'].includes(pedido.status_fsm || '')) {
@@ -149,17 +165,29 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
         }
 
         updateData.fornecedor_1_id = fornecedor1Id || null
-        updateData.fornecedor_1_valor_orcado = fornecedor1Orcado ? parseFloat(fornecedor1Orcado) / divisor : null
-        updateData.fornecedor_1_valor_negociado = fornecedor1Negociado ? parseFloat(fornecedor1Negociado) / divisor : null
+        const f1o = parseNum(fornecedor1Orcado)
+        updateData.fornecedor_1_valor_orcado = f1o !== null ? f1o / divisor : null
+        const f1n = parseNum(fornecedor1Negociado)
+        updateData.fornecedor_1_valor_negociado = f1n !== null ? f1n / divisor : null
+
         updateData.fornecedor_2_id = fornecedor2Id || null
-        updateData.fornecedor_2_valor_orcado = fornecedor2Orcado ? parseFloat(fornecedor2Orcado) / divisor : null
-        updateData.fornecedor_2_valor_negociado = fornecedor2Negociado ? parseFloat(fornecedor2Negociado) / divisor : null
+        const f2o = parseNum(fornecedor2Orcado)
+        updateData.fornecedor_2_valor_orcado = f2o !== null ? f2o / divisor : null
+        const f2n = parseNum(fornecedor2Negociado)
+        updateData.fornecedor_2_valor_negociado = f2n !== null ? f2n / divisor : null
+
         updateData.fornecedor_3_id = fornecedor3Id || null
-        updateData.fornecedor_3_valor_orcado = fornecedor3Orcado ? parseFloat(fornecedor3Orcado) / divisor : null
-        updateData.fornecedor_3_valor_negociado = fornecedor3Negociado ? parseFloat(fornecedor3Negociado) / divisor : null
+        const f3o = parseNum(fornecedor3Orcado)
+        updateData.fornecedor_3_valor_orcado = f3o !== null ? f3o / divisor : null
+        const f3n = parseNum(fornecedor3Negociado)
+        updateData.fornecedor_3_valor_negociado = f3n !== null ? f3n / divisor : null
+
         updateData.fornecedor_vencedor = fornecedorVencedor
         updateData.justificativa_fornecedor = justificativa || null
-        updateData.valor_frete = valorFrete ? parseFloat(valorFrete) / divisor : null
+        
+        const vFrete = parseNum(valorFrete)
+        updateData.valor_frete = vFrete !== null ? vFrete / divisor : null
+
         updateData.categoria_cap = categoriaCap || null
         updateData.numero_pedido = numeroPedido || null
         updateData.codigo_uau = codigoUau || null
