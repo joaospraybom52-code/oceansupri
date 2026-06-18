@@ -11,6 +11,7 @@ interface Programacao {
     semana_referente_inicio: string
     semana_referente_fim: string
     status_envio: 'no_prazo' | 'atrasada' | 'pendente'
+    tarefas?: { status: string }[]
 }
 
 interface WeekCardData {
@@ -19,6 +20,7 @@ interface WeekCardData {
     fim: Date
     status: StatusEnvio
     progId?: string
+    hasPendingTasks?: boolean
 }
 
 export default function ProgramacaoGridClient({
@@ -80,13 +82,15 @@ export default function ProgramacaoGridClient({
             const inicioStr = w.inicio.toISOString().split('T')[0]
             
             const found = programacoes.find(p => p.semana_referente_inicio === inicioStr)
+            const pendingTasks = found?.tarefas?.some(t => t.status === 'planejada') || false
 
             return {
                 weekNum: w.weekNum,
                 inicio: w.inicio,
                 fim: w.fim,
                 status: found ? found.status_envio : 'nao_cadastrada',
-                progId: found ? found.id : undefined
+                progId: found ? found.id : undefined,
+                hasPendingTasks: pendingTasks
             } as WeekCardData
         })
 
@@ -148,16 +152,22 @@ export default function ProgramacaoGridClient({
         return <CalendarDays size={24} color="#64748b" />
     }
 
-    const renderBadge = (status: StatusEnvio) => {
+    const renderBadge = (status: StatusEnvio, hasPendingTasks?: boolean) => {
         let text = ''
         let bg = ''
         let color = ''
 
         switch (status) {
-            case 'no_prazo': text = 'No Prazo'; bg = 'rgba(16, 185, 129, 0.1)'; color = '#10b981'; break;
-            case 'atrasada': text = 'Atrasada'; bg = 'rgba(239, 68, 68, 0.1)'; color = '#ef4444'; break;
+            case 'no_prazo': text = 'Criada no período certo'; bg = 'rgba(16, 185, 129, 0.1)'; color = '#10b981'; break;
+            case 'atrasada': text = 'Criado atrasado'; bg = 'rgba(239, 68, 68, 0.1)'; color = '#ef4444'; break;
             case 'pendente': text = 'Pendente'; bg = 'rgba(245, 158, 11, 0.1)'; color = '#f59e0b'; break;
             case 'nao_cadastrada': text = 'Não Cadastrada'; bg = 'rgba(255, 255, 255, 0.05)'; color = '#94a3b8'; break;
+        }
+
+        if (hasPendingTasks && (status === 'no_prazo' || status === 'atrasada')) {
+            text = `Tarefas Pendentes - ${text}`
+            color = '#f59e0b'
+            bg = 'rgba(245, 158, 11, 0.1)'
         }
 
         return (
@@ -238,7 +248,7 @@ export default function ProgramacaoGridClient({
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                                {renderBadge(card.status)}
+                                {renderBadge(card.status, card.hasPendingTasks)}
                             </div>
                         </div>
                     )

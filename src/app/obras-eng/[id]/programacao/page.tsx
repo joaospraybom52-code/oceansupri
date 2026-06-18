@@ -11,7 +11,7 @@ export default async function ProgramacaoListPage({ params }: { params: Promise<
         // Buscar programações da obra
         const { data: programacoes, error } = await supabase
             .from('programacoes_semanais')
-            .select('*')
+            .select('*, tarefas(status)')
             .eq('obra_id', id)
             .order('semana_referente_inicio', { ascending: false })
 
