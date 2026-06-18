@@ -45,20 +45,21 @@ export default async function ProgramacaoDetalhePage({ params }: { params: Promi
         let analises: any[] = []
         if (tarefaIds.length > 0) {
             const { data: analisesTarefas } = await supabase
-                .from('analises_5porques')
+                .from('analises_5w2h' as any)
                 .select('*')
                 .in('tarefa_id', tarefaIds)
             if (analisesTarefas) analises = [...analises, ...analisesTarefas]
         }
         if (restricaoIds.length > 0) {
             const { data: analisesRest } = await supabase
-                .from('analises_5porques')
+                .from('analises_5w2h' as any)
                 .select('*')
                 .in('restricao_id', restricaoIds)
             if (analisesRest) {
                 // Remove duplicatas caso algo bizarro aconteça
                 const existingIds = new Set(analises.map(a => a.id))
-                analises = [...analises, ...analisesRest.filter(a => !existingIds.has(a.id))]
+                const analisesRestArray = analisesRest as any[]
+                analises = [...analises, ...analisesRestArray.filter(a => !existingIds.has(a?.id))]
             }
         }
 

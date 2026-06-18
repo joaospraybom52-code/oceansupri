@@ -29,7 +29,7 @@ export default function ProgramacaoSemanalClient({
     const [restricoes, setRestricoes] = useState(initialRestricoes)
     const [analises, setAnalises] = useState(initialAnalises)
     
-    const [activeTab, setActiveTab] = useState<'tarefas' | 'restricoes' | '5porques'>('tarefas')
+    const [activeTab, setActiveTab] = useState<'tarefas' | 'restricoes' | '5w2h'>('tarefas')
     const [loading, setLoading] = useState(false)
 
     // Estado para Nova Tarefa
@@ -39,6 +39,21 @@ export default function ProgramacaoSemanalClient({
     // Estado para Nova Restrição
     const [novaRestricao, setNovaRestricao] = useState({ descricao: '', categoria: 'outros', responsavel: '', prazo_remocao: '', tarefa_id: '' })
     const [showNovaRestricao, setShowNovaRestricao] = useState(false)
+    const [isChainingFlow, setIsChainingFlow] = useState(false)
+
+    // Estado para Novo 5W2H
+    const [novo5w2h, setNovo5w2h] = useState({
+        what_o_que: '',
+        why_por_que: '',
+        where_onde: '',
+        when_quando: '',
+        who_quem: '',
+        how_como: '',
+        how_much_quanto: '',
+        tarefa_id: '',
+        restricao_id: ''
+    })
+    const [showNovo5w2h, setShowNovo5w2h] = useState(false)
 
     // Estado para Modal de Motivo de Não Conclusão
     const [modalMotivoAberto, setModalMotivoAberto] = useState(false)
@@ -115,11 +130,56 @@ export default function ProgramacaoSemanalClient({
 
         if (data && !error) {
             setRestricoes([...restricoes, data])
+            const t_id = novaRestricao.tarefa_id
+            const r_id = data.id
             setNovaRestricao({ descricao: '', categoria: 'outros', responsavel: '', prazo_remocao: '', tarefa_id: '' })
             setShowNovaRestricao(false)
             toast.success('Restrição registrada com sucesso!')
+
+            if (isChainingFlow) {
+                setIsChainingFlow(false)
+                setNovo5w2h({
+                    what_o_que: '',
+                    why_por_que: '',
+                    where_onde: '',
+                    when_quando: '',
+                    who_quem: '',
+                    how_como: '',
+                    how_much_quanto: '',
+                    tarefa_id: t_id,
+                    restricao_id: r_id
+                })
+                setActiveTab('5w2h')
+                setShowNovo5w2h(true)
+            }
         } else if (error) {
             toast.error('Erro ao registrar restrição: ' + error.message)
+        }
+        setLoading(false)
+    }
+
+    async function handleAdd5w2h(e: React.FormEvent) {
+        e.preventDefault()
+        setLoading(true)
+        const { data, error } = await supabase.from('analises_5w2h' as any).insert({
+            tarefa_id: novo5w2h.tarefa_id || null,
+            restricao_id: novo5w2h.restricao_id || null,
+            what_o_que: novo5w2h.what_o_que,
+            why_por_que: novo5w2h.why_por_que,
+            where_onde: novo5w2h.where_onde,
+            when_quando: novo5w2h.when_quando || null,
+            who_quem: novo5w2h.who_quem,
+            how_como: novo5w2h.how_como,
+            how_much_quanto: novo5w2h.how_much_quanto
+        }).select().single()
+
+        if (data && !error) {
+            setAnalises([...analises, data])
+            setNovo5w2h({ what_o_que: '', why_por_que: '', where_onde: '', when_quando: '', who_quem: '', how_como: '', how_much_quanto: '', tarefa_id: '', restricao_id: '' })
+            setShowNovo5w2h(false)
+            toast.success('5W2H registrado com sucesso!')
+        } else if (error) {
+            toast.error('Erro ao registrar 5W2H: ' + error.message)
         }
         setLoading(false)
     }
@@ -206,8 +266,8 @@ export default function ProgramacaoSemanalClient({
                 <button onClick={() => setActiveTab('restricoes')} style={{ background: 'none', border: 'none', padding: '12px 16px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'restricoes' ? 'var(--accent-blue)' : 'var(--text-secondary)', borderBottom: activeTab === 'restricoes' ? '2px solid var(--accent-blue)' : '2px solid transparent', marginBottom: '-1px' }}>
                     Restrições ({restricoes.length})
                 </button>
-                <button onClick={() => setActiveTab('5porques')} style={{ background: 'none', border: 'none', padding: '12px 16px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', color: activeTab === '5porques' ? 'var(--accent-blue)' : 'var(--text-secondary)', borderBottom: activeTab === '5porques' ? '2px solid var(--accent-blue)' : '2px solid transparent', marginBottom: '-1px' }}>
-                    5 Porquês ({analises.length})
+                <button onClick={() => setActiveTab('5w2h')} style={{ background: 'none', border: 'none', padding: '12px 16px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', color: activeTab === '5w2h' ? 'var(--accent-blue)' : 'var(--text-secondary)', borderBottom: activeTab === '5w2h' ? '2px solid var(--accent-blue)' : '2px solid transparent', marginBottom: '-1px' }}>
+                    5W2H ({analises.length})
                 </button>
             </div>
 
@@ -426,30 +486,93 @@ export default function ProgramacaoSemanalClient({
                 </div>
             )}
 
-            {/* Tab: 5 Porquês */}
-            {activeTab === '5porques' && (
+            {/* Tab: 5W2H */}
+            {activeTab === '5w2h' && (
                 <div>
+                    {!showNovo5w2h ? (
+                        <button onClick={() => setShowNovo5w2h(true)} className="btn-secondary" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Plus size={16} /> Adicionar 5W2H
+                        </button>
+                    ) : (
+                        <div className="glass-card" style={{ padding: '20px', marginBottom: '24px' }}>
+                            <form onSubmit={handleAdd5w2h} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>What (O que será feito?)</label>
+                                        <input type="text" value={novo5w2h.what_o_que} onChange={e => setNovo5w2h({...novo5w2h, what_o_que: e.target.value})} className="input-field" required />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Why (Por que será feito?)</label>
+                                        <input type="text" value={novo5w2h.why_por_que} onChange={e => setNovo5w2h({...novo5w2h, why_por_que: e.target.value})} className="input-field" required />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Where (Onde será feito?)</label>
+                                        <input type="text" value={novo5w2h.where_onde} onChange={e => setNovo5w2h({...novo5w2h, where_onde: e.target.value})} className="input-field" required />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>When (Quando será feito?)</label>
+                                        <input type="date" value={novo5w2h.when_quando} onChange={e => setNovo5w2h({...novo5w2h, when_quando: e.target.value})} className="input-field" required />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Who (Quem fará?)</label>
+                                        <input type="text" value={novo5w2h.who_quem} onChange={e => setNovo5w2h({...novo5w2h, who_quem: e.target.value})} className="input-field" required />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>How (Como será feito?)</label>
+                                        <input type="text" value={novo5w2h.how_como} onChange={e => setNovo5w2h({...novo5w2h, how_como: e.target.value})} className="input-field" required />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>How Much (Quanto custará?)</label>
+                                        <input type="text" value={novo5w2h.how_much_quanto} onChange={e => setNovo5w2h({...novo5w2h, how_much_quanto: e.target.value})} className="input-field" />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Vincular Tarefa (Opcional)</label>
+                                        <select value={novo5w2h.tarefa_id} onChange={e => setNovo5w2h({...novo5w2h, tarefa_id: e.target.value})} className="select-field">
+                                            <option value="">Nenhuma</option>
+                                            {tarefas.map(t => <option key={t.id} value={t.id}>{t.descricao}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Vincular Restrição (Opcional)</label>
+                                        <select value={novo5w2h.restricao_id} onChange={e => setNovo5w2h({...novo5w2h, restricao_id: e.target.value})} className="select-field">
+                                            <option value="">Nenhuma</option>
+                                            {restricoes.map(r => <option key={r.id} value={r.id}>{r.descricao}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <button type="button" onClick={() => setShowNovo5w2h(false)} className="btn-secondary">Cancelar</button>
+                                    <button type="submit" className="btn-primary" disabled={loading}>Salvar 5W2H</button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: '24px', borderRadius: '12px', border: '1px dashed var(--border-glass)', textAlign: 'center' }}>
                         <HelpCircle size={32} color="var(--text-muted)" style={{ margin: '0 auto 16px' }} />
-                        <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>Análises de Causa Raiz (5 Porquês)</h3>
-                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>As análises de causa raiz devem ser preenchidas quando há falhas críticas sistêmicas.</p>
-                        {analises.length === 0 && <p style={{ marginTop: '16px', color: 'var(--accent-green)' }}>Excelente! Nenhuma análise crítica registrada para esta semana.</p>}
+                        <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>Análises 5W2H</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Plano de ação estruturado para resolver restrições ou tarefas não concluídas.</p>
+                        {analises.length === 0 && <p style={{ marginTop: '16px', color: 'var(--accent-green)' }}>Nenhum plano 5W2H registrado.</p>}
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
                         {analises.map(a => (
                             <div key={a.id} className="glass-card" style={{ padding: '20px' }}>
-                                <h4 style={{ color: 'var(--accent-red-light)', marginBottom: '12px', fontWeight: 600 }}>Problema: {a.problema}</h4>
-                                <ol style={{ paddingLeft: '24px', fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                                    {a.porque_1 && <li>{a.porque_1}</li>}
-                                    {a.porque_2 && <li>{a.porque_2}</li>}
-                                    {a.porque_3 && <li>{a.porque_3}</li>}
-                                    {a.porque_4 && <li>{a.porque_4}</li>}
-                                    {a.porque_5 && <li>{a.porque_5}</li>}
-                                </ol>
-                                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', fontSize: '13px' }}>
-                                    <strong style={{ color: 'var(--text-primary)' }}>Causa Raiz:</strong> {a.causa_raiz} <br/>
-                                    <strong style={{ color: 'var(--text-primary)' }}>Ação Corretiva:</strong> {a.acao_corretiva} ({a.responsavel_acao} até {new Date(a.prazo_acao).toLocaleDateString('pt-BR')})
+                                <h4 style={{ color: 'var(--accent-blue)', marginBottom: '12px', fontWeight: 600 }}>Plano de Ação</h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>What:</strong> {a.what_o_que}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>Why:</strong> {a.why_por_que}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>Where:</strong> {a.where_onde}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>When:</strong> {a.when_quando ? new Date(a.when_quando).toLocaleDateString('pt-BR') : '-'}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>Who:</strong> {a.who_quem}</div>
+                                    <div><strong style={{ color: 'var(--text-primary)' }}>How:</strong> {a.how_como}</div>
+                                    <div style={{ gridColumn: 'span 2' }}><strong style={{ color: 'var(--text-primary)' }}>How Much:</strong> {a.how_much_quanto || '-'}</div>
                                 </div>
                             </div>
                         ))}
@@ -493,9 +616,22 @@ export default function ProgramacaoSemanalClient({
                             <button onClick={() => setModalMotivoAberto(false)} className="btn-secondary">
                                 Cancelar
                             </button>
-                            <button onClick={() => {
-                                updateTarefaStatus(tarefaIdParaMotivo, 'nao_concluida', motivoSelecionado)
+                            <button onClick={async () => {
+                                await updateTarefaStatus(tarefaIdParaMotivo, 'nao_concluida', motivoSelecionado)
                                 setModalMotivoAberto(false)
+
+                                // Chain para Nova Restrição
+                                const t = tarefas.find(t => t.id === tarefaIdParaMotivo)
+                                setNovaRestricao({ 
+                                    descricao: getMotivoLabel(motivoSelecionado), 
+                                    categoria: ['projeto','material','mao_de_obra','equipamento','area_frente','clima'].includes(motivoSelecionado) ? motivoSelecionado : 'outros', 
+                                    responsavel: t?.responsavel || '', 
+                                    prazo_remocao: '', 
+                                    tarefa_id: tarefaIdParaMotivo 
+                                })
+                                setIsChainingFlow(true)
+                                setActiveTab('restricoes')
+                                setShowNovaRestricao(true)
                             }} className="btn-primary">
                                 Confirmar
                             </button>
