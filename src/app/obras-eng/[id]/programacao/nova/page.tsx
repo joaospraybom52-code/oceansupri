@@ -12,14 +12,31 @@ function NovaProgramacaoForm() {
     const searchParams = useSearchParams()
     const supabase = createClient()
 
+        // Calculate default deadline: Sunday of the week before 'inicio'
+        const calculateDeadline = (inicioDateStr: string) => {
+            if (!inicioDateStr) return ''
+            const d = new Date(inicioDateStr + 'T12:00:00') // Use noon to avoid timezone shift
+            d.setDate(d.getDate() - 1) // Go back 1 day to Sunday
+            const yyyy = d.getFullYear()
+            const mm = String(d.getMonth() + 1).padStart(2, '0')
+            const dd = String(d.getDate()).padStart(2, '0')
+            return `${yyyy}-${mm}-${dd}T23:59` // Sunday 23:59
+        }
+
     const [inicio, setInicio] = useState(searchParams.get('inicio') || '')
     const [fim, setFim] = useState(searchParams.get('fim') || '')
-    const [prazo, setPrazo] = useState('')
+    const [prazo, setPrazo] = useState(calculateDeadline(searchParams.get('inicio') || ''))
     const [responsavel, setResponsavel] = useState('')
     
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
+
+    // Auto-update deadline if 'inicio' changes (though it will be readOnly)
+    const handleInicioChange = (val: string) => {
+        setInicio(val)
+        setPrazo(calculateDeadline(val))
+    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
@@ -33,6 +50,9 @@ function NovaProgramacaoForm() {
         setLoading(true)
 
         try {
+            // Determine initial status based on current date vs prazo
+            const isAtrasado = new Date() > new Date(prazo)
+
             const { data, error: insertError } = await supabase
                 .from('programacoes_semanais')
                 .insert({
@@ -41,7 +61,7 @@ function NovaProgramacaoForm() {
                     semana_referente_fim: fim,
                     prazo_envio: new Date(prazo).toISOString(),
                     responsavel: responsavel,
-                    status_envio: 'pendente'
+                    status_envio: isAtrasado ? 'atrasada' : 'pendente'
                 })
                 .select('id')
                 .single()
@@ -83,14 +103,16 @@ function NovaProgramacaoForm() {
                             <input
                                 type="date"
                                 value={inicio}
-                                onChange={(e) => setInicio(e.target.value)}
+                                onChange={(e) => handleInicioChange(e.target.value)}
                                 className="input-field"
+                                style={{ backgroundColor: 'rgba(255,255,255,0.05)', cursor: 'not-allowed', color: 'var(--text-secondary)' }}
+                                readOnly
                                 required
                             />
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                                Fim da Semana (Sexta/Sábado)
+                                Fim da Semana (Sexta/Sábado/Domingo)
                             </label>
                             <input
                                 type="date"
@@ -112,6 +134,8 @@ function NovaProgramacaoForm() {
                                 value={prazo}
                                 onChange={(e) => setPrazo(e.target.value)}
                                 className="input-field"
+                                style={{ backgroundColor: 'rgba(255,255,255,0.05)', cursor: 'not-allowed', color: 'var(--text-secondary)' }}
+                                readOnly
                                 required
                             />
                         </div>
