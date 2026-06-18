@@ -202,7 +202,14 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onUpdate, o
                 query = query.eq('id', pedido.id)
             }
 
-            const { data } = await query.select('*, obra:obras(*), comprador:compradores(*)')
+            const { data, error } = await query.select('*, obra:obras(*), comprador:compradores(*)')
+
+            if (error) {
+                console.error("Erro ao atualizar:", error);
+                alert("Erro ao salvar no banco de dados: " + error.message);
+                setSaving(false);
+                return;
+            }
 
             // Trigger onUpdate with all updated items so the board updates grouped cards perfectly
             if (data && data.length > 0) {
