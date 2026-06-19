@@ -196,6 +196,7 @@ ALTER TABLE public.pedidos_compra ADD CONSTRAINT pedidos_compra_fornecedor_2_id_
 ALTER TABLE public.pedidos_compra ADD CONSTRAINT pedidos_compra_fornecedor_3_id_fkey FOREIGN KEY (fornecedor_3_id) REFERENCES fornecedores(id);
 ALTER TABLE public.pedidos_compra ADD CONSTRAINT pedidos_compra_obra_id_fkey FOREIGN KEY (obra_id) REFERENCES obras(id) ON DELETE SET NULL;
 ALTER TABLE public.pedidos_compra ADD CONSTRAINT pedidos_compra_pkey PRIMARY KEY (id);
+CREATE UNIQUE INDEX pedidos_compra_dedup_key ON public.pedidos_compra USING btree (numero_pedido, codigo_uau, descricao_insumo);
 
 CREATE TABLE public.permissoes_obras (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
