@@ -186,7 +186,9 @@ CREATE TABLE public.pedidos_compra (
   grupo_cotacao_id uuid,
   numero_ordem_compra text,
   numero_pedido text,
-  codigo_uau text
+  codigo_uau text,
+  justificativa_fornecedor text,
+  data_saiu_entrega timestamp with time zone
 );
 ALTER TABLE public.pedidos_compra ADD CONSTRAINT pedidos_compra_comprador_id_fkey FOREIGN KEY (comprador_id) REFERENCES compradores(id) ON DELETE SET NULL;
 ALTER TABLE public.pedidos_compra ADD CONSTRAINT pedidos_compra_fornecedor_1_id_fkey FOREIGN KEY (fornecedor_1_id) REFERENCES fornecedores(id);

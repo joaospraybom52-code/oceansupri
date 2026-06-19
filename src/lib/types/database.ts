@@ -205,6 +205,7 @@ export type Database = {
                     data_ordem_compra: string | null
                     data_previsao_entrega: string | null
                     data_requisicao: string | null
+                    data_saiu_entrega: string | null
                     desconto_absoluto: number | null
                     desconto_percentual: number | null
                     descricao_insumo: string
@@ -221,6 +222,7 @@ export type Database = {
                     fornecedor_vencedor: number | null
                     grupo_cotacao_id: string | null
                     id: string
+                    justificativa_fornecedor: string | null
                     numero_ordem_compra: string | null
                     numero_pedido: string | null
                     obra_id: string | null
@@ -243,12 +245,14 @@ export type Database = {
                     data_ordem_compra?: string | null
                     data_previsao_entrega?: string | null
                     data_requisicao?: string | null
+                    data_saiu_entrega?: string | null
                     desconto_absoluto?: number | null
                     desconto_percentual?: number | null
                     descricao_insumo: string
                     emergencial?: boolean | null
                     grupo_cotacao_id?: string | null
                     id?: string
+                    justificativa_fornecedor?: string | null
                     numero_ordem_compra?: string | null
                     numero_pedido?: string | null
                     obra_id?: string | null
@@ -270,12 +274,14 @@ export type Database = {
                     data_ordem_compra?: string | null
                     data_previsao_entrega?: string | null
                     data_requisicao?: string | null
+                    data_saiu_entrega?: string | null
                     desconto_absoluto?: number | null
                     desconto_percentual?: number | null
                     descricao_insumo?: string
                     emergencial?: boolean | null
                     grupo_cotacao_id?: string | null
                     id?: string
+                    justificativa_fornecedor?: string | null
                     numero_ordem_compra?: string | null
                     numero_pedido?: string | null
                     obra_id?: string | null
