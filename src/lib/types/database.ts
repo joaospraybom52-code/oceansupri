@@ -297,6 +297,8 @@ export type Database = {
                     created_at: string | null
                     codigo_uau: string | null
                     local: string | null
+                    previsao_inicio: string | null
+                    previsao_termino: string | null
                 }
                 Insert: {
                     id?: string
@@ -307,6 +309,8 @@ export type Database = {
                     created_at?: string | null
                     codigo_uau?: string | null
                     local?: string | null
+                    previsao_inicio?: string | null
+                    previsao_termino?: string | null
                 }
                 Update: {
                     id?: string
@@ -317,6 +321,8 @@ export type Database = {
                     created_at?: string | null
                     codigo_uau?: string | null
                     local?: string | null
+                    previsao_inicio?: string | null
+                    previsao_termino?: string | null
                 }
                 Relationships: []
             }
@@ -422,39 +428,39 @@ export type Database = {
                     obra_id: string | null
                     semana_referente_inicio: string
                     semana_referente_fim: string
-                    prazo_envio: string
+                    ppc: number | null
+                    observacoes: string | null
+                    prazo_envio: string | null
                     data_envio: string | null
                     status_envio: string | null
                     responsavel: string | null
                     created_at: string | null
-                    updated_at: string | null
-                    created_by: string | null
                 }
                 Insert: {
                     id?: string
                     obra_id?: string | null
                     semana_referente_inicio: string
                     semana_referente_fim: string
-                    prazo_envio: string
+                    ppc?: number | null
+                    observacoes?: string | null
+                    prazo_envio?: string | null
                     data_envio?: string | null
                     status_envio?: string | null
                     responsavel?: string | null
                     created_at?: string | null
-                    updated_at?: string | null
-                    created_by?: string | null
                 }
                 Update: {
                     id?: string
                     obra_id?: string | null
                     semana_referente_inicio?: string
                     semana_referente_fim?: string
-                    prazo_envio?: string
+                    ppc?: number | null
+                    observacoes?: string | null
+                    prazo_envio?: string | null
                     data_envio?: string | null
                     status_envio?: string | null
                     responsavel?: string | null
                     created_at?: string | null
-                    updated_at?: string | null
-                    created_by?: string | null
                 }
                 Relationships: []
             }
@@ -466,10 +472,9 @@ export type Database = {
                     item_orcamento_id: string | null
                     responsavel: string | null
                     data_planejada: string | null
-                    status: string | null
+                    status: string
                     motivo_nao_conclusao: string | null
                     created_at: string | null
-                    updated_at: string | null
                 }
                 Insert: {
                     id?: string
@@ -478,10 +483,9 @@ export type Database = {
                     item_orcamento_id?: string | null
                     responsavel?: string | null
                     data_planejada?: string | null
-                    status?: string | null
+                    status?: string
                     motivo_nao_conclusao?: string | null
                     created_at?: string | null
-                    updated_at?: string | null
                 }
                 Update: {
                     id?: string
@@ -490,10 +494,9 @@ export type Database = {
                     item_orcamento_id?: string | null
                     responsavel?: string | null
                     data_planejada?: string | null
-                    status?: string | null
+                    status?: string
                     motivo_nao_conclusao?: string | null
                     created_at?: string | null
-                    updated_at?: string | null
                 }
                 Relationships: []
             }
@@ -504,14 +507,13 @@ export type Database = {
                     obra_id: string | null
                     tarefa_id: string | null
                     descricao: string
-                    categoria: string
+                    categoria: string | null
                     responsavel: string | null
                     data_identificacao: string
-                    prazo_remocao: string
+                    prazo_remocao: string | null
                     data_remocao: string | null
-                    status: string | null
+                    status: string
                     created_at: string | null
-                    updated_at: string | null
                 }
                 Insert: {
                     id?: string
@@ -519,14 +521,13 @@ export type Database = {
                     obra_id?: string | null
                     tarefa_id?: string | null
                     descricao: string
-                    categoria: string
+                    categoria?: string | null
                     responsavel?: string | null
-                    data_identificacao: string
-                    prazo_remocao: string
+                    data_identificacao?: string
+                    prazo_remocao?: string | null
                     data_remocao?: string | null
-                    status?: string | null
+                    status?: string
                     created_at?: string | null
-                    updated_at?: string | null
                 }
                 Update: {
                     id?: string
@@ -534,14 +535,13 @@ export type Database = {
                     obra_id?: string | null
                     tarefa_id?: string | null
                     descricao?: string
-                    categoria?: string
+                    categoria?: string | null
                     responsavel?: string | null
                     data_identificacao?: string
-                    prazo_remocao?: string
+                    prazo_remocao?: string | null
                     data_remocao?: string | null
-                    status?: string | null
+                    status?: string
                     created_at?: string | null
-                    updated_at?: string | null
                 }
                 Relationships: []
             }
