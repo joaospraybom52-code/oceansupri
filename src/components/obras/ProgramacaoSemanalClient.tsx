@@ -291,11 +291,11 @@ export default function ProgramacaoSemanalClient({
                                     <input type="text" placeholder="Responsável *" value={novaTarefa.responsavel} onChange={e => setNovaTarefa({...novaTarefa, responsavel: e.target.value})} className="input-field" required />
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-                                    <select value={novaTarefa.item_orcamento_id} onChange={e => setNovaTarefa({...novaTarefa, item_orcamento_id: e.target.value})} className="select-field">
-                                        <option value="">Selecione um item do orçamento (Opcional)</option>
+                                    <select value={novaTarefa.item_orcamento_id} onChange={e => setNovaTarefa({...novaTarefa, item_orcamento_id: e.target.value})} className="select-field" required>
+                                        <option value="">Selecione um item do orçamento *</option>
                                         {itensOrcamento.map(item => <option key={item.id} value={item.id}>{item.codigo} - {item.descricao}</option>)}
                                     </select>
-                                    <input type="date" value={novaTarefa.data_planejada} onChange={e => setNovaTarefa({...novaTarefa, data_planejada: e.target.value})} className="input-field" />
+                                    <input type="date" value={novaTarefa.data_planejada} onChange={e => setNovaTarefa({...novaTarefa, data_planejada: e.target.value})} className="input-field" required title="Data planejada *" />
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                     <button type="button" onClick={() => setShowNovaTarefa(false)} className="btn-secondary">Cancelar</button>
