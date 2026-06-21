@@ -564,6 +564,7 @@ export type Database = {
                     who_quem: string | null
                     how_como: string | null
                     how_much_quanto: string | null
+                    status: string
                 }
                 Insert: {
                     id?: string
@@ -577,6 +578,7 @@ export type Database = {
                     who_quem?: string | null
                     how_como?: string | null
                     how_much_quanto?: string | null
+                    status?: string
                 }
                 Update: {
                     id?: string
@@ -590,6 +592,7 @@ export type Database = {
                     who_quem?: string | null
                     how_como?: string | null
                     how_much_quanto?: string | null
+                    status?: string
                 }
                 Relationships: []
             }

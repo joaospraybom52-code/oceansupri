@@ -210,6 +210,10 @@ export default function ProgramacaoSemanalClient({
         
         if (!error) {
             setRestricoes(restricoes.map(r => r.id === id ? { ...r, status: newStatus, data_remocao: dataRemocao } : r))
+            // Restrição removida → o gatilho do banco conclui os 5W2H ligados; reflete no estado local
+            if (newStatus === 'removida') {
+                setAnalises(analises.map((a: any) => a.restricao_id === id ? { ...a, status: 'concluido' } : a))
+            }
             toast.success('Restrição atualizada!')
         } else {
             toast.error('Erro ao atualizar restrição: ' + error.message)
@@ -554,9 +558,9 @@ export default function ProgramacaoSemanalClient({
                                         </select>
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Vincular Restrição (Opcional)</label>
-                                        <select value={novo5w2h.restricao_id} onChange={e => setNovo5w2h({...novo5w2h, restricao_id: e.target.value})} className="select-field">
-                                            <option value="">Nenhuma</option>
+                                        <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Vincular Restrição *</label>
+                                        <select value={novo5w2h.restricao_id} onChange={e => setNovo5w2h({...novo5w2h, restricao_id: e.target.value})} className="select-field" required>
+                                            <option value="">Selecione a restrição *</option>
                                             {restricoes.map(r => <option key={r.id} value={r.id}>{r.descricao}</option>)}
                                         </select>
                                     </div>
@@ -582,7 +586,16 @@ export default function ProgramacaoSemanalClient({
                             return (
                             <div key={a.id} className="glass-card" style={{ padding: '20px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                                    <h4 style={{ color: 'var(--accent-blue)', fontWeight: 600, margin: 0 }}>Plano de Ação</h4>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <h4 style={{ color: 'var(--accent-blue)', fontWeight: 600, margin: 0 }}>Plano de Ação</h4>
+                                        <span style={{
+                                            fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '9999px',
+                                            background: a.status === 'concluido' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                                            color: a.status === 'concluido' ? 'var(--accent-green)' : '#fbbf24',
+                                        }}>
+                                            {a.status === 'concluido' ? 'Concluído' : 'Em andamento'}
+                                        </span>
+                                    </div>
                                     {t && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--accent-blue)' }}>{getTaskCode(t.id)}</span>

@@ -39,7 +39,8 @@ CREATE TABLE public.analises_5w2h (
   when_quando date,
   who_quem text,
   how_como text,
-  how_much_quanto text
+  how_much_quanto text,
+  status text DEFAULT 'em_andamento'::text NOT NULL
 );
 ALTER TABLE public.analises_5w2h ADD CONSTRAINT analises_5w2h_restricao_id_fkey FOREIGN KEY (restricao_id) REFERENCES restricoes(id) ON DELETE CASCADE;
 ALTER TABLE public.analises_5w2h ADD CONSTRAINT analises_5w2h_tarefa_id_fkey FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE;
@@ -296,3 +297,20 @@ BEGIN
 END;
 $function$
 ;
+
+CREATE OR REPLACE FUNCTION public.concluir_5w2h_ao_remover_restricao()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  IF NEW.status = 'removida' AND (OLD.status IS DISTINCT FROM 'removida') THEN
+    UPDATE public.analises_5w2h SET status = 'concluido' WHERE restricao_id = NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$function$
+;
+
+-- ============ TRIGGERS ============
+CREATE TRIGGER trg_concluir_5w2h AFTER UPDATE OF status ON public.restricoes
+  FOR EACH ROW EXECUTE FUNCTION public.concluir_5w2h_ao_remover_restricao();
