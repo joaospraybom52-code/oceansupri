@@ -230,6 +230,30 @@ body {
   color: var(--text-muted);
 }
 
+/* Seletores de data/hora: legíveis no tema escuro e preenchíveis só pelo seletor */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
+  color-scheme: dark;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit {
+  color: var(--text-primary);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.9;
+}
+
 /* Select */
 .select-field {
   background: var(--bg-secondary);

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import DatePickerGuard from '@/components/DatePickerGuard'
 
 export const metadata: Metadata = {
   title: 'Suprimentos CW | Gestão de Compras para Construção Civil',
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <DatePickerGuard />
+        {children}
+      </body>
     </html>
   )
 }
