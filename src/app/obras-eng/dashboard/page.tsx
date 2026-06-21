@@ -107,12 +107,12 @@ export default async function GlobalDashboardPage() {
                 )
             }
 
-            // Count restricoes where status != 'Removida'
+            // Conta restrições ainda pendentes (exclui as removidas)
             const { count } = await supabase
                 .from('restricoes')
                 .select('id', { count: 'exact', head: true })
                 .eq('obra_id', obra.id)
-                .neq('status', 'Removida')
+                .neq('status', 'removida')
 
             const percentual = valorOrcado > 0 ? (valorMedido / valorOrcado) * 100 : 0
 

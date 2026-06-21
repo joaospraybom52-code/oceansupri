@@ -118,13 +118,13 @@ export default async function ObraDashboardPage({
       .from('restricoes')
       .select('id, descricao, categoria, responsavel, prazo_remocao, status')
       .eq('obra_id', id)
-      .neq('status', 'Removida')
+      .neq('status', 'removida')
       .order('prazo_remocao', { ascending: true })
 
     if (errRes) throw new Error(errRes.message)
 
     const restricoesAbertas = restricoes ?? []
-    const restricoesPendentes = restricoesAbertas.filter((r) => r.status === 'Pendente').length
+    const restricoesPendentes = restricoesAbertas.filter((r) => r.status === 'pendente').length
 
     /* ────────────────────────── Urgency helper ────────────────────────── */
 
@@ -347,11 +347,11 @@ export default async function ObraDashboardPage({
                             fontSize: '11px',
                             fontWeight: 600,
                             background:
-                              r.status === 'Pendente'
+                              r.status === 'pendente'
                                 ? 'rgba(245, 158, 11, 0.15)'
                                 : 'rgba(99, 102, 241, 0.15)',
                             color:
-                              r.status === 'Pendente' ? '#fbbf24' : '#818cf8',
+                              r.status === 'pendente' ? '#fbbf24' : '#818cf8',
                           }}
                         >
                           {r.status}
