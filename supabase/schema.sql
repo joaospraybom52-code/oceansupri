@@ -328,7 +328,7 @@ CREATE TABLE public.restricoes (
 );
 ALTER TABLE public.restricoes ADD CONSTRAINT restricoes_obra_id_fkey FOREIGN KEY (obra_id) REFERENCES obras_eng(id) ON DELETE CASCADE;
 ALTER TABLE public.restricoes ADD CONSTRAINT restricoes_programacao_id_fkey FOREIGN KEY (programacao_id) REFERENCES programacoes_semanais(id) ON DELETE CASCADE;
-ALTER TABLE public.restricoes ADD CONSTRAINT restricoes_tarefa_id_fkey FOREIGN KEY (tarefa_id) REFERENCES tarefas(id);
+ALTER TABLE public.restricoes ADD CONSTRAINT restricoes_tarefa_id_fkey FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE SET NULL;
 ALTER TABLE public.restricoes ADD CONSTRAINT restricoes_pkey PRIMARY KEY (id);
 ALTER TABLE public.restricoes ENABLE ROW LEVEL SECURITY;
 
@@ -343,7 +343,7 @@ CREATE TABLE public.tarefas (
   created_at timestamp with time zone DEFAULT now(),
   item_orcamento_id uuid
 );
-ALTER TABLE public.tarefas ADD CONSTRAINT tarefas_item_orcamento_id_fkey FOREIGN KEY (item_orcamento_id) REFERENCES itens_orcamento(id);
+ALTER TABLE public.tarefas ADD CONSTRAINT tarefas_item_orcamento_id_fkey FOREIGN KEY (item_orcamento_id) REFERENCES itens_orcamento(id) ON DELETE SET NULL;
 ALTER TABLE public.tarefas ADD CONSTRAINT tarefas_programacao_id_fkey FOREIGN KEY (programacao_id) REFERENCES programacoes_semanais(id) ON DELETE CASCADE;
 ALTER TABLE public.tarefas ADD CONSTRAINT tarefas_pkey PRIMARY KEY (id);
 ALTER TABLE public.tarefas ENABLE ROW LEVEL SECURITY;
