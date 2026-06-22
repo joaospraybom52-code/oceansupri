@@ -21,6 +21,8 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
     const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(val)
     
     const totalOrcado = itens.reduce((acc, i) => acc + (i.valor_total_orcado || 0), 0)
+    const totalPeriodo = itens.reduce((acc, i) => acc + Number(i.atual_valor || 0), 0)
+    const totalMedidoAcum = itens.reduce((acc, i) => acc + Number(i.anterior_valor || 0) + Number(i.atual_valor || 0), 0)
 
     // Atualiza linha quando o usuário digita
     const handleUpdate = (index: number, field: 'atual_quantidade' | 'atual_percentual', valueStr: string) => {
@@ -141,6 +143,23 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                 </div>
             </div>
 
+            {/* Resumo corrente */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                <div className="glass-card" style={{ padding: '16px 20px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Valor desta medição (período)</div>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(totalPeriodo)}</div>
+                </div>
+                <div className="glass-card" style={{ padding: '16px 20px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Total medido acumulado</div>
+                    <div style={{ fontSize: '22px', fontWeight: 800 }}>{formatCurrency(totalMedidoAcum)}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{formatNumber(totalOrcado > 0 ? (totalMedidoAcum / totalOrcado) * 100 : 0)}% do orçado</div>
+                </div>
+                <div className="glass-card" style={{ padding: '16px 20px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Total orçado da obra</div>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-secondary)' }}>{formatCurrency(totalOrcado)}</div>
+                </div>
+            </div>
+
             {/* Planilha de Medição */}
             <div className="glass-card" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1300px' }}>
@@ -153,14 +172,15 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-muted)' }}>VL. TOTAL</th>
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-muted)' }}>PESO %</th>
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--accent-blue)', borderLeft: '1px solid var(--border-glass)' }}>ACUM. ANTERIOR</th>
-                            <th style={{ padding: '12px', textAlign: 'center', fontSize: '11px', color: 'var(--accent-green)', borderLeft: '1px solid var(--border-glass)' }} colSpan={2}>NO PERÍODO (ATUAL)</th>
-                            <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-primary)', borderLeft: '1px solid var(--border-glass)' }}>VALOR MEDIDO</th>
+                            <th style={{ padding: '12px', textAlign: 'center', fontSize: '11px', color: 'var(--accent-green)', borderLeft: '1px solid var(--border-glass)' }} colSpan={3}>NO PERÍODO (ATUAL)</th>
+                            <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--text-primary)', borderLeft: '1px solid var(--border-glass)' }}>VALOR MEDIDO (ACUM.)</th>
                             <th style={{ padding: '12px', textAlign: 'right', fontSize: '11px', color: 'var(--accent-red)', borderLeft: '1px solid var(--border-glass)' }}>SALDO</th>
                         </tr>
                         <tr style={{ borderBottom: '1px solid var(--border-glass)' }}>
                             <th colSpan={7}></th>
                             <th style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', borderLeft: '1px solid var(--border-glass)' }}>QTD</th>
                             <th style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>%</th>
+                            <th style={{ padding: '8px', textAlign: 'right', fontSize: '11px', color: 'var(--accent-green)' }}>VALOR (R$)</th>
                             <th colSpan={2}></th>
                         </tr>
                     </thead>
@@ -196,35 +216,47 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                                         <div style={{ marginTop: '4px', fontSize: '10px', opacity: 0.8 }}>{formatNumber(Number(item.quantidade_orcada || 0) > 0 ? (Number(item.anterior_quantidade || 0) / Number(item.quantidade_orcada || 0)) * 100 : 0)}%</div>
                                     </td>
 
-                                    {/* Atual */}
+                                    {/* Atual — itens-pai não recebem medição */}
                                     <td style={{ padding: '8px', textAlign: 'center', borderLeft: '1px solid var(--border-glass)' }}>
-                                        <input 
-                                            type="number" 
-                                            value={item.atual_quantidade === 0 ? '' : item.atual_quantidade} 
-                                            onChange={(e) => handleUpdate(index, 'atual_quantidade', e.target.value)}
-                                            disabled={medicao.status === 'Concluída'}
-                                            style={{
-                                                width: '60px', padding: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', 
-                                                borderRadius: '4px', color: 'white', textAlign: 'right', fontSize: '12px'
-                                            }} 
-                                            placeholder="0"
-                                        />
-                                    </td>
-                                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                                            <input 
-                                                type="number" 
-                                                value={item.atual_percentual === 0 ? '' : Number(item.atual_percentual).toFixed(2)} 
-                                                onChange={(e) => handleUpdate(index, 'atual_percentual', e.target.value)}
+                                        {(item as any).eh_pai ? (
+                                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                        ) : (
+                                            <input
+                                                type="number"
+                                                value={item.atual_quantidade === 0 ? '' : item.atual_quantidade}
+                                                onChange={(e) => handleUpdate(index, 'atual_quantidade', e.target.value)}
                                                 disabled={medicao.status === 'Concluída'}
                                                 style={{
-                                                    width: '50px', padding: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', 
-                                                    borderRadius: '4px', color: 'var(--accent-green)', textAlign: 'right', fontSize: '12px', fontWeight: 600
-                                                }} 
+                                                    width: '60px', padding: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)',
+                                                    borderRadius: '4px', color: 'white', textAlign: 'right', fontSize: '12px'
+                                                }}
                                                 placeholder="0"
                                             />
-                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>%</span>
-                                        </div>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: '8px', textAlign: 'center' }}>
+                                        {(item as any).eh_pai ? (
+                                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                        ) : (
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                                                <input
+                                                    type="number"
+                                                    value={item.atual_percentual === 0 ? '' : Number(item.atual_percentual).toFixed(2)}
+                                                    onChange={(e) => handleUpdate(index, 'atual_percentual', e.target.value)}
+                                                    disabled={medicao.status === 'Concluída'}
+                                                    style={{
+                                                        width: '50px', padding: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)',
+                                                        borderRadius: '4px', color: 'var(--accent-green)', textAlign: 'right', fontSize: '12px', fontWeight: 600
+                                                    }}
+                                                    placeholder="0"
+                                                />
+                                                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>%</span>
+                                            </div>
+                                        )}
+                                    </td>
+                                    {/* Valor no período (atual) */}
+                                    <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', fontWeight: 600, color: 'var(--accent-green)' }}>
+                                        {(item as any).eh_pai ? '' : formatCurrency(Number(item.atual_valor || 0))}
                                     </td>
 
                                     {/* Acumulado */}
@@ -241,6 +273,18 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                             )
                         })}
                     </tbody>
+                    <tfoot>
+                        <tr style={{ borderTop: '2px solid var(--border-glass)', background: 'rgba(0,0,0,0.25)', fontWeight: 700 }}>
+                            <td colSpan={4} style={{ padding: '12px', fontSize: '12px', textAlign: 'right', color: 'var(--text-muted)' }}>TOTAIS</td>
+                            <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', borderLeft: '1px solid var(--border-glass)' }}>{formatCurrency(totalOrcado)}</td>
+                            <td></td>
+                            <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', color: 'var(--accent-blue-light)', borderLeft: '1px solid var(--border-glass)' }}>{formatCurrency(itens.reduce((a, i) => a + Number(i.anterior_valor || 0), 0))}</td>
+                            <td colSpan={2} style={{ borderLeft: '1px solid var(--border-glass)' }}></td>
+                            <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', color: 'var(--accent-green)' }}>{formatCurrency(totalPeriodo)}</td>
+                            <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', borderLeft: '1px solid var(--border-glass)' }}>{formatCurrency(totalMedidoAcum)}</td>
+                            <td style={{ padding: '12px', fontSize: '12px', textAlign: 'right', color: 'var(--accent-red)', borderLeft: '1px solid var(--border-glass)' }}>{formatCurrency(totalOrcado - totalMedidoAcum)}</td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
             <style jsx>{`
