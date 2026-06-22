@@ -623,6 +623,11 @@ export type Database = {
                     obra_id: string | null
                     valor_medicao: number
                     mes_recebimento: string
+                    tipo: string
+                    nota_fiscal: string | null
+                    observacoes: string | null
+                    percentual_recebido: number | null
+                    mes_recebimento_real: string | null
                     created_at: string | null
                 }
                 Insert: {
@@ -630,6 +635,11 @@ export type Database = {
                     obra_id?: string | null
                     valor_medicao: number
                     mes_recebimento: string
+                    tipo?: string
+                    nota_fiscal?: string | null
+                    observacoes?: string | null
+                    percentual_recebido?: number | null
+                    mes_recebimento_real?: string | null
                     created_at?: string | null
                 }
                 Update: {
@@ -637,6 +647,11 @@ export type Database = {
                     obra_id?: string | null
                     valor_medicao?: number
                     mes_recebimento?: string
+                    tipo?: string
+                    nota_fiscal?: string | null
+                    observacoes?: string | null
+                    percentual_recebido?: number | null
+                    mes_recebimento_real?: string | null
                     created_at?: string | null
                 }
                 Relationships: []

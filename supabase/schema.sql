@@ -142,7 +142,12 @@ CREATE TABLE public.controle_medicoes (
   obra_id uuid,
   valor_medicao numeric NOT NULL,
   mes_recebimento date NOT NULL,
-  created_at timestamp with time zone DEFAULT now()
+  created_at timestamp with time zone DEFAULT now(),
+  tipo text DEFAULT 'previsao'::text NOT NULL,
+  nota_fiscal text,
+  observacoes text,
+  percentual_recebido numeric,
+  mes_recebimento_real date
 );
 ALTER TABLE public.controle_medicoes ADD CONSTRAINT controle_medicoes_pkey PRIMARY KEY (id);
 ALTER TABLE public.controle_medicoes ADD CONSTRAINT controle_medicoes_obra_id_fkey FOREIGN KEY (obra_id) REFERENCES obras(id) ON DELETE CASCADE;

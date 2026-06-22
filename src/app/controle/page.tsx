@@ -25,7 +25,7 @@ export default async function ControlePage() {
 
     const { data: medicoes } = await supabase
         .from('controle_medicoes')
-        .select('id, obra_id, valor_medicao, mes_recebimento, created_at, obra:obras(id, nome, codigo, cidade)')
+        .select('id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, created_at, obra:obras(id, nome, codigo, cidade)')
         .order('mes_recebimento', { ascending: true })
 
     return (
