@@ -173,7 +173,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                             const saldoQtd = Number(item.quantidade_orcada || 0) - acumuladoQtd
 
                             return (
-                                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-glass)', transition: 'background 0.1s' }} className="table-row-hover">
+                                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-glass)', transition: 'background 0.1s', ...((item as any).eh_pai ? { background: 'rgba(99,102,241,0.16)', fontWeight: 700 } : {}) }} className={(item as any).eh_pai ? '' : 'table-row-hover'}>
                                     <td style={{ padding: '12px', fontSize: '12px' }}>
                                         <div style={{ fontWeight: 600 }}>{item.codigo}</div>
                                         <div style={{ color: 'var(--text-secondary)', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.descricao}>

@@ -347,6 +347,7 @@ export type Database = {
                     valor_total_orcado: number | null
                     peso_percentual: number | null
                     created_at: string | null
+                    eh_pai: boolean
                 }
                 Insert: {
                     id?: string
@@ -359,6 +360,7 @@ export type Database = {
                     valor_total_orcado?: number | null
                     peso_percentual?: number | null
                     created_at?: string | null
+                    eh_pai?: boolean
                 }
                 Update: {
                     id?: string
@@ -371,6 +373,7 @@ export type Database = {
                     valor_total_orcado?: number | null
                     peso_percentual?: number | null
                     created_at?: string | null
+                    eh_pai?: boolean
                 }
                 Relationships: []
             }

@@ -52,11 +52,15 @@ export default function NovaObraPage() {
                 throw new Error(data.error || 'Erro ao importar obra')
             }
 
-            setSuccess('Obra e orçamento importados com sucesso!')
+            const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+            const aviso = data.confere === false
+                ? ` ⚠️ ATENÇÃO: o total da planilha (${fmt(data.total_planilha)}) não bateu com o cadastrado (${fmt(data.total_cadastrado)}). Confira a planilha.`
+                : ` Total conferido: ${fmt(data.total_cadastrado)} (${data.items_count} itens).`
+            setSuccess('Obra e orçamento importados com sucesso!' + aviso)
             setTimeout(() => {
                 router.push('/obras-eng')
                 router.refresh()
-            }, 2000)
+            }, data.confere === false ? 6000 : 2500)
         } catch (err: any) {
             setError(err.message)
             setLoading(false)
@@ -218,8 +222,11 @@ export default function NovaObraPage() {
                                 </>
                             )}
                         </label>
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                            A planilha deve conter as colunas: Código, Descrição, Unidade, Qtde, Vl. Unit, Vl. Total, Peso %.
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', lineHeight: 1.5 }}>
+                            Colunas: <strong>Item</strong>, <strong>Descrição</strong>, <strong>Un.</strong>, <strong>Quant.</strong>, <strong>Preço Un.</strong>, <strong>Total</strong>. Itens-pai (cabeçalhos) ficam com <strong>Un.</strong> e <strong>Quant.</strong> vazias.{' '}
+                            <a href="/modelo-orcamento-obra.xlsx" download style={{ color: 'var(--accent-green-light, #34d399)', fontWeight: 600, textDecoration: 'underline' }}>
+                                Baixar modelo
+                            </a>
                         </p>
                     </div>
 

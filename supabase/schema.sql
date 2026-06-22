@@ -93,7 +93,8 @@ CREATE TABLE public.itens_orcamento (
   valor_unitario_orcado numeric(15,4) DEFAULT 0,
   valor_total_orcado numeric(15,4) DEFAULT 0,
   peso_percentual numeric(5,2) DEFAULT 0,
-  created_at timestamp with time zone DEFAULT now()
+  created_at timestamp with time zone DEFAULT now(),
+  eh_pai boolean DEFAULT false NOT NULL
 );
 ALTER TABLE public.itens_orcamento ADD CONSTRAINT itens_orcamento_obra_id_fkey FOREIGN KEY (obra_id) REFERENCES obras_eng(id) ON DELETE CASCADE;
 ALTER TABLE public.itens_orcamento ADD CONSTRAINT itens_orcamento_pkey PRIMARY KEY (id);
