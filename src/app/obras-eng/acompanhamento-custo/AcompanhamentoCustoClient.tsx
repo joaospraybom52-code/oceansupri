@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Wallet } from 'lucide-react'
+import { Wallet, X, Package } from 'lucide-react'
 
 interface Linha {
     obra_plt: string
@@ -22,6 +22,14 @@ interface Orcamento {
     item_plt: string
     insumo: string
     valor_planejado: number | null
+}
+
+interface Material {
+    obra_plt: string
+    item_plt: string | null
+    descr_ins: string | null
+    material: string | null
+    valor: number | null
 }
 
 type Tipo = 'raiz' | 'subtotal' | 'servico' | 'insumo'
@@ -52,7 +60,7 @@ const ESTILO: Record<Tipo, React.CSSProperties> = {
 }
 const NIVEL: Record<Tipo, number> = { raiz: 0, subtotal: 1, servico: 2, insumo: 3 }
 
-export default function AcompanhamentoCustoClient({ linhas, orcamento }: { linhas: Linha[]; orcamento: Orcamento[] }) {
+export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais }: { linhas: Linha[]; orcamento: Orcamento[]; materiais: Material[] }) {
     const obras = useMemo(() => {
         const m = new Map<string, string>()
         for (const l of linhas) if (!m.has(l.obra_plt)) m.set(l.obra_plt, l.obra || l.obra_plt)
@@ -60,6 +68,15 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento }: { linha
     }, [linhas])
 
     const [obraSel, setObraSel] = useState(obras[0]?.codigo ?? '')
+    const [sel, setSel] = useState<{ item: string; descr: string } | null>(null)
+
+    const materiaisSel = useMemo(() => {
+        if (!sel) return []
+        return materiais
+            .filter(m => m.obra_plt === obraSel && (m.item_plt || '') === sel.item && (m.descr_ins || '').trim().toUpperCase() === sel.descr.trim().toUpperCase())
+            .sort((a, b) => Number(b.valor || 0) - Number(a.valor || 0))
+    }, [materiais, obraSel, sel])
+    const totalMateriais = materiaisSel.reduce((s, m) => s + Number(m.valor || 0), 0)
 
     const { rows, atualizado } = useMemo(() => {
         const ls = linhas.filter(l => l.obra_plt === obraSel)
@@ -115,7 +132,7 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento }: { linha
                     </h1>
                     <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Orçado × realizado por item (origem: UAU){atualizado ? ` · atualizado em ${new Date(atualizado).toLocaleString('pt-BR')}` : ''}</p>
                 </div>
-                <select value={obraSel} onChange={e => setObraSel(e.target.value)} className="select-field" style={{ minWidth: '260px' }}>
+                <select value={obraSel} onChange={e => { setObraSel(e.target.value); setSel(null) }} className="select-field" style={{ minWidth: '260px' }}>
                     {obras.map(o => <option key={o.codigo} value={o.codigo}>{o.nome}</option>)}
                 </select>
             </div>
@@ -125,42 +142,81 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento }: { linha
                     Nenhum dado de custo para esta obra.
                 </div>
             ) : (
-                <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
-                    <div style={{ overflowX: 'auto', maxHeight: '72vh' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr>
-                                    <th style={{ ...th, textAlign: 'left', width: '90px' }}>Item</th>
-                                    <th style={{ ...th, textAlign: 'left' }}>Descrição</th>
-                                    <th style={th}>Planejado</th>
-                                    <th style={th}>Custo</th>
-                                    <th style={th}>Vinculado</th>
-                                    <th style={th}>Saldo</th>
-                                    <th style={{ ...th, textAlign: 'center' }}>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rows.map((r, i) => {
-                                    const saldo = r.planej - r.aprov - r.vinc
-                                    const st = status(r.planej, saldo)
-                                    const base = ESTILO[r.tipo]
-                                    return (
-                                        <tr key={i} style={{ ...base, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <td style={{ ...td, textAlign: 'left', fontWeight: r.tipo === 'insumo' ? 400 : 700 }}>{r.item}</td>
-                                            <td style={{ ...td, textAlign: 'left', paddingLeft: `${12 + NIVEL[r.tipo] * 16}px`, maxWidth: '360px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.descricao}</td>
-                                            <td style={td}>{fmt(r.planej)}</td>
-                                            <td style={td}>{fmt(r.aprov)}</td>
-                                            <td style={td}>{fmt(r.vinc)}</td>
-                                            <td style={td}>{fmt(saldo)}</td>
-                                            <td style={{ ...td, textAlign: 'center' }}>
-                                                {st.txt && <span style={{ background: st.bg, color: st.fg, padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700 }}>{st.txt}</span>}
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </table>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                    {/* Tabela de custo (encolhe quando o painel abre) */}
+                    <div className="glass-card" style={{ padding: '0', overflow: 'hidden', flex: sel ? '1 1 60%' : '1 1 100%', minWidth: 0 }}>
+                        <div style={{ overflowX: 'auto', maxHeight: '72vh' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ ...th, textAlign: 'left', width: '90px' }}>Item</th>
+                                        <th style={{ ...th, textAlign: 'left' }}>Descrição</th>
+                                        <th style={th}>Planejado</th>
+                                        <th style={th}>Custo</th>
+                                        <th style={th}>Vinculado</th>
+                                        <th style={th}>Saldo</th>
+                                        <th style={{ ...th, textAlign: 'center' }}>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {rows.map((r, i) => {
+                                        const saldo = r.planej - r.aprov - r.vinc
+                                        const st = status(r.planej, saldo)
+                                        const base = ESTILO[r.tipo]
+                                        const clicavel = r.tipo === 'insumo'
+                                        const ativo = sel && sel.item === r.item && sel.descr === r.descricao
+                                        return (
+                                            <tr key={i}
+                                                onClick={clicavel ? () => setSel(ativo ? null : { item: r.item, descr: r.descricao }) : undefined}
+                                                style={{ ...base, ...(ativo ? { background: 'rgba(99,102,241,0.22)' } : {}), borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: clicavel ? 'pointer' : 'default' }}>
+                                                <td style={{ ...td, textAlign: 'left', fontWeight: r.tipo === 'insumo' ? 400 : 700 }}>{r.item}</td>
+                                                <td style={{ ...td, textAlign: 'left', paddingLeft: `${12 + NIVEL[r.tipo] * 16}px`, maxWidth: '360px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {clicavel && <span style={{ color: 'var(--accent-blue, #818cf8)', marginRight: '6px' }}>›</span>}{r.descricao}
+                                                </td>
+                                                <td style={td}>{fmt(r.planej)}</td>
+                                                <td style={td}>{fmt(r.aprov)}</td>
+                                                <td style={td}>{fmt(r.vinc)}</td>
+                                                <td style={td}>{fmt(saldo)}</td>
+                                                <td style={{ ...td, textAlign: 'center' }}>
+                                                    {st.txt && <span style={{ background: st.bg, color: st.fg, padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700 }}>{st.txt}</span>}
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+
+                    {/* Painel de materiais do insumo selecionado */}
+                    {sel && (
+                        <div className="glass-card" style={{ padding: '20px', flex: '1 1 40%', minWidth: 0, maxHeight: '72vh', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                    <Package size={18} color="#10b981" />
+                                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Materiais do insumo</h3>
+                                </div>
+                                <button onClick={() => setSel(null)} title="Fechar" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={18} /></button>
+                            </div>
+                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>{sel.item} · {sel.descr}</p>
+                            {materiaisSel.length === 0 ? (
+                                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Sem materiais lançados para este insumo.</p>
+                            ) : (
+                                <div style={{ overflowY: 'auto', flex: 1 }}>
+                                    {materiaisSel.map((m, i) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', minWidth: 0 }}>{m.material}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(Number(m.valor || 0))}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', marginTop: '8px', paddingTop: '12px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)' }}>Total ({materiaisSel.length})</span>
+                                <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent-green)' }}>{fmt(totalMateriais)}</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

@@ -180,6 +180,19 @@ CREATE TABLE public.custo_uau (
 ALTER TABLE public.custo_uau ADD CONSTRAINT custo_uau_pkey PRIMARY KEY (id);
 CREATE INDEX custo_uau_obra_idx ON public.custo_uau USING btree (obra_plt, ordem);
 
+CREATE TABLE public.custo_materiais (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  obra_plt text NOT NULL,
+  item_plt text,
+  descr_ins text,
+  material text,
+  valor numeric,
+  ordem integer,
+  atualizado_em timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.custo_materiais ADD CONSTRAINT custo_materiais_pkey PRIMARY KEY (id);
+CREATE INDEX custo_materiais_idx ON public.custo_materiais USING btree (obra_plt, item_plt, descr_ins);
+
 CREATE TABLE public.custo_orcamento (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   obra_plt text NOT NULL,

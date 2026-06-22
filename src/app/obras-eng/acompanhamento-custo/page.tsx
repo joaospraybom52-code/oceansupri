@@ -16,5 +16,10 @@ export default async function AcompanhamentoCustoPage() {
         .from('custo_orcamento')
         .select('obra_plt, item_plt, insumo, valor_planejado')
 
-    return <AcompanhamentoCustoClient linhas={(linhas as any) ?? []} orcamento={(orcamento as any) ?? []} />
+    const { data: materiais } = await supabase
+        .from('custo_materiais')
+        .select('obra_plt, item_plt, descr_ins, material, valor')
+        .order('valor', { ascending: false })
+
+    return <AcompanhamentoCustoClient linhas={(linhas as any) ?? []} orcamento={(orcamento as any) ?? []} materiais={(materiais as any) ?? []} />
 }
