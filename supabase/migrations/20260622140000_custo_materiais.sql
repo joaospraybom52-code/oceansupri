@@ -4,9 +4,11 @@ CREATE TABLE IF NOT EXISTS public.custo_materiais (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   obra_plt text NOT NULL,
   item_plt text,
-  descr_ins text,        -- insumo (UPPER) — casa com custo_uau.insumo
-  material text,         -- DescItemProc_Des (material pedido)
-  valor numeric,         -- Aprovado (TotalLiq_Des) do material
+  serv_plt text,
+  ins_cins text,         -- código do insumo — casa com custo_uau.ins_cins (item+ins_cins)
+  descr_ins text,        -- descrição do insumo (UPPER)
+  material text,         -- DescItemProc_Des (material do desembolso)
+  valor numeric,         -- SUM(TotalLiq_Des) do material (mesma fonte da coluna Custo)
   ordem integer,
   atualizado_em timestamptz DEFAULT now()
 );

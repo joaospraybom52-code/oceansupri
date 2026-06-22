@@ -184,6 +184,8 @@ CREATE TABLE public.custo_materiais (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   obra_plt text NOT NULL,
   item_plt text,
+  serv_plt text,
+  ins_cins text,
   descr_ins text,
   material text,
   valor numeric,
