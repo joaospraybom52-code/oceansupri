@@ -132,9 +132,28 @@ CREATE TABLE public.obras (
   endereco text,
   engenheiro_responsavel text,
   ativo boolean DEFAULT true,
-  created_at timestamp with time zone DEFAULT now()
+  created_at timestamp with time zone DEFAULT now(),
+  cidade text
 );
 ALTER TABLE public.obras ADD CONSTRAINT obras_pkey PRIMARY KEY (id);
+
+CREATE TABLE public.controle_medicoes (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  obra_id uuid,
+  valor_medicao numeric NOT NULL,
+  mes_recebimento date NOT NULL,
+  created_at timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.controle_medicoes ADD CONSTRAINT controle_medicoes_pkey PRIMARY KEY (id);
+ALTER TABLE public.controle_medicoes ADD CONSTRAINT controle_medicoes_obra_id_fkey FOREIGN KEY (obra_id) REFERENCES obras(id) ON DELETE CASCADE;
+
+CREATE TABLE public.permissao_modulocontrole (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  email text NOT NULL,
+  created_at timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.permissao_modulocontrole ADD CONSTRAINT permissao_modulocontrole_pkey PRIMARY KEY (id);
+ALTER TABLE public.permissao_modulocontrole ADD CONSTRAINT permissao_modulocontrole_email_key UNIQUE (email);
 
 CREATE TABLE public.obras_eng (
   id uuid DEFAULT gen_random_uuid() NOT NULL,

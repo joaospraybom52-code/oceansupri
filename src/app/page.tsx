@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, HardHat, ArrowRight, Lock } from 'lucide-react'
+import { Package, HardHat, ArrowRight, Lock, LineChart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface ModuleCard {
@@ -34,6 +34,15 @@ const modules: ModuleCard[] = [
         glowColor: 'rgba(16, 185, 129, 0.3)',
         href: '/login?modulo=obras',
     },
+    {
+        id: 'controle',
+        title: 'Controle',
+        subtitle: 'Previsão de Medições a Receber',
+        icon: <LineChart size={32} />,
+        gradient: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+        glowColor: 'rgba(245, 158, 11, 0.3)',
+        href: '/login?modulo=controle',
+    },
 ]
 
 export default function LauncherPage() {
@@ -58,6 +67,8 @@ export default function LauncherPage() {
         if (isLoggedIn) {
             if (mod.id === 'suprimentos') {
                 window.location.href = '/board'
+            } else if (mod.id === 'controle') {
+                window.location.href = '/controle'
             } else {
                 window.location.href = '/obras-eng'
             }

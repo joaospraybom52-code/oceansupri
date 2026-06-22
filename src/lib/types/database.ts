@@ -138,6 +138,7 @@ export type Database = {
             obras: {
                 Row: {
                     ativo: boolean | null
+                    cidade: string | null
                     codigo: string | null
                     created_at: string | null
                     endereco: string | null
@@ -147,6 +148,7 @@ export type Database = {
                 }
                 Insert: {
                     ativo?: boolean | null
+                    cidade?: string | null
                     codigo?: string | null
                     created_at?: string | null
                     endereco?: string | null
@@ -156,6 +158,7 @@ export type Database = {
                 }
                 Update: {
                     ativo?: boolean | null
+                    cidade?: string | null
                     codigo?: string | null
                     created_at?: string | null
                     endereco?: string | null
@@ -614,6 +617,48 @@ export type Database = {
                 }
                 Relationships: []
             }
+            controle_medicoes: {
+                Row: {
+                    id: string
+                    obra_id: string | null
+                    valor_medicao: number
+                    mes_recebimento: string
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    obra_id?: string | null
+                    valor_medicao: number
+                    mes_recebimento: string
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    obra_id?: string | null
+                    valor_medicao?: number
+                    mes_recebimento?: string
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
+            permissao_modulocontrole: {
+                Row: {
+                    id: string
+                    email: string
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    email: string
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    email?: string
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
         }
         Views: {
             [_ in never]: never
@@ -659,6 +704,8 @@ export type Tarefa = Database["public"]["Tables"]["tarefas"]["Row"]
 export type Restricao = Database["public"]["Tables"]["restricoes"]["Row"]
 export type Analise5w2h = Database["public"]["Tables"]["analises_5w2h"]["Row"]
 export type PermissaoObra = Database["public"]["Tables"]["permissoes_obras"]["Row"]
+export type ControleMedicao = Database["public"]["Tables"]["controle_medicoes"]["Row"]
+export type PermissaoModuloControle = Database["public"]["Tables"]["permissao_modulocontrole"]["Row"]
 
 // PedidoCompra with joined relations
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

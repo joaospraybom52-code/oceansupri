@@ -69,8 +69,31 @@ export async function updateSession(request: NextRequest) {
             }
         }
 
+        // Controle de acesso ao módulo Controle
+        if (request.nextUrl.pathname.startsWith('/controle')) {
+            let permissaoControle = null
+            try {
+                if (user.email) {
+                    const { data } = await supabase
+                        .from('permissao_modulocontrole')
+                        .select('email')
+                        .eq('email', user.email)
+                        .single()
+                    permissaoControle = data
+                }
+            } catch (err) {
+                console.error('Middleware check access (controle) error:', err)
+            }
+
+            if (!permissaoControle) {
+                const url = request.nextUrl.clone()
+                url.pathname = '/sem-acesso'
+                return NextResponse.redirect(url)
+            }
+        }
+
         // Verifica se é visualizador (regra existente do Suprimentos)
-        if (!request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/obras-eng')) {
+        if (!request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/obras-eng') && !request.nextUrl.pathname.startsWith('/controle')) {
             const { data: isVisualizador } = await supabase
                 .from('visualizadores')
                 .select('id')
