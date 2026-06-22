@@ -150,10 +150,20 @@ ALTER TABLE public.controle_medicoes ADD CONSTRAINT controle_medicoes_obra_id_fk
 CREATE TABLE public.permissao_modulocontrole (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   email text NOT NULL,
+  pode_editar boolean DEFAULT false NOT NULL,
   created_at timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public.permissao_modulocontrole ADD CONSTRAINT permissao_modulocontrole_pkey PRIMARY KEY (id);
 ALTER TABLE public.permissao_modulocontrole ADD CONSTRAINT permissao_modulocontrole_email_key UNIQUE (email);
+
+ALTER TABLE public.controle_medicoes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY controle_select ON public.controle_medicoes FOR SELECT TO authenticated USING (true);
+CREATE POLICY controle_insert ON public.controle_medicoes FOR INSERT TO authenticated
+  WITH CHECK (auth.email() IN (SELECT email FROM public.permissao_modulocontrole WHERE pode_editar = true));
+CREATE POLICY controle_update ON public.controle_medicoes FOR UPDATE TO authenticated
+  USING (auth.email() IN (SELECT email FROM public.permissao_modulocontrole WHERE pode_editar = true));
+CREATE POLICY controle_delete ON public.controle_medicoes FOR DELETE TO authenticated
+  USING (auth.email() IN (SELECT email FROM public.permissao_modulocontrole WHERE pode_editar = true));
 
 CREATE TABLE public.obras_eng (
   id uuid DEFAULT gen_random_uuid() NOT NULL,

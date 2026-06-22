@@ -645,16 +645,19 @@ export type Database = {
                 Row: {
                     id: string
                     email: string
+                    pode_editar: boolean
                     created_at: string | null
                 }
                 Insert: {
                     id?: string
                     email: string
+                    pode_editar?: boolean
                     created_at?: string | null
                 }
                 Update: {
                     id?: string
                     email?: string
+                    pode_editar?: boolean
                     created_at?: string | null
                 }
                 Relationships: []

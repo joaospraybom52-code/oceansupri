@@ -54,7 +54,7 @@ const iconBtnStyle: React.CSSProperties = {
     cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0,
 }
 
-export default function ControleClient({ obras, medicoesIniciais }: { obras: Obra[]; medicoesIniciais: Medicao[] }) {
+export default function ControleClient({ obras, medicoesIniciais, podeEditar }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean }) {
     const supabase = createClient()
     const [medicoes, setMedicoes] = useState<Medicao[]>(medicoesIniciais)
 
@@ -182,9 +182,11 @@ export default function ControleClient({ obras, medicoesIniciais }: { obras: Obr
                     <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '4px' }}>Previsão de Recebimentos</h1>
                     <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Quanto vamos receber de medição por mês</p>
                 </div>
-                <button onClick={abrirCadastro} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Plus size={16} /> Cadastrar Medição
-                </button>
+                {podeEditar && (
+                    <button onClick={abrirCadastro} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Plus size={16} /> Cadastrar Medição
+                    </button>
+                )}
             </div>
 
             {/* KPIs */}
@@ -281,8 +283,12 @@ export default function ControleClient({ obras, medicoesIniciais }: { obras: Obr
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                                         <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-green)', whiteSpace: 'nowrap' }}>{formatCurrency(Number(m.valor_medicao))}</span>
-                                        <button onClick={() => abrirEdicao(m)} title="Editar" style={iconBtnStyle}><Pencil size={14} /></button>
-                                        <button onClick={() => handleExcluir(m)} title="Excluir" style={{ ...iconBtnStyle, color: 'var(--accent-red, #ef4444)' }}><Trash2 size={14} /></button>
+                                        {podeEditar && (
+                                            <>
+                                                <button onClick={() => abrirEdicao(m)} title="Editar" style={iconBtnStyle}><Pencil size={14} /></button>
+                                                <button onClick={() => handleExcluir(m)} title="Excluir" style={{ ...iconBtnStyle, color: 'var(--accent-red, #ef4444)' }}><Trash2 size={14} /></button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             ))}
