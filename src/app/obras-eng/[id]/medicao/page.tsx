@@ -15,6 +15,21 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
         .eq('obra_id', id)
         .order('periodo_inicio', { ascending: false })
 
+    // Soma do valor medido por medição
+    const totaisPorMedicao: Record<string, number> = {}
+    const ids = (medicoes ?? []).map(m => m.id)
+    if (ids.length > 0) {
+        const { data: itensMed } = await supabase
+            .from('medicao_itens')
+            .select('medicao_id, valor_medido')
+            .in('medicao_id', ids)
+        for (const it of itensMed ?? []) {
+            const mid = (it as { medicao_id: string | null }).medicao_id
+            if (mid) totaisPorMedicao[mid] = (totaisPorMedicao[mid] || 0) + Number((it as { valor_medido: number | null }).valor_medido || 0)
+        }
+    }
+    const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -48,6 +63,7 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
                                 <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-muted)' }}>PERÍODO</th>
                                 <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-muted)' }}>STATUS</th>
                                 <th style={{ padding: '16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-muted)' }}>DATA DE CRIAÇÃO</th>
+                                <th style={{ padding: '16px', textAlign: 'right', fontSize: '12px', color: 'var(--text-muted)' }}>VALOR MEDIDO</th>
                                 <th style={{ padding: '16px', textAlign: 'right', fontSize: '12px', color: 'var(--text-muted)' }}>AÇÕES</th>
                             </tr>
                         </thead>
@@ -69,6 +85,9 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
                                     </td>
                                     <td style={{ padding: '16px', fontSize: '14px', color: 'var(--text-secondary)' }}>
                                         {new Date(med.created_at || '').toLocaleDateString('pt-BR')}
+                                    </td>
+                                    <td style={{ padding: '16px', fontSize: '14px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-green)' }}>
+                                        {fmt(totaisPorMedicao[med.id] || 0)}
                                     </td>
                                     <td style={{ padding: '16px', textAlign: 'right' }}>
                                         <Link href={`/obras-eng/${id}/medicao/${med.id}`} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none' }}>
