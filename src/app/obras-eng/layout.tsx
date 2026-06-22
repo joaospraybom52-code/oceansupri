@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { HardHat, LayoutDashboard, ArrowLeftRight, LogOut, List } from 'lucide-react'
+import { HardHat, LayoutDashboard, ArrowLeftRight, LogOut, List, Wallet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Toaster } from 'sonner'
 
 const navItems = [
     { href: '/obras-eng', label: 'Obras', icon: List, exact: true },
     { href: '/obras-eng/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/obras-eng/acompanhamento-custo', label: 'Acompanhamento de Custo', icon: Wallet },
 ]
 
 export default function ObrasLayout({ children }: { children: React.ReactNode }) {

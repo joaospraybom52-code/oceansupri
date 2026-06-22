@@ -656,6 +656,36 @@ export type Database = {
                 }
                 Relationships: []
             }
+            custo_uau: {
+                Row: {
+                    id: string
+                    obra_plt: string
+                    obra: string | null
+                    empresa_plt: number | null
+                    prod_plt: number | null
+                    contrato_plt: number | null
+                    item_plt: string | null
+                    serv_plt: string | null
+                    unid_plt: string | null
+                    ins_cins: string | null
+                    servico: string | null
+                    insumo: string | null
+                    unid_ins: string | null
+                    valor_planej: number | null
+                    valor_planej_ins: number | null
+                    valor_aprov: number | null
+                    valor_aprov_ins: number | null
+                    saldo_vlr_vinc: number | null
+                    saldo_vlr_vinc_ins: number | null
+                    data_inicial: string | null
+                    data_final: string | null
+                    ordem: number | null
+                    atualizado_em: string | null
+                }
+                Insert: { [k: string]: unknown }
+                Update: { [k: string]: unknown }
+                Relationships: []
+            }
             permissao_modulocontrole: {
                 Row: {
                     id: string
@@ -723,6 +753,7 @@ export type Restricao = Database["public"]["Tables"]["restricoes"]["Row"]
 export type Analise5w2h = Database["public"]["Tables"]["analises_5w2h"]["Row"]
 export type PermissaoObra = Database["public"]["Tables"]["permissoes_obras"]["Row"]
 export type ControleMedicao = Database["public"]["Tables"]["controle_medicoes"]["Row"]
+export type CustoUau = Database["public"]["Tables"]["custo_uau"]["Row"]
 export type PermissaoModuloControle = Database["public"]["Tables"]["permissao_modulocontrole"]["Row"]
 
 // PedidoCompra with joined relations

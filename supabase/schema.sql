@@ -152,6 +152,34 @@ CREATE TABLE public.controle_medicoes (
 ALTER TABLE public.controle_medicoes ADD CONSTRAINT controle_medicoes_pkey PRIMARY KEY (id);
 ALTER TABLE public.controle_medicoes ADD CONSTRAINT controle_medicoes_obra_id_fkey FOREIGN KEY (obra_id) REFERENCES obras(id) ON DELETE CASCADE;
 
+CREATE TABLE public.custo_uau (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  obra_plt text NOT NULL,
+  obra text,
+  empresa_plt integer,
+  prod_plt integer,
+  contrato_plt integer,
+  item_plt text,
+  serv_plt text,
+  unid_plt text,
+  ins_cins text,
+  servico text,
+  insumo text,
+  unid_ins text,
+  valor_planej numeric,
+  valor_planej_ins numeric,
+  valor_aprov numeric,
+  valor_aprov_ins numeric,
+  saldo_vlr_vinc numeric,
+  saldo_vlr_vinc_ins numeric,
+  data_inicial date,
+  data_final date,
+  ordem integer,
+  atualizado_em timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.custo_uau ADD CONSTRAINT custo_uau_pkey PRIMARY KEY (id);
+CREATE INDEX custo_uau_obra_idx ON public.custo_uau USING btree (obra_plt, ordem);
+
 CREATE TABLE public.permissao_modulocontrole (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   email text NOT NULL,
