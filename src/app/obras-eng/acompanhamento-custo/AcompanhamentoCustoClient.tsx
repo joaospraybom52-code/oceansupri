@@ -10,6 +10,7 @@ interface Linha {
     serv_plt: string | null
     servico: string | null
     insumo: string | null
+    ins_cins: string | null
     unid_ins: string | null
     valor_aprov: number | null
     saldo_vlr_vinc: number | null
@@ -27,7 +28,7 @@ interface Orcamento {
 interface Material {
     obra_plt: string
     item_plt: string | null
-    descr_ins: string | null
+    ins_cins: string | null
     material: string | null
     valor: number | null
 }
@@ -37,6 +38,7 @@ interface DisplayRow {
     tipo: Tipo
     item: string
     descricao: string
+    ins_cins: string
     planej: number
     aprov: number
     vinc: number
@@ -68,12 +70,12 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
     }, [linhas])
 
     const [obraSel, setObraSel] = useState(obras[0]?.codigo ?? '')
-    const [sel, setSel] = useState<{ item: string; descr: string } | null>(null)
+    const [sel, setSel] = useState<{ item: string; descr: string; ins_cins: string } | null>(null)
 
     const materiaisSel = useMemo(() => {
         if (!sel) return []
         return materiais
-            .filter(m => m.obra_plt === obraSel && (m.item_plt || '') === sel.item && (m.descr_ins || '').trim().toUpperCase() === sel.descr.trim().toUpperCase())
+            .filter(m => m.obra_plt === obraSel && (m.item_plt || '') === sel.item && (m.ins_cins || '') === sel.ins_cins)
             .sort((a, b) => Number(b.valor || 0) - Number(a.valor || 0))
     }, [materiais, obraSel, sel])
     const totalMateriais = materiaisSel.reduce((s, m) => s + Number(m.valor || 0), 0)
@@ -104,16 +106,16 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
         for (const l of ls) {
             const item = l.item_plt || ''
             if (String(l.serv_plt) === '-1') {
-                out.push({ tipo: dots(item) === 0 ? 'raiz' : 'subtotal', item, descricao: l.servico || '', planej: planejPrefixo(item), aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
+                out.push({ tipo: dots(item) === 0 ? 'raiz' : 'subtotal', item, descricao: l.servico || '', ins_cins: '', planej: planejPrefixo(item), aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
                 lastServ = null
             } else {
                 if (item !== lastServ) {
                     const t = servTot[item]
-                    out.push({ tipo: 'servico', item, descricao: t?.nome || l.servico || '', planej: planejPrefixo(item), aprov: t?.aprov || 0, vinc: t?.vinc || 0 })
+                    out.push({ tipo: 'servico', item, descricao: t?.nome || l.servico || '', ins_cins: '', planej: planejPrefixo(item), aprov: t?.aprov || 0, vinc: t?.vinc || 0 })
                     lastServ = item
                 }
                 const planej = planejInsumo.get(`${item}|${(l.insumo || '').trim().toUpperCase()}`) ?? 0
-                out.push({ tipo: 'insumo', item, descricao: l.insumo || '', planej, aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
+                out.push({ tipo: 'insumo', item, descricao: l.insumo || '', ins_cins: l.ins_cins || '', planej, aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
             }
         }
         const at = ls[0]?.atualizado_em ?? null
@@ -164,10 +166,10 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                                         const st = status(r.planej, saldo)
                                         const base = ESTILO[r.tipo]
                                         const clicavel = r.tipo === 'insumo'
-                                        const ativo = sel && sel.item === r.item && sel.descr === r.descricao
+                                        const ativo = sel && sel.item === r.item && sel.ins_cins === r.ins_cins
                                         return (
                                             <tr key={i}
-                                                onClick={clicavel ? () => setSel(ativo ? null : { item: r.item, descr: r.descricao }) : undefined}
+                                                onClick={clicavel ? () => setSel(ativo ? null : { item: r.item, descr: r.descricao, ins_cins: r.ins_cins }) : undefined}
                                                 style={{ ...base, ...(ativo ? { background: 'rgba(99,102,241,0.22)' } : {}), borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: clicavel ? 'pointer' : 'default' }}>
                                                 <td style={{ ...td, textAlign: 'left', fontWeight: r.tipo === 'insumo' ? 400 : 700 }}>{r.item}</td>
                                                 <td style={{ ...td, textAlign: 'left', paddingLeft: `${12 + NIVEL[r.tipo] * 16}px`, maxWidth: '360px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
