@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import {
     LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { Plus, X, LineChart, TrendingUp, Building2, Wallet, Pencil, Trash2, CheckCircle2 } from 'lucide-react'
+import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -194,16 +194,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
         return Object.keys(map).sort().map(ym => ({ ym, label: ymLabel(ym), ...map[ym] }))
     }, [medicoesFiltradas])
 
-    // KPIs
-    const totalPrevisto = medicoesFiltradas.filter(m => !isRecebida(m)).reduce((s, m) => s + Number(m.valor_medicao || 0), 0)
+    // KPIs: "A receber" = só nota emitida ainda não recebida; "Já recebido" = o que foi recebido
+    const totalAReceber = medicoesFiltradas.filter(m => m.tipo === 'emitida' && !isRecebida(m)).reduce((s, m) => s + Number(m.valor_medicao || 0), 0)
     const totalRecebido = medicoesFiltradas.filter(isRecebida).reduce((s, m) => s + valorRecebido(m), 0)
-    const proximoMesYm = useMemo(() => {
-        const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + 1)
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    }, [])
-    const totalProximoMes = medicoes
-        .filter(m => !isRecebida(m) && toYm(m.mes_recebimento) === proximoMesYm)
-        .reduce((s, m) => s + Number(m.valor_medicao || 0), 0)
 
     const limparFiltros = () => { setFiltroCodigo(''); setFiltroDe(''); setFiltroAte('') }
 
@@ -224,9 +217,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
 
             {/* KPIs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                <KpiCard icon={Wallet} color="#6366f1" label="A receber (previsto)" value={formatCurrency(totalPrevisto)} />
+                <KpiCard icon={Wallet} color="#f59e0b" label="A receber (nota emitida)" value={formatCurrency(totalAReceber)} />
                 <KpiCard icon={CheckCircle2} color="#10b981" label="Já recebido (filtro)" value={formatCurrency(totalRecebido)} />
-                <KpiCard icon={TrendingUp} color="#f59e0b" label={`Próximo mês (${ymLabel(proximoMesYm)})`} value={formatCurrency(totalProximoMes)} />
             </div>
 
             {/* Filtros */}
@@ -339,8 +331,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                         </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', marginTop: '12px', paddingTop: '12px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Total previsto</span>
-                        <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(totalPrevisto)}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Total (filtro)</span>
+                        <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(medicoesFiltradas.reduce((s, m) => s + Number(m.valor_medicao || 0), 0))}</span>
                     </div>
                 </div>
             </div>
