@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import {
     LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { Plus, X, LineChart, TrendingUp, Building2, Wallet } from 'lucide-react'
+import { Plus, X, LineChart, TrendingUp, Building2, Wallet, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -48,6 +48,12 @@ const tooltipStyle: React.CSSProperties = {
     border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '12px 16px',
 }
 
+const iconBtnStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)', borderRadius: '6px',
+    width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0,
+}
+
 export default function ControleClient({ obras, medicoesIniciais }: { obras: Obra[]; medicoesIniciais: Medicao[] }) {
     const supabase = createClient()
     const [medicoes, setMedicoes] = useState<Medicao[]>(medicoesIniciais)
@@ -57,11 +63,35 @@ export default function ControleClient({ obras, medicoesIniciais }: { obras: Obr
     const [filtroDe, setFiltroDe] = useState('')   // YYYY-MM
     const [filtroAte, setFiltroAte] = useState('')  // YYYY-MM
 
-    // Modal cadastro
+    // Modal cadastro/edição
     const [showModal, setShowModal] = useState(false)
+    const [editId, setEditId] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [form, setForm] = useState({ obra_id: '', valor: '', mes: '' })
     const obraSelecionada = obras.find(o => o.id === form.obra_id) || null
+
+    function abrirCadastro() {
+        setEditId(null)
+        setForm({ obra_id: '', valor: '', mes: '' })
+        setShowModal(true)
+    }
+
+    function abrirEdicao(m: Medicao) {
+        setEditId(m.id)
+        setForm({ obra_id: m.obra_id ?? '', valor: String(m.valor_medicao ?? ''), mes: toYm(m.mes_recebimento) })
+        setShowModal(true)
+    }
+
+    async function handleExcluir(m: Medicao) {
+        if (!window.confirm(`Excluir a medição de ${m.obra?.nome ?? 'obra'} (${formatCurrency(Number(m.valor_medicao))})?`)) return
+        const { error } = await supabase.from('controle_medicoes').delete().eq('id', m.id)
+        if (error) {
+            toast.error('Erro ao excluir: ' + error.message)
+        } else {
+            setMedicoes(medicoes.filter(x => x.id !== m.id))
+            toast.success('Medição excluída!')
+        }
+    }
 
     const medicoesFiltradas = useMemo(() => {
         return medicoes.filter(m => {
@@ -107,20 +137,39 @@ export default function ControleClient({ obras, medicoesIniciais }: { obras: Obr
             valor_medicao: Number(form.valor),
             mes_recebimento: `${form.mes}-01`,
         }
-        const { data, error } = await supabase
-            .from('controle_medicoes')
-            .insert(payload)
-            .select('id, obra_id, valor_medicao, mes_recebimento, created_at')
-            .single()
 
-        if (error) {
-            toast.error('Erro ao salvar: ' + error.message)
+        if (editId) {
+            const { data, error } = await supabase
+                .from('controle_medicoes')
+                .update(payload)
+                .eq('id', editId)
+                .select('id, obra_id, valor_medicao, mes_recebimento, created_at')
+                .single()
+            if (error) {
+                toast.error('Erro ao salvar: ' + error.message)
+            } else {
+                const atualizada: Medicao = { ...(data as any), obra: obraSelecionada }
+                setMedicoes(medicoes.map(m => m.id === editId ? atualizada : m))
+                toast.success('Medição atualizada!')
+                setShowModal(false)
+                setEditId(null)
+                setForm({ obra_id: '', valor: '', mes: '' })
+            }
         } else {
-            const nova: Medicao = { ...(data as any), obra: obraSelecionada }
-            setMedicoes([...medicoes, nova])
-            toast.success('Medição cadastrada!')
-            setShowModal(false)
-            setForm({ obra_id: '', valor: '', mes: '' })
+            const { data, error } = await supabase
+                .from('controle_medicoes')
+                .insert(payload)
+                .select('id, obra_id, valor_medicao, mes_recebimento, created_at')
+                .single()
+            if (error) {
+                toast.error('Erro ao salvar: ' + error.message)
+            } else {
+                const nova: Medicao = { ...(data as any), obra: obraSelecionada }
+                setMedicoes([...medicoes, nova])
+                toast.success('Medição cadastrada!')
+                setShowModal(false)
+                setForm({ obra_id: '', valor: '', mes: '' })
+            }
         }
         setLoading(false)
     }
@@ -133,7 +182,7 @@ export default function ControleClient({ obras, medicoesIniciais }: { obras: Obr
                     <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '4px' }}>Previsão de Recebimentos</h1>
                     <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Quanto vamos receber de medição por mês</p>
                 </div>
-                <button onClick={() => setShowModal(true)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button onClick={abrirCadastro} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Plus size={16} /> Cadastrar Medição
                 </button>
             </div>
@@ -230,7 +279,11 @@ export default function ControleClient({ obras, medicoesIniciais }: { obras: Obr
                                             {m.obra?.codigo}{m.obra?.cidade ? ` · ${m.obra.cidade}` : ''} · {ymLabel(toYm(m.mes_recebimento))}
                                         </div>
                                     </div>
-                                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-green)', whiteSpace: 'nowrap' }}>{formatCurrency(Number(m.valor_medicao))}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-green)', whiteSpace: 'nowrap' }}>{formatCurrency(Number(m.valor_medicao))}</span>
+                                        <button onClick={() => abrirEdicao(m)} title="Editar" style={iconBtnStyle}><Pencil size={14} /></button>
+                                        <button onClick={() => handleExcluir(m)} title="Excluir" style={{ ...iconBtnStyle, color: 'var(--accent-red, #ef4444)' }}><Trash2 size={14} /></button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -247,8 +300,8 @@ export default function ControleClient({ obras, medicoesIniciais }: { obras: Obr
                 <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '460px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Cadastrar Medição</h3>
-                            <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 700 }}>{editId ? 'Editar Medição' : 'Cadastrar Medição'}</h3>
+                            <button onClick={() => { setShowModal(false); setEditId(null) }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                                 <X size={20} />
                             </button>
                         </div>
@@ -286,7 +339,7 @@ export default function ControleClient({ obras, medicoesIniciais }: { obras: Obr
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
-                                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary">Cancelar</button>
+                                <button type="button" onClick={() => { setShowModal(false); setEditId(null) }} className="btn-secondary">Cancelar</button>
                                 <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Salvando...' : 'Salvar'}</button>
                             </div>
                         </form>
