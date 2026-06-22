@@ -11,11 +11,17 @@ interface Linha {
     servico: string | null
     insumo: string | null
     unid_ins: string | null
-    valor_planej: number | null
     valor_aprov: number | null
     saldo_vlr_vinc: number | null
     ordem: number | null
     atualizado_em: string | null
+}
+
+interface Orcamento {
+    obra_plt: string
+    item_plt: string
+    insumo: string
+    valor_planejado: number | null
 }
 
 type Tipo = 'raiz' | 'subtotal' | 'servico' | 'insumo'
@@ -46,7 +52,7 @@ const ESTILO: Record<Tipo, React.CSSProperties> = {
 }
 const NIVEL: Record<Tipo, number> = { raiz: 0, subtotal: 1, servico: 2, insumo: 3 }
 
-export default function AcompanhamentoCustoClient({ linhas }: { linhas: Linha[] }) {
+export default function AcompanhamentoCustoClient({ linhas, orcamento }: { linhas: Linha[]; orcamento: Orcamento[] }) {
     const obras = useMemo(() => {
         const m = new Map<string, string>()
         for (const l of linhas) if (!m.has(l.obra_plt)) m.set(l.obra_plt, l.obra || l.obra_plt)
@@ -57,13 +63,21 @@ export default function AcompanhamentoCustoClient({ linhas }: { linhas: Linha[] 
 
     const { rows, atualizado } = useMemo(() => {
         const ls = linhas.filter(l => l.obra_plt === obraSel)
-        // total por serviço (item_plt) entre os insumos
-        const servTot: Record<string, { planej: number; aprov: number; vinc: number; nome: string }> = {}
+        const orc = orcamento.filter(o => o.obra_plt === obraSel)
+        // Planejado (Excel/orçamento fixo): por insumo e por prefixo de item
+        const planejInsumo = new Map<string, number>()
+        for (const o of orc) planejInsumo.set(`${o.item_plt}|${(o.insumo || '').trim().toUpperCase()}`, Number(o.valor_planejado || 0))
+        const planejPrefixo = (p: string) => orc.reduce((s, o) => {
+            const it = o.item_plt || ''
+            return (it === p || it.startsWith(p + '.')) ? s + Number(o.valor_planejado || 0) : s
+        }, 0)
+
+        // Custo e Vinculado (SQL/UAU) por serviço (item_plt) entre os insumos
+        const servTot: Record<string, { aprov: number; vinc: number; nome: string }> = {}
         for (const l of ls) {
             if (String(l.serv_plt) !== '-1') {
                 const k = l.item_plt || ''
-                servTot[k] = servTot[k] || { planej: 0, aprov: 0, vinc: 0, nome: l.servico || '' }
-                servTot[k].planej += Number(l.valor_planej || 0)
+                servTot[k] = servTot[k] || { aprov: 0, vinc: 0, nome: l.servico || '' }
                 servTot[k].aprov += Number(l.valor_aprov || 0)
                 servTot[k].vinc += Number(l.saldo_vlr_vinc || 0)
             }
@@ -73,20 +87,21 @@ export default function AcompanhamentoCustoClient({ linhas }: { linhas: Linha[] 
         for (const l of ls) {
             const item = l.item_plt || ''
             if (String(l.serv_plt) === '-1') {
-                out.push({ tipo: dots(item) === 0 ? 'raiz' : 'subtotal', item, descricao: l.servico || '', planej: Number(l.valor_planej || 0), aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
+                out.push({ tipo: dots(item) === 0 ? 'raiz' : 'subtotal', item, descricao: l.servico || '', planej: planejPrefixo(item), aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
                 lastServ = null
             } else {
                 if (item !== lastServ) {
                     const t = servTot[item]
-                    out.push({ tipo: 'servico', item, descricao: t?.nome || l.servico || '', planej: t?.planej || 0, aprov: t?.aprov || 0, vinc: t?.vinc || 0 })
+                    out.push({ tipo: 'servico', item, descricao: t?.nome || l.servico || '', planej: planejPrefixo(item), aprov: t?.aprov || 0, vinc: t?.vinc || 0 })
                     lastServ = item
                 }
-                out.push({ tipo: 'insumo', item, descricao: l.insumo || '', planej: Number(l.valor_planej || 0), aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
+                const planej = planejInsumo.get(`${item}|${(l.insumo || '').trim().toUpperCase()}`) ?? 0
+                out.push({ tipo: 'insumo', item, descricao: l.insumo || '', planej, aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
             }
         }
         const at = ls[0]?.atualizado_em ?? null
         return { rows: out, atualizado: at }
-    }, [linhas, obraSel])
+    }, [linhas, orcamento, obraSel])
 
     const th: React.CSSProperties = { padding: '10px 12px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', textAlign: 'right', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--bg-secondary)' }
     const td: React.CSSProperties = { padding: '8px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }

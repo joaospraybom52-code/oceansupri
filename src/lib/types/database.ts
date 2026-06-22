@@ -686,6 +686,19 @@ export type Database = {
                 Update: { [k: string]: unknown }
                 Relationships: []
             }
+            custo_orcamento: {
+                Row: {
+                    id: string
+                    obra_plt: string
+                    item_plt: string
+                    insumo: string
+                    valor_planejado: number
+                    atualizado_em: string | null
+                }
+                Insert: { [k: string]: unknown }
+                Update: { [k: string]: unknown }
+                Relationships: []
+            }
             permissao_modulocontrole: {
                 Row: {
                     id: string

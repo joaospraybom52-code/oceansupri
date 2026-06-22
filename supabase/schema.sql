@@ -180,6 +180,17 @@ CREATE TABLE public.custo_uau (
 ALTER TABLE public.custo_uau ADD CONSTRAINT custo_uau_pkey PRIMARY KEY (id);
 CREATE INDEX custo_uau_obra_idx ON public.custo_uau USING btree (obra_plt, ordem);
 
+CREATE TABLE public.custo_orcamento (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  obra_plt text NOT NULL,
+  item_plt text NOT NULL,
+  insumo text NOT NULL,
+  valor_planejado numeric DEFAULT 0 NOT NULL,
+  atualizado_em timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.custo_orcamento ADD CONSTRAINT custo_orcamento_pkey PRIMARY KEY (id);
+ALTER TABLE public.custo_orcamento ADD CONSTRAINT custo_orcamento_obra_item_insumo_key UNIQUE (obra_plt, item_plt, insumo);
+
 CREATE TABLE public.permissao_modulocontrole (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   email text NOT NULL,
