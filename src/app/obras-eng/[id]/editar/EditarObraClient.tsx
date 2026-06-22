@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, Save, HardHat, Hash, MapPin } from 'lucide-react'
+import { ArrowLeft, Save, HardHat, Hash, MapPin, Trash2, X, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
@@ -17,6 +17,22 @@ export default function EditarObraClient({ obra }: { obra: any }) {
     const [previsaoInicio, setPrevisaoInicio] = useState(obra.previsao_inicio || '')
     const [previsaoTermino, setPrevisaoTermino] = useState(obra.previsao_termino || '')
     const [loading, setLoading] = useState(false)
+    const [showDelete, setShowDelete] = useState(false)
+    const [deleting, setDeleting] = useState(false)
+
+    async function handleDelete() {
+        setDeleting(true)
+        try {
+            const { error } = await supabase.from('obras_eng').delete().eq('id', obra.id)
+            if (error) throw error
+            toast.success('Obra e todos os dados relacionados foram excluídos.')
+            router.push('/obras-eng')
+            router.refresh()
+        } catch (err: any) {
+            toast.error('Erro ao excluir: ' + err.message)
+            setDeleting(false)
+        }
+    }
 
     async function handleSave(e: React.FormEvent) {
         e.preventDefault()
@@ -176,6 +192,43 @@ export default function EditarObraClient({ obra }: { obra: any }) {
                     </div>
                 </form>
             </div>
+
+            {/* Zona de perigo */}
+            <div className="glass-card" style={{ padding: '24px', marginTop: '20px', border: '1px solid rgba(239,68,68,0.3)' }}>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <AlertTriangle size={18} /> Zona de perigo
+                </h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
+                    Excluir a obra remove permanentemente <strong>tudo</strong> relacionado a ela: orçamento, medições, programações semanais, tarefas, restrições e 5W2H. Esta ação não pode ser desfeita.
+                </p>
+                <button onClick={() => setShowDelete(true)} className="btn-secondary" disabled={loading || deleting}
+                    style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Trash2 size={16} /> Excluir obra
+                </button>
+            </div>
+
+            {showDelete && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '460px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <AlertTriangle size={20} color="#ef4444" /> Excluir obra
+                            </h3>
+                            <button onClick={() => setShowDelete(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }} disabled={deleting}><X size={20} /></button>
+                        </div>
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.6 }}>
+                            Tem certeza que deseja excluir a obra <strong style={{ color: 'var(--text-primary)' }}>{obra.nome}</strong>? Todos os dados relacionados (orçamento, medições, programações, tarefas, restrições e 5W2H) serão apagados. <strong>Esta ação é irreversível.</strong>
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button onClick={() => setShowDelete(false)} className="btn-secondary" disabled={deleting}>Cancelar</button>
+                            <button onClick={handleDelete} className="btn-primary" disabled={deleting}
+                                style={{ background: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Trash2 size={16} /> {deleting ? 'Excluindo...' : 'Excluir definitivamente'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
