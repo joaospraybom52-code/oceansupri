@@ -10,6 +10,7 @@ import {
     Calendar,
 } from 'lucide-react'
 import GlobalCharts, { type ObraChartData } from './GlobalCharts'
+import RankingsObras from './RankingsObras'
 
 // ─── Formatters ──────────────────────────────────────────────────────
 const currency = new Intl.NumberFormat('pt-BR', {
@@ -107,12 +108,41 @@ export default async function GlobalDashboardPage() {
                 )
             }
 
-            // Conta restrições ainda pendentes (exclui as removidas)
-            const { count } = await supabase
+            // Restrições (todas) → IRR (removidas/total) e pendentes
+            const { data: restr } = await supabase
                 .from('restricoes')
-                .select('id', { count: 'exact', head: true })
+                .select('status')
                 .eq('obra_id', obra.id)
-                .neq('status', 'removida')
+            const restricoesTotal = (restr ?? []).length
+            const restricoesRemovidas = (restr ?? []).filter(r => r.status === 'removida').length
+            const restricoesPend = restricoesTotal - restricoesRemovidas
+            const irr = restricoesTotal > 0 ? (restricoesRemovidas / restricoesTotal) * 100 : 0
+
+            // Programações + tarefas → PPC médio e aderência ao prazo de envio
+            const { data: progs } = await supabase
+                .from('programacoes_semanais')
+                .select('id, status_envio')
+                .eq('obra_id', obra.id)
+            const enviadas = (progs ?? []).filter(p => p.status_envio === 'no_prazo' || p.status_envio === 'atrasada')
+            const progEnviadas = enviadas.length
+            const aderenciaPrazo = progEnviadas > 0
+                ? (enviadas.filter(p => p.status_envio === 'no_prazo').length / progEnviadas) * 100
+                : 0
+
+            let ppcMedio = 0
+            const progIds = (progs ?? []).map(p => p.id)
+            if (progIds.length > 0) {
+                const { data: tfs } = await supabase
+                    .from('tarefas')
+                    .select('programacao_id, status')
+                    .in('programacao_id', progIds)
+                const ppcs: number[] = []
+                for (const p of progs ?? []) {
+                    const ts = (tfs ?? []).filter(t => t.programacao_id === p.id)
+                    if (ts.length > 0) ppcs.push((ts.filter(t => t.status === 'concluida').length / ts.length) * 100)
+                }
+                if (ppcs.length > 0) ppcMedio = ppcs.reduce((a, b) => a + b, 0) / ppcs.length
+            }
 
             const percentual = valorOrcado > 0 ? (valorMedido / valorOrcado) * 100 : 0
 
@@ -123,7 +153,13 @@ export default async function GlobalDashboardPage() {
                 valorOrcado,
                 valorMedido,
                 percentual,
-                restricoes: count ?? 0,
+                restricoes: restricoesPend,
+                ppcMedio,
+                aderenciaPrazo,
+                progEnviadas,
+                irr,
+                restricoesTotal,
+                restricoesRemovidas,
             }
         })
     )
@@ -317,6 +353,11 @@ export default async function GlobalDashboardPage() {
 
             {/* ── Charts ──────────────────────────────────────────── */}
             <GlobalCharts obras={enrichedObras} />
+
+            {/* ── Rankings de Planejamento ─────────────────────────── */}
+            <div style={{ marginTop: '32px' }}>
+                <RankingsObras obras={enrichedObras} />
+            </div>
 
             {/* ── Tabela de Obras ──────────────────────────────────── */}
             <div className="glass-card" style={{ overflow: 'hidden' }}>

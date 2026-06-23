@@ -25,6 +25,13 @@ export interface ObraChartData {
     valorMedido: number
     percentual: number
     restricoes: number
+    // Indicadores de planejamento (Last Planner)
+    ppcMedio?: number          // % médio de planos concluídos
+    aderenciaPrazo?: number    // % de programações enviadas no prazo
+    progEnviadas?: number      // nº de programações com envio registrado
+    irr?: number               // índice de remoção de restrições (%)
+    restricoesTotal?: number
+    restricoesRemovidas?: number
 }
 
 // ─── Constants ───────────────────────────────────────────────────────
