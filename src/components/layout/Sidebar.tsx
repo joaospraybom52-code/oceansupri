@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Kanban, BarChart3, Package, Building2, Users, Settings, Truck } from 'lucide-react'
+import { LayoutDashboard, Kanban, BarChart3, Package, Building2, Users, Settings, Truck, ArrowLeftRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -79,14 +79,18 @@ export default function Sidebar() {
                 })}
             </nav>
 
-            {!isVisualizador && (
-                <div style={{ padding: '12px', borderTop: '1px solid var(--border-glass)' }}>
+            <div style={{ padding: '12px', borderTop: '1px solid var(--border-glass)' }}>
+                {!isVisualizador && (
                     <Link href="/configuracoes" className="sidebar-link">
                         <Settings size={18} />
                         Configurações
                     </Link>
-                </div>
-            )}
+                )}
+                <Link href="/" className="sidebar-link">
+                    <ArrowLeftRight size={18} />
+                    Trocar de módulo
+                </Link>
+            </div>
         </aside>
     )
 }
