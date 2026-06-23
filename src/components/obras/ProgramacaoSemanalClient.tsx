@@ -13,7 +13,8 @@ export default function ProgramacaoSemanalClient({
     initialTarefas,
     initialRestricoes,
     initialAnalises,
-    itensOrcamento
+    itensOrcamento,
+    podeEditar = false
 }: {
     obraId: string
     programacao: any
@@ -21,6 +22,7 @@ export default function ProgramacaoSemanalClient({
     initialRestricoes: any[]
     initialAnalises: any[]
     itensOrcamento: any[]
+    podeEditar?: boolean
 }) {
     const router = useRouter()
     const supabase = createClient()
@@ -243,9 +245,11 @@ export default function ProgramacaoSemanalClient({
                     <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Semana {new Date(programacao.semana_referente_inicio).toLocaleDateString('pt-BR')} - {new Date(programacao.semana_referente_fim).toLocaleDateString('pt-BR')}</h2>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Responsável: {programacao.responsavel}</p>
                 </div>
-                <button onClick={fecharProgramacao} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Save size={16} /> Salvar e Enviar
-                </button>
+                {podeEditar && (
+                    <button onClick={fecharProgramacao} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Save size={16} /> Salvar e Enviar
+                    </button>
+                )}
             </div>
 
             {/* KPIs */}
@@ -284,9 +288,11 @@ export default function ProgramacaoSemanalClient({
             {activeTab === 'tarefas' && (
                 <div>
                     {!showNovaTarefa ? (
+                        podeEditar && (
                         <button onClick={() => setShowNovaTarefa(true)} className="btn-secondary" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Plus size={16} /> Adicionar Tarefa
                         </button>
+                        )
                     ) : (
                         <div className="glass-card" style={{ padding: '20px', marginBottom: '24px' }}>
                             <form onSubmit={handleAddTarefa} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -397,9 +403,11 @@ export default function ProgramacaoSemanalClient({
             {activeTab === 'restricoes' && (
                 <div>
                     {!showNovaRestricao ? (
+                        podeEditar && (
                         <button onClick={() => setShowNovaRestricao(true)} className="btn-secondary" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Plus size={16} /> Adicionar Restrição
                         </button>
+                        )
                     ) : (
                         <div className="glass-card" style={{ padding: '20px', marginBottom: '24px' }}>
                             <form onSubmit={handleAddRestricao} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -494,7 +502,7 @@ export default function ProgramacaoSemanalClient({
 
                                 {/* Coluna 4: Status */}
                                 <div style={{ width: '150px', display: 'flex', justifyContent: 'flex-end' }}>
-                                    <select value={r.status} onChange={(e) => updateRestricaoStatus(r.id, e.target.value)} className="select-field" style={{ width: '140px', padding: '6px 10px', fontSize: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)' }}>
+                                    <select value={r.status} disabled={!podeEditar} onChange={(e) => updateRestricaoStatus(r.id, e.target.value)} className="select-field" style={{ width: '140px', padding: '6px 10px', fontSize: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)' }}>
                                         <option value="pendente">Pendente</option>
                                         <option value="removida">Removida</option>
                                     </select>
@@ -509,9 +517,11 @@ export default function ProgramacaoSemanalClient({
             {activeTab === '5w2h' && (
                 <div>
                     {!showNovo5w2h ? (
+                        podeEditar && (
                         <button onClick={() => setShowNovo5w2h(true)} className="btn-secondary" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Plus size={16} /> Adicionar 5W2H
                         </button>
+                        )
                     ) : (
                         <div className="glass-card" style={{ padding: '20px', marginBottom: '24px' }}>
                             <form onSubmit={handleAdd5w2h} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

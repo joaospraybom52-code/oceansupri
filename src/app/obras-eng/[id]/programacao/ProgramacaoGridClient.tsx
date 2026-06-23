@@ -27,12 +27,14 @@ export default function ProgramacaoGridClient({
     programacoes,
     obraId,
     previsaoInicio,
-    previsaoTermino
+    previsaoTermino,
+    podeEditar = false,
 }: {
     programacoes: Programacao[]
     obraId: string
     previsaoInicio?: string
     previsaoTermino?: string
+    podeEditar?: boolean
 }) {
     const router = useRouter()
     const [year, setYear] = useState(new Date().getFullYear())
@@ -138,11 +140,12 @@ export default function ProgramacaoGridClient({
     const handleCardClick = (card: WeekCardData) => {
         if (card.progId) {
             router.push(`/obras-eng/${obraId}/programacao/${card.progId}`)
-        } else {
+        } else if (podeEditar) {
             const inicioStr = card.inicio.toISOString().split('T')[0]
             const fimStr = card.fim.toISOString().split('T')[0]
             router.push(`/obras-eng/${obraId}/programacao/nova?inicio=${inicioStr}&fim=${fimStr}`)
         }
+        // viewer: semana sem programação não é clicável para criar
     }
 
     const renderIcon = (status: StatusEnvio) => {

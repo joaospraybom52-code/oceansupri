@@ -291,6 +291,7 @@ CREATE UNIQUE INDEX pedidos_compra_dedup_key ON public.pedidos_compra USING btre
 CREATE TABLE public.permissoes_obras (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   email text NOT NULL,
+  papel text DEFAULT 'viewer'::text NOT NULL,
   created_at timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public.permissoes_obras ADD CONSTRAINT permissoes_obras_pkey PRIMARY KEY (id);

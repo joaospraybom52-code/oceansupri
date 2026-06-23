@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import MedicaoClient from './MedicaoClient'
 import { redirect } from 'next/navigation'
+import { getPapelObras, podeCriarMedProg } from '@/lib/utils/obras-access'
 
 export default async function MedicaoDetalhePage({ params }: { params: Promise<{ id: string, medicaoId: string }> }) {
     const { id, medicaoId } = await params
@@ -78,11 +79,14 @@ export default async function MedicaoDetalhePage({ params }: { params: Promise<{
         }
     }) || []
 
+    const podeEditar = podeCriarMedProg(await getPapelObras())
+
     return (
-        <MedicaoClient 
-            obraId={id} 
-            medicao={medicao} 
-            dadosTabela={dadosTabela} 
+        <MedicaoClient
+            obraId={id}
+            medicao={medicao}
+            dadosTabela={dadosTabela}
+            podeEditar={podeEditar}
         />
     )
 }

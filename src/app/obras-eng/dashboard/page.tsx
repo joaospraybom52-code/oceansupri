@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import GlobalCharts, { type ObraChartData } from './GlobalCharts'
 import RankingsObras from './RankingsObras'
+import { getPapelObras, podeAdminObra } from '@/lib/utils/obras-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,6 +45,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 // ─── Page ────────────────────────────────────────────────────────────
 export default async function GlobalDashboardPage() {
     const supabase = await createServerSupabaseClient()
+    const isAdmin = podeAdminObra(await getPapelObras())
 
     // 1 ─ Fetch obras
     const { data: obras, error: obrasError } = await supabase
@@ -215,6 +217,7 @@ export default async function GlobalDashboardPage() {
                         })}
                     </p>
                 </div>
+                {isAdmin && (
                 <Link
                     href="/obras-eng/nova"
                     className="btn-primary"
@@ -229,6 +232,7 @@ export default async function GlobalDashboardPage() {
                     <Plus size={16} />
                     Nova Obra
                 </Link>
+                )}
             </div>
 
             {/* ── KPI Cards ───────────────────────────────────────── */}
@@ -399,6 +403,7 @@ export default async function GlobalDashboardPage() {
                         <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '16px' }}>
                             Nenhuma obra cadastrada no sistema.
                         </p>
+                        {isAdmin && (
                         <Link
                             href="/obras-eng/nova"
                             className="btn-secondary"
@@ -412,6 +417,7 @@ export default async function GlobalDashboardPage() {
                             <Plus size={14} />
                             Cadastrar primeira obra
                         </Link>
+                        )}
                     </div>
                 ) : (
                     <div style={{ overflowX: 'auto' }}>

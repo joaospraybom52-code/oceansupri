@@ -22,8 +22,8 @@ export default function Sidebar() {
     useEffect(() => {
         async function checkRole() {
             const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data } = await supabase.from('visualizadores').select('id').eq('auth_user_id', user.id).single()
+            if (user?.email) {
+                const { data } = await supabase.from('visualizadores').select('id').eq('email', user.email).single()
                 if (data) setIsVisualizador(true)
             }
         }

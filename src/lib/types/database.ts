@@ -606,16 +606,19 @@ export type Database = {
                 Row: {
                     id: string
                     email: string
+                    papel: string
                     created_at: string | null
                 }
                 Insert: {
                     id?: string
                     email: string
+                    papel?: string
                     created_at?: string | null
                 }
                 Update: {
                     id?: string
                     email?: string
+                    papel?: string
                     created_at?: string | null
                 }
                 Relationships: []

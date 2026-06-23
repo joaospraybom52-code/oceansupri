@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import ProgramacaoGridClient from './ProgramacaoGridClient'
+import { getPapelObras, podeCriarMedProg } from '@/lib/utils/obras-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,11 +29,12 @@ export default async function ProgramacaoListPage({ params }: { params: Promise<
 
         return (
             <div>
-                <ProgramacaoGridClient 
-                    programacoes={(programacoes as any) || []} 
-                    obraId={id} 
+                <ProgramacaoGridClient
+                    programacoes={(programacoes as any) || []}
+                    obraId={id}
                     previsaoInicio={(obra as any)?.previsao_inicio}
                     previsaoTermino={(obra as any)?.previsao_termino}
+                    podeEditar={podeCriarMedProg(await getPapelObras())}
                 />
             </div>
         )

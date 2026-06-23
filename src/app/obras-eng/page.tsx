@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { HardHat, Plus, Calendar, Pencil, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
+import { getPapelObras, podeAdminObra } from '@/lib/utils/obras-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,8 @@ export default async function ObrasListPage() {
         if (error) {
             throw new Error(error.message)
         }
+
+        const isAdmin = podeAdminObra(await getPapelObras())
 
         return (
         <div>
@@ -25,7 +28,7 @@ export default async function ObrasListPage() {
                         Gerencie suas obras, medições e programações semanais
                     </p>
                 </div>
-                {obras && obras.length > 0 && (
+                {isAdmin && obras && obras.length > 0 && (
                     <Link href="/obras-eng/nova" className="btn-primary" style={{
                         display: 'inline-flex', alignItems: 'center', gap: '8px',
                         padding: '10px 16px', fontSize: '14px', textDecoration: 'none'
@@ -55,15 +58,17 @@ export default async function ObrasListPage() {
                         Nenhuma obra cadastrada
                     </h2>
                     <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '400px', margin: '0 auto 24px' }}>
-                        Comece cadastrando sua primeira obra e importando o orçamento via planilha Excel.
+                        {isAdmin ? 'Comece cadastrando sua primeira obra e importando o orçamento via planilha Excel.' : 'Ainda não há obras cadastradas.'}
                     </p>
-                    <Link href="/obras-eng/nova" className="btn-primary" style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '8px',
-                        padding: '12px 24px', fontSize: '15px', textDecoration: 'none'
-                    }}>
-                        <Plus size={18} />
-                        Nova Obra
-                    </Link>
+                    {isAdmin && (
+                        <Link href="/obras-eng/nova" className="btn-primary" style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '8px',
+                            padding: '12px 24px', fontSize: '15px', textDecoration: 'none'
+                        }}>
+                            <Plus size={18} />
+                            Nova Obra
+                        </Link>
+                    )}
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
@@ -121,9 +126,11 @@ export default async function ObrasListPage() {
                                 <Link href={`/obras-eng/${obra.id}/medicao`} className="btn-secondary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, padding: '10px 0' }}>
                                     <Calendar size={16} /> Medição
                                 </Link>
-                                <Link href={`/obras-eng/${obra.id}/editar`} className="btn-secondary" title="Editar Obra" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', padding: 0 }}>
-                                    <Pencil size={16} />
-                                </Link>
+                                {isAdmin && (
+                                    <Link href={`/obras-eng/${obra.id}/editar`} className="btn-secondary" title="Editar Obra" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', padding: 0 }}>
+                                        <Pencil size={16} />
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     ))}

@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import ProgramacaoSemanalClient from '@/components/obras/ProgramacaoSemanalClient'
 import { redirect } from 'next/navigation'
+import { getPapelObras, podeCriarMedProg } from '@/lib/utils/obras-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,13 +71,14 @@ export default async function ProgramacaoDetalhePage({ params }: { params: Promi
             .eq('obra_id', id)
 
         return (
-            <ProgramacaoSemanalClient 
+            <ProgramacaoSemanalClient
                 obraId={id}
                 programacao={programacao}
                 initialTarefas={tarefas || []}
                 initialRestricoes={restricoes || []}
                 initialAnalises={analises}
                 itensOrcamento={itensOrcamento || []}
+                podeEditar={podeCriarMedProg(await getPapelObras())}
             />
         )
     } catch (err: any) {

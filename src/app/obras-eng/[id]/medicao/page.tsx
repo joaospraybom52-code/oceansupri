@@ -1,12 +1,14 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Plus, Ruler } from 'lucide-react'
 import Link from 'next/link'
+import { getPapelObras, podeCriarMedProg } from '@/lib/utils/obras-access'
 
 export const dynamic = 'force-dynamic'
 
 export default async function MedicoesListPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     const supabase = await createServerSupabaseClient()
+    const podeEditar = podeCriarMedProg(await getPapelObras())
     
     // Buscar medições da obra
     const { data: medicoes } = await supabase
@@ -35,12 +37,14 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Controle de Medições</h2>
                 
-                <Link href={`/obras-eng/${id}/medicao/nova`} className="btn-primary" style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 16px', fontSize: '14px', textDecoration: 'none'
-                }}>
-                    <Plus size={16} />
-                    Nova Medição
-                </Link>
+                {podeEditar && (
+                    <Link href={`/obras-eng/${id}/medicao/nova`} className="btn-primary" style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 16px', fontSize: '14px', textDecoration: 'none'
+                    }}>
+                        <Plus size={16} />
+                        Nova Medição
+                    </Link>
+                )}
             </div>
 
             {!medicoes || medicoes.length === 0 ? (

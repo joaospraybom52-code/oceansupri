@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
-export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId: string, medicao: any, dadosTabela: any[] }) {
+export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar = false }: { obraId: string, medicao: any, dadosTabela: any[], podeEditar?: boolean }) {
     const supabase = createClient()
     const router = useRouter()
     
@@ -125,8 +125,10 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     {saved && <span style={{ color: 'var(--accent-green)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={16}/> Salvo</span>}
-                    
-                    {medicao.status !== 'Concluída' ? (
+
+                    {!podeEditar ? (
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '6px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px' }}>Somente leitura</span>
+                    ) : medicao.status !== 'Concluída' ? (
                         <>
                             <button onClick={() => handleSave(false)} className="btn-secondary" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Save size={16} /> Salvar Rascunho
@@ -225,7 +227,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                                                 type="number"
                                                 value={item.atual_quantidade === 0 ? '' : item.atual_quantidade}
                                                 onChange={(e) => handleUpdate(index, 'atual_quantidade', e.target.value)}
-                                                disabled={medicao.status === 'Concluída'}
+                                                disabled={medicao.status === 'Concluída' || !podeEditar}
                                                 style={{
                                                     width: '60px', padding: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)',
                                                     borderRadius: '4px', color: 'white', textAlign: 'right', fontSize: '12px'
@@ -243,7 +245,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela }: { obraId
                                                     type="number"
                                                     value={item.atual_percentual === 0 ? '' : Number(item.atual_percentual).toFixed(2)}
                                                     onChange={(e) => handleUpdate(index, 'atual_percentual', e.target.value)}
-                                                    disabled={medicao.status === 'Concluída'}
+                                                    disabled={medicao.status === 'Concluída' || !podeEditar}
                                                     style={{
                                                         width: '50px', padding: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)',
                                                         borderRadius: '4px', color: 'var(--accent-green)', textAlign: 'right', fontSize: '12px', fontWeight: 600

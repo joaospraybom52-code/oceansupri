@@ -46,27 +46,38 @@ export async function updateSession(request: NextRequest) {
     }
 
     if (user) {
-        // Controle de acesso ao módulo Obras
+        // Controle de acesso ao módulo Obras (com papel: viewer/editor/admin)
         if (request.nextUrl.pathname.startsWith('/obras-eng')) {
-            let permissao = null
+            let papel: string | null = null
             try {
                 if (user.email) {
                     const { data } = await supabase
                         .from('permissoes_obras')
-                        .select('email')
+                        .select('papel')
                         .eq('email', user.email)
                         .single()
-                    permissao = data
+                    papel = (data as { papel?: string } | null)?.papel ?? null
                 }
             } catch (err) {
                 console.error('Middleware check access error:', err)
             }
 
-            if (!permissao) {
-                const url = request.nextUrl.clone()
-                url.pathname = '/sem-acesso'
-                return NextResponse.redirect(url)
-            }
+            const url = request.nextUrl.clone()
+            url.pathname = '/sem-acesso'
+
+            if (!papel) return NextResponse.redirect(url)
+
+            const p = request.nextUrl.pathname
+            const ehNovaObra = p === '/obras-eng/nova'
+            const ehEditarObra = p.endsWith('/editar')
+            const ehCriarMedicao = p.endsWith('/medicao/nova')
+            const ehCriarProgramacao = p.endsWith('/programacao/nova')
+
+            const podeAdminObra = papel === 'admin'                    // criar/editar/excluir obra
+            const podeCriarMedProg = papel === 'editor' || papel === 'admin' // medição e programação
+
+            if ((ehNovaObra || ehEditarObra) && !podeAdminObra) return NextResponse.redirect(url)
+            if ((ehCriarMedicao || ehCriarProgramacao) && !podeCriarMedProg) return NextResponse.redirect(url)
         }
 
         // Controle de acesso ao módulo Controle
@@ -97,7 +108,7 @@ export async function updateSession(request: NextRequest) {
             const { data: isVisualizador } = await supabase
                 .from('visualizadores')
                 .select('id')
-                .eq('auth_user_id', user.id)
+                .eq('email', user.email)
                 .single()
 
             if (isVisualizador && request.nextUrl.pathname !== '/board' && !request.nextUrl.pathname.startsWith('/api') && request.nextUrl.pathname !== '/' && !request.nextUrl.pathname.startsWith('/sem-acesso')) {
