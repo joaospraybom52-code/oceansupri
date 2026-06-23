@@ -465,7 +465,6 @@ export default async function GlobalDashboardPage() {
                                                 borderTop: '1px solid rgba(255,255,255,0.04)',
                                                 transition: 'background 0.15s',
                                             }}
-                                            onMouseOver={() => {}}
                                         >
                                             {/* Nome */}
                                             <td style={{ padding: '16px 20px' }}>
