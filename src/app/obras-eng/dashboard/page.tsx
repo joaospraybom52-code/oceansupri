@@ -12,6 +12,8 @@ import {
 import GlobalCharts, { type ObraChartData } from './GlobalCharts'
 import RankingsObras from './RankingsObras'
 
+export const dynamic = 'force-dynamic'
+
 // ─── Formatters ──────────────────────────────────────────────────────
 const currency = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -72,97 +74,66 @@ export default async function GlobalDashboardPage() {
     }
 
     const obrasList = obras ?? []
+    const obraIds = obrasList.map((o) => o.id)
 
-    // 2 ─ For each obra, fetch aggregated budget, measured, and restriction counts.
-    //     We use Promise.all for parallel fetching.
-    const enrichedObras: ObraChartData[] = await Promise.all(
-        obrasList.map(async (obra) => {
-            // Sum of itens_orcamento.valor_total_orcado
-            const { data: orcData } = await supabase
-                .from('itens_orcamento')
-                .select('valor_total_orcado')
-                .eq('obra_id', obra.id)
+    // 2 ─ Carrega tudo em LOTE (6 queries no total, em vez de N+1 por obra)
+    const empty = { data: [] as any[] }
+    const [itensRes, medsRes, restrRes, progsRes] = obraIds.length
+        ? await Promise.all([
+            supabase.from('itens_orcamento').select('obra_id, valor_total_orcado').in('obra_id', obraIds),
+            supabase.from('medicoes').select('id, obra_id').in('obra_id', obraIds),
+            supabase.from('restricoes').select('obra_id, status').in('obra_id', obraIds),
+            supabase.from('programacoes_semanais').select('id, obra_id, status_envio').in('obra_id', obraIds),
+        ])
+        : [empty, empty, empty, empty]
 
-            const valorOrcado = (orcData ?? []).reduce(
-                (sum, item) => sum + (item.valor_total_orcado ?? 0),
-                0
-            )
+    const itens = (itensRes.data ?? []) as { obra_id: string; valor_total_orcado: number | null }[]
+    const meds = (medsRes.data ?? []) as { id: string; obra_id: string }[]
+    const restr = (restrRes.data ?? []) as { obra_id: string; status: string | null }[]
+    const progs = (progsRes.data ?? []) as { id: string; obra_id: string; status_envio: string | null }[]
 
-            // Get all medicoes for this obra, then sum medicao_itens.valor_medido
-            const { data: medicoes } = await supabase
-                .from('medicoes')
-                .select('id')
-                .eq('obra_id', obra.id)
+    const medIds = meds.map((m) => m.id)
+    const progIds = progs.map((p) => p.id)
+    const [medItensRes, tfsRes] = await Promise.all([
+        medIds.length ? supabase.from('medicao_itens').select('medicao_id, valor_medido').in('medicao_id', medIds) : Promise.resolve(empty),
+        progIds.length ? supabase.from('tarefas').select('programacao_id, status').in('programacao_id', progIds) : Promise.resolve(empty),
+    ])
+    const medItens = (medItensRes.data ?? []) as { medicao_id: string; valor_medido: number | null }[]
+    const tfs = (tfsRes.data ?? []) as { programacao_id: string; status: string | null }[]
 
-            let valorMedido = 0
-            if (medicoes && medicoes.length > 0) {
-                const medicaoIds = medicoes.map((m) => m.id)
-                const { data: medItens } = await supabase
-                    .from('medicao_itens')
-                    .select('valor_medido')
-                    .in('medicao_id', medicaoIds)
+    // Índices auxiliares
+    const medToObra = new Map(meds.map((m) => [m.id, m.obra_id]))
 
-                valorMedido = (medItens ?? []).reduce(
-                    (sum, item) => sum + (item.valor_medido ?? 0),
-                    0
-                )
-            }
+    const enrichedObras: ObraChartData[] = obrasList.map((obra) => {
+        const valorOrcado = itens.filter((i) => i.obra_id === obra.id).reduce((s, i) => s + (i.valor_total_orcado ?? 0), 0)
+        const valorMedido = medItens.filter((mi) => medToObra.get(mi.medicao_id) === obra.id).reduce((s, mi) => s + (mi.valor_medido ?? 0), 0)
 
-            // Restrições (todas) → IRR (removidas/total) e pendentes
-            const { data: restr } = await supabase
-                .from('restricoes')
-                .select('status')
-                .eq('obra_id', obra.id)
-            const restricoesTotal = (restr ?? []).length
-            const restricoesRemovidas = (restr ?? []).filter(r => r.status === 'removida').length
-            const restricoesPend = restricoesTotal - restricoesRemovidas
-            const irr = restricoesTotal > 0 ? (restricoesRemovidas / restricoesTotal) * 100 : 0
+        const restrObra = restr.filter((r) => r.obra_id === obra.id)
+        const restricoesTotal = restrObra.length
+        const restricoesRemovidas = restrObra.filter((r) => r.status === 'removida').length
+        const restricoesPend = restricoesTotal - restricoesRemovidas
+        const irr = restricoesTotal > 0 ? (restricoesRemovidas / restricoesTotal) * 100 : 0
 
-            // Programações + tarefas → PPC médio e aderência ao prazo de envio
-            const { data: progs } = await supabase
-                .from('programacoes_semanais')
-                .select('id, status_envio')
-                .eq('obra_id', obra.id)
-            const enviadas = (progs ?? []).filter(p => p.status_envio === 'no_prazo' || p.status_envio === 'atrasada')
-            const progEnviadas = enviadas.length
-            const aderenciaPrazo = progEnviadas > 0
-                ? (enviadas.filter(p => p.status_envio === 'no_prazo').length / progEnviadas) * 100
-                : 0
+        const progsObra = progs.filter((p) => p.obra_id === obra.id)
+        const enviadas = progsObra.filter((p) => p.status_envio === 'no_prazo' || p.status_envio === 'atrasada')
+        const progEnviadas = enviadas.length
+        const aderenciaPrazo = progEnviadas > 0 ? (enviadas.filter((p) => p.status_envio === 'no_prazo').length / progEnviadas) * 100 : 0
 
-            let ppcMedio = 0
-            const progIds = (progs ?? []).map(p => p.id)
-            if (progIds.length > 0) {
-                const { data: tfs } = await supabase
-                    .from('tarefas')
-                    .select('programacao_id, status')
-                    .in('programacao_id', progIds)
-                const ppcs: number[] = []
-                for (const p of progs ?? []) {
-                    const ts = (tfs ?? []).filter(t => t.programacao_id === p.id)
-                    if (ts.length > 0) ppcs.push((ts.filter(t => t.status === 'concluida').length / ts.length) * 100)
-                }
-                if (ppcs.length > 0) ppcMedio = ppcs.reduce((a, b) => a + b, 0) / ppcs.length
-            }
+        const ppcs: number[] = []
+        for (const p of progsObra) {
+            const ts = tfs.filter((t) => t.programacao_id === p.id)
+            if (ts.length > 0) ppcs.push((ts.filter((t) => t.status === 'concluida').length / ts.length) * 100)
+        }
+        const ppcMedio = ppcs.length ? ppcs.reduce((a, b) => a + b, 0) / ppcs.length : 0
 
-            const percentual = valorOrcado > 0 ? (valorMedido / valorOrcado) * 100 : 0
+        const percentual = valorOrcado > 0 ? (valorMedido / valorOrcado) * 100 : 0
 
-            return {
-                id: obra.id,
-                nome: obra.nome,
-                status: obra.status,
-                valorOrcado,
-                valorMedido,
-                percentual,
-                restricoes: restricoesPend,
-                ppcMedio,
-                aderenciaPrazo,
-                progEnviadas,
-                irr,
-                restricoesTotal,
-                restricoesRemovidas,
-            }
-        })
-    )
+        return {
+            id: obra.id, nome: obra.nome, status: obra.status,
+            valorOrcado, valorMedido, percentual, restricoes: restricoesPend,
+            ppcMedio, aderenciaPrazo, progEnviadas, irr, restricoesTotal, restricoesRemovidas,
+        }
+    })
 
     // 3 ─ KPI totals
     const totalObras = obrasList.length
