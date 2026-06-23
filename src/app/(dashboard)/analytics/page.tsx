@@ -9,6 +9,7 @@ import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Cale
 
 export default function AnalyticsPage() {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
+    const [compradores, setCompradores] = useState<{ id: string; nome: string }[]>([])
     const [loading, setLoading] = useState(true)
     const [mesFiltro, setMesFiltro] = useState('')
     const supabase = createClient()
@@ -20,6 +21,13 @@ export default function AnalyticsPage() {
             .from('pedidos_compra')
             .select('*, obra:obras(*), comprador:compradores(*)')
         if (data) setPedidos(data as unknown as PedidoCompra[])
+        // Apenas compradores cadastrados e ativos (vinculados aos e-mails)
+        const { data: comps } = await supabase
+            .from('compradores')
+            .select('id, nome')
+            .eq('ativo', true)
+            .order('nome')
+        if (comps) setCompradores(comps as { id: string; nome: string }[])
         setLoading(false)
     }
 
@@ -59,23 +67,31 @@ export default function AnalyticsPage() {
         return dataRef?.startsWith(mesFiltro);
     })
 
-    // Orçado vs Fechado por Comprador (usa base unificada)
+    // ── Gráficos por comprador: APENAS compradores cadastrados (vinculados aos
+    //    e-mails). Todos os cadastrados aparecem, mesmo sem dados; "Sem comprador"
+    //    e compradores não cadastrados são ignorados. ──
+    // Pedidos do mês (qualquer status) para o volume de cotações
+    const pedidosDoMes = pedidos.filter(p => !mesFiltro || (p.data_ordem_compra || p.created_at)?.startsWith(mesFiltro))
+
     const orcadoVsFechadoPorComprador: Record<string, { nome: string; valorOrcado: number; valorFechado: number }> = {}
+    compradores.forEach(c => { orcadoVsFechadoPorComprador[c.id] = { nome: c.nome, valorOrcado: 0, valorFechado: 0 } })
     pedidosComValores.forEach(p => {
-        const nome = p.comprador?.nome || 'Sem comprador'
-        if (!orcadoVsFechadoPorComprador[nome]) orcadoVsFechadoPorComprador[nome] = { nome, valorOrcado: 0, valorFechado: 0 }
-        orcadoVsFechadoPorComprador[nome].valorOrcado += p.valor_orcado || 0
-        orcadoVsFechadoPorComprador[nome].valorFechado += p.valor_fechado || 0
+        if (!p.comprador_id || !orcadoVsFechadoPorComprador[p.comprador_id]) return
+        orcadoVsFechadoPorComprador[p.comprador_id].valorOrcado += p.valor_orcado || 0
+        orcadoVsFechadoPorComprador[p.comprador_id].valorFechado += p.valor_fechado || 0
     })
     const orcadoVsFechadoData = Object.values(orcadoVsFechadoPorComprador).sort((a, b) => b.valorOrcado - a.valorOrcado)
 
-    // Saving por comprador (usa mesma base unificada para bater com Orçado vs Fechado)
     const savingPorComprador: Record<string, { nome: string; saving: number; cotacoes: number }> = {}
+    compradores.forEach(c => { savingPorComprador[c.id] = { nome: c.nome, saving: 0, cotacoes: 0 } })
     pedidosComValores.forEach(p => {
-        const nome = p.comprador?.nome || 'Sem comprador'
-        if (!savingPorComprador[nome]) savingPorComprador[nome] = { nome, saving: 0, cotacoes: 0 }
-        savingPorComprador[nome].saving += calcSavingAbsoluto(p.valor_orcado, p.valor_fechado) || 0
-        savingPorComprador[nome].cotacoes += 1
+        if (!p.comprador_id || !savingPorComprador[p.comprador_id]) return
+        savingPorComprador[p.comprador_id].saving += calcSavingAbsoluto(p.valor_orcado, p.valor_fechado) || 0
+    })
+    // Volume de cotações = todos os pedidos do comprador (no mês filtrado)
+    pedidosDoMes.forEach(p => {
+        if (!p.comprador_id || !savingPorComprador[p.comprador_id]) return
+        savingPorComprador[p.comprador_id].cotacoes += 1
     })
     const savingCompradorData = Object.values(savingPorComprador).sort((a, b) => b.saving - a.saving)
 
