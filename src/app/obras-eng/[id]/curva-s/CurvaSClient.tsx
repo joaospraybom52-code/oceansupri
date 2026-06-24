@@ -38,7 +38,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
 
     const chartData = comTendencia.map(s => ({
         label: fmtData(s.semana_ref),
-        'LB 1': s.lb1_pct, 'LB 2': s.lb2_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct,
+        'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct,
     }))
 
     function update(i: number, campo: keyof Row, valor: string) {
@@ -65,7 +65,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
                 .sort((a, b) => a.semana_ref.localeCompare(b.semana_ref))
                 .map((r, idx) => ({
                     obra_id: obraId, semana_ref: r.semana_ref, ordem: idx,
-                    lb1_pct: toNum(r.lb1_pct), lb2_pct: toNum(r.lb2_pct), real_pct: toNum(r.real_pct),
+                    lb1_pct: toNum(r.lb1_pct), lb2_pct: null, real_pct: toNum(r.real_pct),
                 }))
             const { error } = await supabase.from('curva_s_semanas' as any).insert(payload)
             if (error) { toast.error('Erro ao salvar: ' + error.message); setSaving(false); return }
@@ -98,8 +98,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
                             <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
                             <Tooltip formatter={(v: any) => v == null ? '-' : `${Number(v).toFixed(1)}%`} contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }} />
                             <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            <Line type="monotone" dataKey="LB 1" stroke="#10b981" strokeWidth={2} dot={false} connectNulls />
-                            <Line type="monotone" dataKey="LB 2" stroke="#a855f7" strokeWidth={2} dot={false} connectNulls />
+                            <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls />
                             <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls />
                             <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 3 }} connectNulls />
                         </LineChart>
@@ -123,8 +122,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
                         <thead>
                             <tr>
                                 <th style={th}>Semana</th>
-                                <th style={th}>LB 1 (%)</th>
-                                <th style={th}>LB 2 (%)</th>
+                                <th style={th}>Linha de Base (%)</th>
                                 <th style={th}>Real (%)</th>
                                 <th style={th}>Tendência (%)</th>
                                 {podeEditar && <th style={th}></th>}
@@ -132,7 +130,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
                         </thead>
                         <tbody>
                             {rows.length === 0 && (
-                                <tr><td style={{ ...td, color: 'var(--text-muted)', textAlign: 'center' }} colSpan={podeEditar ? 6 : 5}>Nenhuma semana cadastrada.</td></tr>
+                                <tr><td style={{ ...td, color: 'var(--text-muted)', textAlign: 'center' }} colSpan={podeEditar ? 5 : 4}>Nenhuma semana cadastrada.</td></tr>
                             )}
                             {rows.map((r, i) => {
                                 const tend = comTendencia.find(s => s.semana_ref === r.semana_ref)?.tendencia_pct
@@ -141,7 +139,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
                                         <td style={td}>
                                             <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px' }} disabled={!podeEditar} />
                                         </td>
-                                        {(['lb1_pct', 'lb2_pct', 'real_pct'] as const).map(campo => (
+                                        {(['lb1_pct', 'real_pct'] as const).map(campo => (
                                             <td style={td} key={campo}>
                                                 <input type="text" inputMode="decimal" value={r[campo]} onChange={e => update(i, campo, e.target.value)} className="input-field" style={{ padding: '6px 8px', width: '90px' }} placeholder="-" disabled={!podeEditar} />
                                             </td>
@@ -160,7 +158,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
                         </tbody>
                     </table>
                 </div>
-                {podeEditar && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>A Tendência é calculada automaticamente a partir do Real e da LB 1. Lembre de clicar em <strong>Salvar</strong>.</p>}
+                {podeEditar && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>A Tendência é calculada automaticamente a partir do Real e da Linha de Base. Lembre de clicar em <strong>Salvar</strong>.</p>}
             </div>
         </div>
     )

@@ -66,10 +66,10 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const desvio = (real != null && previsto != null) ? real - previsto : null
     const noPrazo = desvio != null ? desvio >= 0 : null
 
-    // Datas LB2 e tendência
-    const lb2Weeks = comTendencia.filter(s => s.lb2_pct != null)
-    const inicioLB2 = lb2Weeks[0]?.semana_ref || ''
-    const fimLB2 = (lb2Weeks.find(s => (s.lb2_pct as number) >= 100)?.semana_ref) || lb2Weeks[lb2Weeks.length - 1]?.semana_ref || ''
+    // Datas da Linha de Base e da tendência
+    const baseWeeks = comTendencia.filter(s => s.lb1_pct != null)
+    const inicioBase = baseWeeks[0]?.semana_ref || ''
+    const fimBase = (baseWeeks.find(s => (s.lb1_pct as number) >= 100)?.semana_ref) || baseWeeks[baseWeeks.length - 1]?.semana_ref || ''
     const inicioTend = obra?.data_inicio || comTendencia[0]?.semana_ref || ''
     const fimTend = terminoTendencia(comTendencia) || comTendencia[comTendencia.length - 1]?.semana_ref || ''
 
@@ -99,7 +99,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const analisesSemana = analises.filter((a: any) => restIds.has(a.restricao_id) || tarSemanaIds.has(a.tarefa_id))
 
     // Curva chart data
-    const curvaChart = comTendencia.map(s => ({ label: fmtCurto(s.semana_ref), 'LB 1': s.lb1_pct, 'LB 2': s.lb2_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct }))
+    const curvaChart = comTendencia.map(s => ({ label: fmtCurto(s.semana_ref), 'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct }))
 
     // Histograma chart helpers
     const histOrd = [...histograma].sort((a, b) => a.semana_ref.localeCompare(b.semana_ref))
@@ -241,7 +241,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                         <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Status</div><div style={{ fontSize: '16px', fontWeight: 800, color: noPrazo == null ? '#1a1a1a' : (noPrazo ? '#15803d' : '#b91c1c') }}>{noPrazo == null ? '-' : (noPrazo ? 'No prazo' : 'Atrasado')}</div></div>
                         <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Dias percorridos</div><div style={{ fontSize: '18px', fontWeight: 800 }}>{diasPercorridos ?? '-'}</div></div>
                         <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Dias p/ término</div><div style={{ fontSize: '18px', fontWeight: 800 }}>{diasTermino ?? '-'}</div></div>
-                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Início / Término LB2</div><div style={{ fontSize: '12px', fontWeight: 700 }}>{fmt(inicioLB2)} → {fmt(fimLB2)}</div></div>
+                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Início / Término Base</div><div style={{ fontSize: '12px', fontWeight: 700 }}>{fmt(inicioBase)} → {fmt(fimBase)}</div></div>
                         <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Início / Término Tendência</div><div style={{ fontSize: '12px', fontWeight: 700 }}>{fmt(inicioTend)} → {fmt(fimTend)}</div></div>
                     </div>
                 </div>
@@ -296,8 +296,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                 <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
                                 <Tooltip formatter={(v: any) => v == null ? '-' : `${Number(v).toFixed(1)}%`} />
                                 <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                <Line type="monotone" dataKey="LB 1" stroke="#10b981" strokeWidth={2} dot={false} connectNulls />
-                                <Line type="monotone" dataKey="LB 2" stroke="#a855f7" strokeWidth={2} dot={false} connectNulls />
+                                <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls />
                                 <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls />
                                 <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 2 }} connectNulls />
                             </LineChart>
