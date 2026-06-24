@@ -76,6 +76,17 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
         setSaving(false)
     }
 
+    async function excluirTudo() {
+        if (!window.confirm('Excluir TODAS as semanas cadastradas da Curva S desta obra? Esta ação não pode ser desfeita.')) return
+        setSaving(true)
+        const { error } = await supabase.from('curva_s_semanas' as any).delete().eq('obra_id', obraId)
+        if (error) { toast.error('Erro ao excluir: ' + error.message); setSaving(false); return }
+        setRows([])
+        toast.success('Curva S excluída.')
+        router.refresh()
+        setSaving(false)
+    }
+
     const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }
     const td: React.CSSProperties = { padding: '6px 12px', borderTop: '1px solid var(--border-glass)' }
 
@@ -119,6 +130,9 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
                     <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Semanas</h3>
                     {podeEditar && (
                         <div style={{ display: 'flex', gap: '8px' }}>
+                            {rows.length > 0 && (
+                                <button onClick={excluirTudo} className="btn-secondary" disabled={saving} title="Excluir todas as semanas" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}><Trash2 size={16} /> Excluir tudo</button>
+                            )}
                             <button onClick={addRow} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Plus size={16} /> Semana</button>
                             <button onClick={salvar} className="btn-primary" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Save size={16} /> {saving ? 'Salvando...' : 'Salvar'}</button>
                         </div>
