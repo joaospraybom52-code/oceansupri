@@ -25,14 +25,21 @@ export default async function MedicaoDetalhePage({ params }: { params: Promise<{
         .eq('obra_id', id)
         .order('codigo', { ascending: true })
 
-    // 3. Buscar medições ANTERIORES para calcular acumulado (onde data < medicao.periodo_inicio)
-    const { data: medicoesAnteriores } = await supabase
+    // 3. Acumulado anterior = medições CONCLUÍDAS que vêm antes desta (por período;
+    //    em empate de período, pela data de criação). Só medições concluídas contam
+    //    como já medido — assim uma nova medição do mesmo período enxerga o que a
+    //    concluída anterior já mediu e o saldo baixa corretamente.
+    const { data: todasMedicoes } = await supabase
         .from('medicoes')
-        .select('id')
+        .select('id, periodo_inicio, created_at, status')
         .eq('obra_id', id)
-        .lt('periodo_inicio', medicao.periodo_inicio)
 
-    const idsAnteriores = medicoesAnteriores?.map(m => m.id) || []
+    const idsAnteriores = (todasMedicoes || [])
+        .filter(m => m.id !== medicaoId && m.status === 'Concluída' && (
+            m.periodo_inicio < medicao.periodo_inicio ||
+            (m.periodo_inicio === medicao.periodo_inicio && (m.created_at || '') < (medicao.created_at || ''))
+        ))
+        .map(m => m.id)
 
     let medicaoItensAnteriores: any[] = []
     if (idsAnteriores.length > 0) {
