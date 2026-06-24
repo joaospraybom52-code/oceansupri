@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Printer, Save, ImagePlus, X } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from 'recharts'
-import { calcularTendencia, terminoTendencia, SemanaCurva } from '@/lib/utils/curva-s'
+import { calcularTendencia, projetarConclusao, SemanaCurva } from '@/lib/utils/curva-s'
 
 const DIAS = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb'], ['dom', 'Dom']] as const
 const PERIODOS = [['manha', 'Manhã'], ['tarde', 'Tarde'], ['noite', 'Noite']] as const
@@ -80,7 +80,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const inicioLB = baseWeeks[0]?.semana_ref || comTendencia[0]?.semana_ref || ''
     const fimLB = comTendencia[comTendencia.length - 1]?.semana_ref || ''
     const inicioTend = inicioLB
-    const fimTend = terminoTendencia(comTendencia) || comTendencia[comTendencia.length - 1]?.semana_ref || ''
+    const projecao = useMemo(() => projetarConclusao(comTendencia), [comTendencia])
+    const fimTend = projecao.dataTermino || comTendencia[comTendencia.length - 1]?.semana_ref || ''
 
     const hoje = new Date()
     const diasPercorridos = obra?.data_inicio ? Math.max(0, Math.floor((hoje.getTime() - new Date(obra.data_inicio).getTime()) / 86400000)) : null
@@ -111,7 +112,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const tarSemanaIds = new Set(tarefas.filter((t: any) => progSel && t.programacao_id === progSel.id).map((t: any) => t.id))
     const analisesSemana = (analises || []).filter((a: any) => restIds.has(a.restricao_id) || tarSemanaIds.has(a.tarefa_id))
 
-    const curvaChart = comTendencia.map(s => ({ label: fmtCurto(s.semana_ref), 'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct }))
+    const curvaChart = projecao.pontos.map(s => ({ label: fmtCurto(s.semana_ref), 'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct }))
     const histOrd = [...histograma].sort((a, b) => a.semana_ref.localeCompare(b.semana_ref))
     const histData = (p: string, r: string) => histOrd.map(h => ({ label: fmtCurto(h.semana_ref), Previsto: toNum(h[p]), Realizado: toNum(h[r]) }))
 

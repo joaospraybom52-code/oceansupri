@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Plus, Trash2, Save } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
-import { calcularTendencia, SemanaCurva } from '@/lib/utils/curva-s'
+import { calcularTendencia, projetarConclusao, SemanaCurva } from '@/lib/utils/curva-s'
 
 interface Row {
     semana_ref: string
@@ -36,7 +36,8 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
         return calcularTendencia(base)
     }, [ordenadas])
 
-    const chartData = comTendencia.map(s => ({
+    const { pontos, dataTermino } = useMemo(() => projetarConclusao(comTendencia), [comTendencia])
+    const chartData = pontos.map(s => ({
         label: fmtData(s.semana_ref),
         'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct,
     }))
@@ -83,9 +84,15 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
             {/* Gráfico */}
             <div className="glass-card" style={{ padding: '24px' }}>
                 <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '4px' }}>Curva S</h2>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                     Linha de Base (planejado), Tendência (projeção pelo ritmo atual) e Real.
                 </p>
+                {dataTermino && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: '8px', padding: '8px 14px', marginBottom: '16px' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Término previsto pela tendência (no ritmo atual):</span>
+                        <strong style={{ fontSize: '14px', color: '#f59e0b' }}>{new Date(dataTermino + 'T00:00:00').toLocaleDateString('pt-BR')}</strong>
+                    </div>
+                )}
                 {chartData.length === 0 ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                         Cadastre as semanas abaixo para ver a curva.
