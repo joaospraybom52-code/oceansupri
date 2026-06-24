@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, HelpCircle, Save, Plus, X, Trash2 } from 'lucide-react'
@@ -97,6 +97,37 @@ export default function ProgramacaoSemanalClient({
     const irr = totalRestricoes > 0 ? (restricoesRemovidas / totalRestricoes) * 100 : 0
 
     const ir = totalTarefas > 0 ? (totalRestricoes / totalTarefas) * 100 : 0
+
+    // ===== Matriz diária (Previsto x Realizado) =====
+    const DIAS_MATRIZ = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb'], ['dom', 'Dom']] as const
+    const diasMatriz = useMemo(() => {
+        const base = programacao?.semana_referente_inicio
+        let monday: Date | null = null
+        if (base) {
+            const d = new Date(base + 'T00:00:00')
+            const dow = d.getDay()
+            const off = dow === 0 ? -6 : 1 - dow
+            monday = new Date(d); monday.setDate(d.getDate() + off)
+        }
+        return DIAS_MATRIZ.map(([k, l], i) => {
+            let data = ''
+            if (monday) { const dt = new Date(monday); dt.setDate(monday.getDate() + i); data = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) }
+            return { key: k, label: l, data }
+        })
+    }, [programacao])
+
+    const [realEdit, setRealEdit] = useState<Record<string, string>>({})
+    const numOuNull = (v: string) => v == null || v.trim() === '' ? null : Number(v.replace(',', '.'))
+    const somaDias = (t: any, prefixo: 'qtd_' | 'qtd_real_') => DIAS_MATRIZ.reduce((a, [k]) => a + (Number(t[`${prefixo}${k}`]) || 0), 0)
+
+    async function salvarRealizado(taskId: string, campo: string, valor: string) {
+        const num = numOuNull(valor)
+        setTarefas(tarefas.map(t => t.id === taskId ? { ...t, [campo]: num } : t))
+        const { error } = await supabase.from('tarefas').update({ [campo]: num }).eq('id', taskId)
+        if (error) toast.error('Erro ao salvar realizado: ' + error.message)
+    }
+    const mth: React.CSSProperties = { padding: '8px 10px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'left' }
+    const mtd: React.CSSProperties = { padding: '6px 10px', borderTop: '1px solid var(--border-glass)', color: 'var(--text-primary)' }
 
     async function handleAddTarefa(e: React.FormEvent) {
         e.preventDefault()
@@ -484,6 +515,77 @@ export default function ProgramacaoSemanalClient({
                             </div>
                         ))}
                     </div>
+
+                    {/* Matriz diária: Previsto x Realizado */}
+                    {tarefas.length > 0 && (
+                        <div className="glass-card" style={{ padding: '20px', marginTop: '24px', overflowX: 'auto' }}>
+                            <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '4px' }}>Programação diária — Previsto × Realizado</h3>
+                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                                {podeEditar ? 'Preencha a linha Realizado conforme a semana avança (salva automaticamente).' : 'Acompanhamento do previsto × realizado por dia.'}
+                            </p>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '900px' }}>
+                                <thead>
+                                    <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                        {['Item', 'Atividade', 'Un.', 'Meta'].map(h => <th key={h} style={mth}>{h}</th>)}
+                                        <th style={mth}></th>
+                                        {diasMatriz.map(d => (
+                                            <th key={d.key} style={{ ...mth, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                {d.label}<br /><span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{d.data}</span>
+                                            </th>
+                                        ))}
+                                        <th style={{ ...mth, textAlign: 'center' }}>Total</th>
+                                        <th style={{ ...mth, textAlign: 'center' }}>% atg.</th>
+                                    </tr>
+                                </thead>
+                                {tarefas.map(t => {
+                                        const prevTot = somaDias(t, 'qtd_')
+                                        const realTot = somaDias(t, 'qtd_real_')
+                                        const atg = prevTot > 0 ? (realTot / prevTot) * 100 : null
+                                        return (
+                                            <tbody key={t.id} style={{ borderTop: '2px solid var(--border-glass)' }}>
+                                                {/* Linha Previsto */}
+                                                <tr>
+                                                    <td rowSpan={2} style={{ ...mtd, fontWeight: 700, color: 'var(--accent-blue)' }}>{getTaskCode(t.id)}</td>
+                                                    <td rowSpan={2} style={{ ...mtd, maxWidth: '240px', textTransform: 'capitalize' }}>{t.descricao}</td>
+                                                    <td rowSpan={2} style={{ ...mtd, textAlign: 'center' }}>{t.unidade || '-'}</td>
+                                                    <td rowSpan={2} style={{ ...mtd, textAlign: 'center', fontWeight: 600 }}>{t.qtd_total != null ? Number(t.qtd_total).toLocaleString('pt-BR') : '-'}</td>
+                                                    <td style={{ ...mtd, fontWeight: 600, color: '#3b82f6' }}>Previsto</td>
+                                                    {diasMatriz.map(d => (
+                                                        <td key={d.key} style={{ ...mtd, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                            {t[`qtd_${d.key}`] != null ? Number(t[`qtd_${d.key}`]).toLocaleString('pt-BR') : '-'}
+                                                        </td>
+                                                    ))}
+                                                    <td style={{ ...mtd, textAlign: 'center', fontWeight: 700, color: '#3b82f6' }}>{prevTot ? prevTot.toLocaleString('pt-BR') : '-'}</td>
+                                                    <td rowSpan={2} style={{ ...mtd, textAlign: 'center', fontWeight: 700, color: atg == null ? 'var(--text-muted)' : (atg >= 100 ? 'var(--accent-green)' : atg >= 50 ? '#f59e0b' : 'var(--accent-red)') }}>
+                                                        {atg == null ? '-' : `${atg.toFixed(0)}%`}
+                                                    </td>
+                                                </tr>
+                                                {/* Linha Realizado */}
+                                                <tr>
+                                                    <td style={{ ...mtd, fontWeight: 600, color: 'var(--accent-green)' }}>Realizado</td>
+                                                    {diasMatriz.map(d => {
+                                                        const campo = `qtd_real_${d.key}`
+                                                        const ekey = `${t.id}_${campo}`
+                                                        const val = realEdit[ekey] ?? (t[campo] != null ? String(t[campo]).replace('.', ',') : '')
+                                                        return (
+                                                            <td key={d.key} style={{ ...mtd, textAlign: 'center', padding: '2px' }}>
+                                                                {podeEditar ? (
+                                                                    <input type="text" inputMode="decimal" value={val}
+                                                                        onChange={e => setRealEdit({ ...realEdit, [ekey]: e.target.value })}
+                                                                        onBlur={e => { salvarRealizado(t.id, campo, e.target.value); const { [ekey]: _, ...rest } = realEdit; setRealEdit(rest) }}
+                                                                        className="input-field" style={{ width: '58px', textAlign: 'center', padding: '5px 4px' }} placeholder="-" />
+                                                                ) : (t[campo] != null ? Number(t[campo]).toLocaleString('pt-BR') : '-')}
+                                                            </td>
+                                                        )
+                                                    })}
+                                                    <td style={{ ...mtd, textAlign: 'center', fontWeight: 700, color: 'var(--accent-green)' }}>{realTot ? realTot.toLocaleString('pt-BR') : '-'}</td>
+                                                </tr>
+                                            </tbody>
+                                        )
+                                    })}
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 

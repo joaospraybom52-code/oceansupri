@@ -352,7 +352,14 @@ CREATE TABLE public.tarefas (
   qtd_qui numeric,
   qtd_sex numeric,
   qtd_sab numeric,
-  qtd_dom numeric
+  qtd_dom numeric,
+  qtd_real_seg numeric,
+  qtd_real_ter numeric,
+  qtd_real_qua numeric,
+  qtd_real_qui numeric,
+  qtd_real_sex numeric,
+  qtd_real_sab numeric,
+  qtd_real_dom numeric
 );
 ALTER TABLE public.tarefas ADD CONSTRAINT tarefas_item_orcamento_id_fkey FOREIGN KEY (item_orcamento_id) REFERENCES itens_orcamento(id) ON DELETE SET NULL;
 ALTER TABLE public.tarefas ADD CONSTRAINT tarefas_programacao_id_fkey FOREIGN KEY (programacao_id) REFERENCES programacoes_semanais(id) ON DELETE CASCADE;
