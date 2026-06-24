@@ -35,6 +35,32 @@ function diasDaSemana(ref: string) {
 }
 const somaDias = (t: any, pref: 'qtd_' | 'qtd_real_') => DIAS.reduce((a, [k]) => a + (Number(t[`${pref}${k}`]) || 0), 0)
 
+// Paleta da marca Constrowins
+const BRAND_DARK = '#2B2E34'
+const BRAND_RED = '#E63329'
+
+// Marca Constrowins (aprox. do "C" de arcos + letreiro)
+function LogoConstrowins({ height = 40 }: { height?: number }) {
+    const radii = [10, 17, 24, 31, 38]
+    const sw = 4.4
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <svg viewBox="0 0 100 100" width={height} height={height} style={{ flexShrink: 0 }}>
+                {radii.map(r => {
+                    const c = 2 * Math.PI * r
+                    const g = c * 95 / 360   // metade do vão (vão total ~190° abrindo à direita)
+                    const d = c - g * 2
+                    return <circle key={r} cx="50" cy="50" r={r} fill="none" stroke={BRAND_RED} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`0 ${g} ${d} ${g}`} />
+                })}
+            </svg>
+            <div style={{ lineHeight: 1 }}>
+                <div style={{ fontSize: `${height * 0.62}px`, fontWeight: 900, color: BRAND_DARK, letterSpacing: '0.5px' }}>CONSTROWINS</div>
+                <div style={{ fontSize: `${height * 0.22}px`, fontWeight: 600, color: BRAND_DARK, letterSpacing: `${height * 0.13}px`, marginTop: '3px' }}>ENGENHARIA</div>
+            </div>
+        </div>
+    )
+}
+
 export default function RelatorioClient({ obra, programacoes, tarefas, restricoes, analises, curva, histograma, relatorios, podeEditar }: any) {
     const supabase = createClient()
 
@@ -143,7 +169,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
 
     // estilos do "papel"
     const card: React.CSSProperties = { background: '#fff', color: '#1a1a1a', borderRadius: '4px', padding: '24px', marginBottom: '16px', border: '1px solid #e2e2e2' }
-    const h2: React.CSSProperties = { fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0f3a66', borderBottom: '2px solid #0f3a66', paddingBottom: '6px', marginBottom: '14px' }
+    const h2: React.CSSProperties = { fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: BRAND_DARK, borderBottom: `2px solid ${BRAND_RED}`, paddingBottom: '6px', marginBottom: '14px' }
     const tbl: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: '11px' }
     const tc: React.CSSProperties = { border: '1px solid #cfcfcf', padding: '4px 6px', textAlign: 'center' }
     const lbl: React.CSSProperties = { border: '1px solid #cfcfcf', padding: '6px 8px', fontWeight: 700, background: '#f3f4f6', fontSize: '12px' }
@@ -160,17 +186,17 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
             <div style={{ overflowX: 'auto' }}>
                 <table style={{ ...tbl, minWidth: '760px' }}>
                     <thead>
-                        <tr style={{ background: '#374151', color: '#fff' }}>
-                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Item</th>
-                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Local</th>
-                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563', textAlign: 'left' }}>Atividade</th>
-                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Un.</th>
-                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Meta</th>
-                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>P / R</th>
-                            {dias.map(d => <th key={d.key} style={{ ...tc, color: '#fff', borderColor: '#4b5563', whiteSpace: 'nowrap' }}>{d.data || d.label}</th>)}
-                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Total</th>
-                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Status</th>
-                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Motivo</th>
+                        <tr style={{ background: '#2B2E34', color: '#fff' }}>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#54585f' }}>Item</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#54585f' }}>Local</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#54585f', textAlign: 'left' }}>Atividade</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#54585f' }}>Un.</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#54585f' }}>Meta</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#54585f' }}>P / R</th>
+                            {dias.map(d => <th key={d.key} style={{ ...tc, color: '#fff', borderColor: '#54585f', whiteSpace: 'nowrap' }}>{d.data || d.label}</th>)}
+                            <th style={{ ...tc, color: '#fff', borderColor: '#54585f' }}>Total</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#54585f' }}>Status</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#54585f' }}>Motivo</th>
                         </tr>
                     </thead>
                     {ts.map((t: any, i: number) => {
@@ -284,7 +310,14 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
             <div id="relatorio-print">
                 {/* PARTE 1 — Cabeçalho */}
                 <div className="rep-sec" style={card}>
-                    <div style={{ background: '#1a1a1a', color: '#fff', textAlign: 'center', padding: '10px', fontSize: '17px', fontWeight: 800, borderRadius: '3px 3px 0 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#d6d6d6', padding: '14px 18px', borderRadius: '3px 3px 0 0', borderTop: `4px solid ${BRAND_RED}` }}>
+                        <LogoConstrowins height={42} />
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 900, color: BRAND_DARK, letterSpacing: '1px' }}>RELATÓRIO SEMANAL</div>
+                            <div style={{ fontSize: '12px', color: '#555' }}>{semanaObj ? `${fmt(semanaObj.ref)}${semanaObj.fim ? ` a ${fmt(semanaObj.fim)}` : ''}` : '-'} · {semanaLabel}</div>
+                        </div>
+                    </div>
+                    <div style={{ background: BRAND_DARK, color: '#fff', textAlign: 'center', padding: '9px', fontSize: '15px', fontWeight: 800 }}>
                         RG. 089 — Relatório de Acompanhamento de Obra
                     </div>
                     <table style={{ ...tbl, fontSize: '12px' }}>
