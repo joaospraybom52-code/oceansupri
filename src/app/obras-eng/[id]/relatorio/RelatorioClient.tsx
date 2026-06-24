@@ -395,12 +395,14 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                 <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
                                 <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
-                                <Tooltip formatter={(v: any) => v == null ? '-' : `${Number(v).toFixed(1)}%`} />
+                                <Tooltip cursor={false} formatter={(v: any) => v == null ? '-' : `${Number(v).toFixed(1)}%`} />
                                 <Legend wrapperStyle={{ fontSize: '11px' }} />
                                 <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls>
                                     <LabelList dataKey="Linha de Base" position="top" offset={10} formatter={(v: any) => v == null ? '' : `${Math.round(Number(v))}%`} fontSize={9} fill="#0f7a52" />
                                 </Line>
-                                <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls />
+                                <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls>
+                                    <LabelList dataKey="Tendência" position="bottom" offset={22} formatter={(v: any) => v == null ? '' : `${Math.round(Number(v))}%`} fontSize={9} fill="#b45309" />
+                                </Line>
                                 <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 2 }} connectNulls>
                                     <LabelList dataKey="Real" position="bottom" offset={10} formatter={(v: any) => v == null ? '' : `${Math.round(Number(v))}%`} fontSize={9} fill="#b91c1c" />
                                 </Line>
@@ -421,10 +423,14 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                         <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
                                         <YAxis tick={{ fontSize: 10, fill: '#555' }} />
-                                        <Tooltip />
+                                        <Tooltip cursor={false} />
                                         <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                        <Bar dataKey="Previsto" fill="#3b82f6" />
-                                        <Bar dataKey="Realizado" fill="#10b981" />
+                                        <Bar dataKey="Previsto" fill="#3b82f6">
+                                            <LabelList dataKey="Previsto" position="top" formatter={(v: any) => v == null ? '' : `${v}`} fontSize={9} fill="#333" />
+                                        </Bar>
+                                        <Bar dataKey="Realizado" fill="#10b981">
+                                            <LabelList dataKey="Realizado" position="top" formatter={(v: any) => v == null ? '' : `${v}`} fontSize={9} fill="#333" />
+                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -453,8 +459,9 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                 <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
                                 <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
-                                <Tooltip formatter={(v: any) => `${v}%`} />
+                                <Tooltip cursor={false} formatter={(v: any) => `${v}%`} />
                                 <Bar dataKey="PPC" radius={[3, 3, 0, 0]}>
+                                    <LabelList dataKey="PPC" position="top" formatter={(v: any) => `${Math.round(Number(v))}%`} fontSize={10} fill="#333" />
                                     {ppcPorSemana.map((e: any, i: number) => <Cell key={i} fill={e.PPC >= 80 ? '#15803d' : e.PPC >= 50 ? '#f59e0b' : '#b91c1c'} />)}
                                 </Bar>
                             </BarChart>
