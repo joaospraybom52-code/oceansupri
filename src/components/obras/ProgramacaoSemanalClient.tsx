@@ -223,8 +223,11 @@ export default function ProgramacaoSemanalClient({
     }
 
     async function fecharProgramacao() {
+        const agora = new Date()
+        const prazo = programacao.prazo_envio ? new Date(programacao.prazo_envio) : null
+        const status_envio = prazo && agora > prazo ? 'atrasada' : 'no_prazo'
         const { error } = await supabase.from('programacoes_semanais')
-            .update({ status_envio: 'no_prazo', data_envio: new Date().toISOString() })
+            .update({ status_envio, data_envio: agora.toISOString() })
             .eq('id', programacao.id)
         
         if (!error) {
