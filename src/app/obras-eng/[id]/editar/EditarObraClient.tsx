@@ -11,6 +11,7 @@ export default function EditarObraClient({ obra }: { obra: any }) {
     const router = useRouter()
     const supabase = createClient()
     const [nome, setNome] = useState(obra.nome)
+    const [cliente, setCliente] = useState(obra.cliente || '')
     const [codigoUau, setCodigoUau] = useState(obra.codigo_uau || '')
     const [local, setLocal] = useState(obra.local || '')
     const [status, setStatus] = useState(obra.status || 'em_andamento')
@@ -47,6 +48,7 @@ export default function EditarObraClient({ obra }: { obra: any }) {
                 .from('obras_eng')
                 .update({
                     nome,
+                    cliente: cliente || null,
                     codigo_uau: codigoUau || null,
                     local: local || null,
                     previsao_inicio: previsaoInicio || null,
@@ -95,6 +97,20 @@ export default function EditarObraClient({ obra }: { obra: any }) {
                                 required
                             />
                         </div>
+                    </div>
+
+                    {/* Cliente */}
+                    <div>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                            Cliente
+                        </label>
+                        <input
+                            type="text"
+                            value={cliente}
+                            onChange={(e) => setCliente(e.target.value)}
+                            className="input-field"
+                            placeholder="Ex: Nestlé (Marília/SP)"
+                        />
                     </div>
 
                     {/* Código UAU & Local */}

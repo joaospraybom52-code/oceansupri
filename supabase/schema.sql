@@ -235,7 +235,8 @@ CREATE TABLE public.obras_eng (
   codigo_uau text,
   local text,
   previsao_inicio date,
-  previsao_termino date
+  previsao_termino date,
+  cliente text
 );
 ALTER TABLE public.obras_eng ADD CONSTRAINT obras_eng_pkey PRIMARY KEY (id);
 ALTER TABLE public.obras_eng ENABLE ROW LEVEL SECURITY;

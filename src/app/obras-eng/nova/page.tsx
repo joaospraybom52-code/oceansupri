@@ -8,6 +8,7 @@ import Link from 'next/link'
 export default function NovaObraPage() {
     const router = useRouter()
     const [nome, setNome] = useState('')
+    const [cliente, setCliente] = useState('')
     const [codigoUau, setCodigoUau] = useState('')
     const [local, setLocal] = useState('')
     const [previsaoInicio, setPrevisaoInicio] = useState('')
@@ -34,6 +35,7 @@ export default function NovaObraPage() {
 
         const formData = new FormData()
         formData.append('nome', nome)
+        formData.append('cliente', cliente)
         formData.append('codigoUau', codigoUau)
         formData.append('local', local)
         if (previsaoInicio) formData.append('previsaoInicio', previsaoInicio)
@@ -102,6 +104,20 @@ export default function NovaObraPage() {
                                 required
                             />
                         </div>
+                    </div>
+
+                    {/* Cliente */}
+                    <div>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                            Cliente
+                        </label>
+                        <input
+                            type="text"
+                            value={cliente}
+                            onChange={(e) => setCliente(e.target.value)}
+                            className="input-field"
+                            placeholder="Ex: Nestlé (Marília/SP)"
+                        />
                     </div>
 
                     {/* Código UAU & Local da Obra */}

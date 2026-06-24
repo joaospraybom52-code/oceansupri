@@ -9,22 +9,35 @@ import { calcularTendencia, terminoTendencia, SemanaCurva } from '@/lib/utils/cu
 
 const DIAS = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb'], ['dom', 'Dom']] as const
 const PERIODOS = [['manha', 'Manhã'], ['tarde', 'Tarde'], ['noite', 'Noite']] as const
-const MOTIVOS = [
-    'Falta de material', 'Falta de efetivo', 'Erro de execução / Retrabalho', 'Indefinição / Modificação de Projeto',
-    'Parada de equipamento / falha de manutenção', 'Atraso / Falta de liberação de PTS', 'Interferência entre equipes ou atividades',
-    'Falta de equipamento', 'Área não liberada', 'Problemas no planejamento - Produtividade', 'Falhas na segurança',
-    'Condições Climáticas', 'Solicitação de modificações de serviços', 'Realocação de equipe p/ outra atividade', 'Mobilização de equipamento', 'Outros',
-]
+const CATEGORIAS: Record<string, string> = {
+    projeto: 'Projeto', material: 'Material', mao_de_obra: 'Mão de Obra', equipamento: 'Equipamento',
+    area_frente: 'Área/Frente', contratacao: 'Contratação', clima: 'Clima', seguranca: 'Segurança', outros: 'Outros',
+}
+const MOTIVO_LABEL: Record<string, string> = {
+    material: 'Falta de Material', mao_de_obra: 'Falta de Mão de Obra', projeto: 'Problema de Projeto',
+    equipamento: 'Falha em Equipamento', area_frente: 'Área/Frente Indisponível', clima: 'Condições Climáticas',
+    planejamento: 'Erro de Planejamento', terceiros: 'Atraso de Terceiros', outros: 'Outros',
+}
 
 const fmt = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '-'
 const fmtCurto = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''
 const toNum = (v: any): number | null => v == null || v === '' ? null : Number(String(v).replace(',', '.'))
-const pct = (v: number | null | undefined) => v == null ? '-' : `${Number(v).toFixed(1)}%`
+const pct = (v: number | null | undefined) => v == null ? '-' : `${Number(v).toFixed(0)}%`
 
-export default function RelatorioClient({ obra, programacoes, tarefas, restricoes, analises, curva, histograma, relatorios, podeEditar }: any) {
+function diasDaSemana(ref: string) {
+    let monday: Date | null = null
+    if (ref) { const d = new Date(ref + 'T00:00:00'); const dow = d.getDay(); const off = dow === 0 ? -6 : 1 - dow; monday = new Date(d); monday.setDate(d.getDate() + off) }
+    return DIAS.map(([k, l], i) => {
+        let data = ''
+        if (monday) { const dt = new Date(monday); dt.setDate(monday.getDate() + i); data = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) }
+        return { key: k, label: l, data }
+    })
+}
+const somaDias = (t: any, pref: 'qtd_' | 'qtd_real_') => DIAS.reduce((a, [k]) => a + (Number(t[`${pref}${k}`]) || 0), 0)
+
+export default function RelatorioClient({ obra, programacoes, tarefas, restricoes, curva, histograma, relatorios, podeEditar }: any) {
     const supabase = createClient()
 
-    // Lista de semanas (união programações + curva)
     const semanas = useMemo(() => {
         const map = new Map<string, { ref: string, fim?: string }>()
         programacoes.forEach((p: any) => map.set(p.semana_referente_inicio, { ref: p.semana_referente_inicio, fim: p.semana_referente_fim }))
@@ -33,12 +46,11 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     }, [programacoes, curva])
 
     const [semanaSel, setSemanaSel] = useState<string>(semanas.length ? semanas[semanas.length - 1].ref : '')
-
-    // Dados editáveis do relatório da semana
     const [ocorrencias, setOcorrencias] = useState('')
     const [pluvio, setPluvio] = useState<any>({})
-    const [desvios, setDesvios] = useState<Record<string, string>>({})
     const [observacoes, setObservacoes] = useState('')
+    const [eng, setEng] = useState('')
+    const [fiscal, setFiscal] = useState('')
     const [fotos, setFotos] = useState<{ url: string, name: string }[]>([])
     const [saving, setSaving] = useState(false)
 
@@ -46,31 +58,28 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
         const r = relatorios.find((x: any) => x.semana_ref === semanaSel)
         setOcorrencias(((r?.ocorrencias as string[]) || []).join('\n'))
         setPluvio(r?.pluviometrico || {})
-        const dv: Record<string, string> = {}
-        ;((r?.desvios as any[]) || []).forEach(d => { dv[d.motivo] = String(d.qtd) })
-        setDesvios(dv)
         setObservacoes(r?.observacoes || '')
     }, [semanaSel, relatorios])
 
     const semanaObj = semanas.find(s => s.ref === semanaSel)
+    const semanaIdx = semanas.findIndex(s => s.ref === semanaSel)
+    const semanaLabel = semanaIdx >= 0 ? `S${String(semanaIdx + 1).padStart(2, '0')}` : '-'
 
     // Curva S + tendência
     const comTendencia = useMemo(() => {
-        const base: SemanaCurva[] = curva.map((c: any) => ({ semana_ref: c.semana_ref, lb1_pct: toNum(c.lb1_pct), lb2_pct: toNum(c.lb2_pct), real_pct: toNum(c.real_pct) }))
+        const base: SemanaCurva[] = curva.map((c: any) => ({ semana_ref: c.semana_ref, lb1_pct: toNum(c.lb1_pct), lb2_pct: null, real_pct: toNum(c.real_pct) }))
         return calcularTendencia(base)
     }, [curva])
     const curvaSel = comTendencia.find(s => s.semana_ref === semanaSel)
-
     const previsto = curvaSel?.lb1_pct ?? null
     const real = curvaSel?.real_pct ?? null
-    const desvio = (real != null && previsto != null) ? real - previsto : null
-    const noPrazo = desvio != null ? desvio >= 0 : null
+    const desvio = (real != null && previsto != null) ? previsto - real : null
+    const noPrazo = (real != null && previsto != null) ? real >= previsto : null
 
-    // Datas da Linha de Base e da tendência
     const baseWeeks = comTendencia.filter(s => s.lb1_pct != null)
-    const inicioBase = baseWeeks[0]?.semana_ref || ''
-    const fimBase = (baseWeeks.find(s => (s.lb1_pct as number) >= 100)?.semana_ref) || baseWeeks[baseWeeks.length - 1]?.semana_ref || ''
-    const inicioTend = obra?.data_inicio || comTendencia[0]?.semana_ref || ''
+    const inicioLB = baseWeeks[0]?.semana_ref || comTendencia[0]?.semana_ref || ''
+    const fimLB = comTendencia[comTendencia.length - 1]?.semana_ref || ''
+    const inicioTend = inicioLB
     const fimTend = terminoTendencia(comTendencia) || comTendencia[comTendencia.length - 1]?.semana_ref || ''
 
     const hoje = new Date()
@@ -79,31 +88,28 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const diasTermino = termino ? Math.floor((new Date(termino).getTime() - hoje.getTime()) / 86400000) : null
 
     // PPC por semana
-    const ppcPorSemana = useMemo(() => {
-        return programacoes.map((p: any) => {
-            const ts = tarefas.filter((t: any) => t.programacao_id === p.id)
-            const concl = ts.filter((t: any) => t.status === 'concluida').length
-            const ppc = ts.length > 0 ? (concl / ts.length) * 100 : 0
-            return { label: fmtCurto(p.semana_referente_inicio), PPC: Number(ppc.toFixed(1)), ref: p.semana_referente_inicio }
-        })
-    }, [programacoes, tarefas])
+    const ppcPorSemana = useMemo(() => programacoes.map((p: any) => {
+        const ts = tarefas.filter((t: any) => t.programacao_id === p.id)
+        const concl = ts.filter((t: any) => t.status === 'concluida').length
+        return { label: fmtCurto(p.semana_referente_inicio), PPC: Number(ts.length > 0 ? ((concl / ts.length) * 100).toFixed(1) : 0) }
+    }), [programacoes, tarefas])
     const ppcGeral = ppcPorSemana.length ? ppcPorSemana.reduce((a: number, b: any) => a + b.PPC, 0) / ppcPorSemana.length : 0
 
-    // Restrições / IRR / 5W2H da semana selecionada
+    // Análise dos desvios via restrições da semana
     const progSel = programacoes.find((p: any) => p.semana_referente_inicio === semanaSel)
     const restSemana = restricoes.filter((r: any) => progSel && r.programacao_id === progSel.id)
-    const restRemovidas = restSemana.filter((r: any) => r.status === 'removida').length
-    const irr = restSemana.length ? (restRemovidas / restSemana.length) * 100 : 0
-    const restIds = new Set(restSemana.map((r: any) => r.id))
-    const tarSemanaIds = new Set(tarefas.filter((t: any) => progSel && t.programacao_id === progSel.id).map((t: any) => t.id))
-    const analisesSemana = analises.filter((a: any) => restIds.has(a.restricao_id) || tarSemanaIds.has(a.tarefa_id))
+    const desviosPorCategoria = useMemo(() => {
+        const m: Record<string, number> = {}
+        restSemana.forEach((r: any) => { const c = r.categoria || 'outros'; m[c] = (m[c] || 0) + 1 })
+        return Object.entries(m).sort((a, b) => b[1] - a[1])
+    }, [restSemana])
 
-    // Curva chart data
     const curvaChart = comTendencia.map(s => ({ label: fmtCurto(s.semana_ref), 'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct }))
-
-    // Histograma chart helpers
     const histOrd = [...histograma].sort((a, b) => a.semana_ref.localeCompare(b.semana_ref))
     const histData = (p: string, r: string) => histOrd.map(h => ({ label: fmtCurto(h.semana_ref), Previsto: toNum(h[p]), Realizado: toNum(h[r]) }))
+
+    // Próxima semana (primeira programação com início > semanaSel)
+    const proxProg = programacoes.filter((p: any) => p.semana_referente_inicio > semanaSel).sort((a: any, b: any) => a.semana_referente_inicio.localeCompare(b.semana_referente_inicio))[0]
 
     function onFotos(e: React.ChangeEvent<HTMLInputElement>) {
         const files = Array.from(e.target.files || [])
@@ -116,16 +122,12 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
         if (!semanaSel) { toast.error('Selecione uma semana.'); return }
         setSaving(true)
         const payload = {
-            obra_id: obra.id,
-            semana_ref: semanaSel,
+            obra_id: obra.id, semana_ref: semanaSel,
             ocorrencias: ocorrencias.split('\n').map(s => s.trim()).filter(Boolean),
-            pluviometrico: pluvio,
-            desvios: MOTIVOS.filter(m => toNum(desvios[m])).map(m => ({ motivo: m, qtd: toNum(desvios[m]) })),
-            observacoes: observacoes || null,
+            pluviometrico: pluvio, observacoes: observacoes || null,
         }
         const { error } = await supabase.from('relatorio_semanal' as any).upsert(payload, { onConflict: 'obra_id,semana_ref' })
-        if (error) toast.error('Erro ao salvar: ' + error.message)
-        else toast.success('Dados da semana salvos!')
+        if (error) toast.error('Erro ao salvar: ' + error.message); else toast.success('Dados da semana salvos!')
         setSaving(false)
     }
 
@@ -134,15 +136,69 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     // estilos do "papel"
     const card: React.CSSProperties = { background: '#fff', color: '#1a1a1a', borderRadius: '4px', padding: '24px', marginBottom: '16px', border: '1px solid #e2e2e2' }
     const h2: React.CSSProperties = { fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#0f3a66', borderBottom: '2px solid #0f3a66', paddingBottom: '6px', marginBottom: '14px' }
-    const kpiBox: React.CSSProperties = { border: '1px solid #d0d0d0', borderRadius: '4px', padding: '10px 12px', textAlign: 'center' }
-    const tbl: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: '12px' }
-    const tdc: React.CSSProperties = { border: '1px solid #d0d0d0', padding: '5px 8px', textAlign: 'center' }
+    const tbl: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: '11px' }
+    const tc: React.CSSProperties = { border: '1px solid #cfcfcf', padding: '4px 6px', textAlign: 'center' }
+    const lbl: React.CSSProperties = { border: '1px solid #cfcfcf', padding: '6px 8px', fontWeight: 700, background: '#f3f4f6', fontSize: '12px' }
+    const val: React.CSSProperties = { border: '1px solid #cfcfcf', padding: '6px 8px', textAlign: 'center', fontSize: '12px' }
+
+    // ===== Matriz Previsto x Realizado de uma semana =====
+    function MatrizSemana({ progRef }: { progRef: string }) {
+        const prog = programacoes.find((p: any) => p.semana_referente_inicio === progRef)
+        const ts = prog ? tarefas.filter((t: any) => t.programacao_id === prog.id) : []
+        const dias = diasDaSemana(progRef)
+        if (!prog) return <div style={{ fontSize: '12px', color: '#999' }}>Não há programação cadastrada para esta semana.</div>
+        if (ts.length === 0) return <div style={{ fontSize: '12px', color: '#999' }}>Sem tarefas nesta semana.</div>
+        return (
+            <div style={{ overflowX: 'auto' }}>
+                <table style={{ ...tbl, minWidth: '760px' }}>
+                    <thead>
+                        <tr style={{ background: '#374151', color: '#fff' }}>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Item</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563', textAlign: 'left' }}>Atividade</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Un.</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Meta</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>P / R</th>
+                            {dias.map(d => <th key={d.key} style={{ ...tc, color: '#fff', borderColor: '#4b5563', whiteSpace: 'nowrap' }}>{d.data || d.label}</th>)}
+                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Total</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Status</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Motivo</th>
+                        </tr>
+                    </thead>
+                    {ts.map((t: any, i: number) => {
+                        const prevTot = somaDias(t, 'qtd_'); const realTot = somaDias(t, 'qtd_real_')
+                        const ok = prevTot > 0 && realTot >= prevTot
+                        const temReal = realTot > 0 || t.status === 'concluida'
+                        return (
+                            <tbody key={t.id} style={{ borderTop: '2px solid #cfcfcf' }}>
+                                <tr>
+                                    <td rowSpan={2} style={{ ...tc, fontWeight: 700 }}>{`T-${String(i + 1).padStart(2, '0')}`}</td>
+                                    <td rowSpan={2} style={{ ...tc, textAlign: 'left', maxWidth: '200px', textTransform: 'capitalize' }}>{t.descricao}</td>
+                                    <td rowSpan={2} style={tc}>{t.unidade || '-'}</td>
+                                    <td rowSpan={2} style={{ ...tc, fontWeight: 600 }}>{t.qtd_total != null ? Number(t.qtd_total).toLocaleString('pt-BR') : '-'}</td>
+                                    <td style={{ ...tc, fontWeight: 600, color: '#1d4ed8' }}>Prev.</td>
+                                    {dias.map(d => <td key={d.key} style={tc}>{t[`qtd_${d.key}`] != null ? Number(t[`qtd_${d.key}`]).toLocaleString('pt-BR') : ''}</td>)}
+                                    <td style={{ ...tc, fontWeight: 700, color: '#1d4ed8' }}>{prevTot ? prevTot.toLocaleString('pt-BR') : '-'}</td>
+                                    <td rowSpan={2} style={{ ...tc, fontWeight: 700, background: !temReal ? '#fff' : (ok ? '#dcfce7' : '#fee2e2'), color: !temReal ? '#888' : (ok ? '#15803d' : '#b91c1c') }}>{!temReal ? '—' : (ok ? 'Ok' : 'Reprogramar')}</td>
+                                    <td rowSpan={2} style={{ ...tc, textAlign: 'left' }}>{t.status === 'nao_concluida' && t.motivo_nao_conclusao ? (MOTIVO_LABEL[t.motivo_nao_conclusao] || t.motivo_nao_conclusao) : ''}</td>
+                                </tr>
+                                <tr>
+                                    <td style={{ ...tc, fontWeight: 600, color: '#15803d' }}>Real.</td>
+                                    {dias.map(d => <td key={d.key} style={tc}>{t[`qtd_real_${d.key}`] != null ? Number(t[`qtd_real_${d.key}`]).toLocaleString('pt-BR') : ''}</td>)}
+                                    <td style={{ ...tc, fontWeight: 700, color: '#15803d' }}>{realTot ? realTot.toLocaleString('pt-BR') : '-'}</td>
+                                </tr>
+                            </tbody>
+                        )
+                    })}
+                </table>
+            </div>
+        )
+    }
 
     return (
         <div>
             <style>{`
                 @media print {
-                    @page { size: A4; margin: 10mm; }
+                    @page { size: A4 landscape; margin: 8mm; }
                     body { background: #fff !important; }
                     body * { visibility: hidden !important; }
                     #relatorio-print, #relatorio-print * { visibility: visible !important; }
@@ -154,13 +210,21 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
             `}</style>
 
             {/* Barra de ferramentas */}
-            <div className="glass-card no-print" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="glass-card no-print" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div>
                     <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Semana do relatório</label>
                     <select value={semanaSel} onChange={e => setSemanaSel(e.target.value)} className="select-field">
                         {semanas.length === 0 && <option value="">Nenhuma semana</option>}
-                        {semanas.map(s => <option key={s.ref} value={s.ref}>{fmt(s.ref)}{s.fim ? ` a ${fmt(s.fim)}` : ''}</option>)}
+                        {semanas.map((s, i) => <option key={s.ref} value={s.ref}>S{String(i + 1).padStart(2, '0')} — {fmt(s.ref)}{s.fim ? ` a ${fmt(s.fim)}` : ''}</option>)}
                     </select>
+                </div>
+                <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Engº residente</label>
+                    <input type="text" value={eng} onChange={e => setEng(e.target.value)} className="input-field" placeholder="Nome" />
+                </div>
+                <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Fiscal de obras</label>
+                    <input type="text" value={fiscal} onChange={e => setFiscal(e.target.value)} className="input-field" placeholder="Nome" />
                 </div>
                 <div style={{ flex: 1 }} />
                 <label className="btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
@@ -172,18 +236,18 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                 </button>
             </div>
 
-            {/* Editor dos dados da semana */}
+            {/* Editor dados da semana */}
             {podeEditar && (
                 <div className="glass-card no-print" style={{ padding: '20px', marginBottom: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h3 style={{ fontSize: '15px', fontWeight: 700 }}>Editar dados da semana</h3>
+                        <h3 style={{ fontSize: '15px', fontWeight: 700 }}>Editar dados da semana (ocorrências e chuva)</h3>
                         <button onClick={salvar} className="btn-primary" disabled={saving} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Save size={16} /> {saving ? 'Salvando...' : 'Salvar'}</button>
                     </div>
                     <div style={{ marginBottom: '16px' }}>
                         <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Principais ocorrências (uma por linha)</label>
                         <textarea value={ocorrencias} onChange={e => setOcorrencias(e.target.value)} className="input-field" rows={3} style={{ width: '100%', resize: 'vertical' }} placeholder="Ex: Chuva no período da tarde" />
                     </div>
-                    <div style={{ marginBottom: '16px' }}>
+                    <div>
                         <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Monitoramento pluviométrico (mm)</label>
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
@@ -203,51 +267,52 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                             </table>
                         </div>
                     </div>
-                    <div>
-                        <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Análise dos desvios (quantidade por motivo)</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '8px' }}>
-                            {MOTIVOS.map(m => (
-                                <div key={m} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input type="text" inputMode="numeric" value={desvios[m] ?? ''} onChange={e => setDesvios({ ...desvios, [m]: e.target.value })} className="input-field" style={{ padding: '5px', width: '48px', textAlign: 'center' }} placeholder="0" />
-                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{m}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
                 </div>
             )}
 
-            {/* ========== RELATÓRIO (papel branco / impressão) ========== */}
+            {/* ========== RELATÓRIO ========== */}
             <div id="relatorio-print">
-                {/* Capa / cabeçalho */}
+                {/* PARTE 1 — Cabeçalho */}
                 <div className="rep-sec" style={card}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                        <div>
-                            <div style={{ fontSize: '20px', fontWeight: 900, letterSpacing: '1px', color: '#0f3a66' }}>CONSTROWINS</div>
-                            <div style={{ fontSize: '11px', letterSpacing: '3px', color: '#888' }}>ENGENHARIA</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '18px', fontWeight: 800 }}>RELATÓRIO SEMANAL</div>
-                            <div style={{ fontSize: '13px', color: '#444' }}>{semanaObj ? `${fmt(semanaObj.ref)}${semanaObj.fim ? ` a ${fmt(semanaObj.fim)}` : ''}` : '-'}</div>
-                        </div>
+                    <div style={{ background: '#1a1a1a', color: '#fff', textAlign: 'center', padding: '10px', fontSize: '17px', fontWeight: 800, borderRadius: '3px 3px 0 0' }}>
+                        RG. 089 — Relatório de Acompanhamento de Obra
                     </div>
-                    <div style={{ background: '#0f3a66', color: '#fff', padding: '8px 14px', borderRadius: '4px', fontWeight: 700, marginBottom: '16px' }}>
-                        {obra?.nome} {obra?.local ? `— ${obra.local}` : ''} {obra?.codigo_uau ? `· ${obra.codigo_uau}` : ''}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>% Previsto</div><div style={{ fontSize: '20px', fontWeight: 800 }}>{pct(previsto)}</div></div>
-                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>% Real</div><div style={{ fontSize: '20px', fontWeight: 800 }}>{pct(real)}</div></div>
-                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>% Desvio</div><div style={{ fontSize: '20px', fontWeight: 800, color: desvio != null ? (desvio >= 0 ? '#15803d' : '#b91c1c') : '#1a1a1a' }}>{desvio == null ? '-' : `${desvio >= 0 ? '+' : ''}${desvio.toFixed(1)}%`}</div></div>
-                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Status</div><div style={{ fontSize: '16px', fontWeight: 800, color: noPrazo == null ? '#1a1a1a' : (noPrazo ? '#15803d' : '#b91c1c') }}>{noPrazo == null ? '-' : (noPrazo ? 'No prazo' : 'Atrasado')}</div></div>
-                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Dias percorridos</div><div style={{ fontSize: '18px', fontWeight: 800 }}>{diasPercorridos ?? '-'}</div></div>
-                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Dias p/ término</div><div style={{ fontSize: '18px', fontWeight: 800 }}>{diasTermino ?? '-'}</div></div>
-                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Início / Término Base</div><div style={{ fontSize: '12px', fontWeight: 700 }}>{fmt(inicioBase)} → {fmt(fimBase)}</div></div>
-                        <div style={kpiBox}><div style={{ fontSize: '11px', color: '#777' }}>Início / Término Tendência</div><div style={{ fontSize: '12px', fontWeight: 700 }}>{fmt(inicioTend)} → {fmt(fimTend)}</div></div>
-                    </div>
+                    <table style={{ ...tbl, fontSize: '12px' }}>
+                        <tbody>
+                            <tr>
+                                <td style={lbl}>DATA</td><td style={val}>{hoje.toLocaleDateString('pt-BR')}</td>
+                                <td style={lbl}>SEMANA</td><td style={val}>{semanaLabel}</td>
+                                <td style={lbl}>DIAS PERCORRIDOS</td><td style={val}>{diasPercorridos != null ? `${diasPercorridos} dias` : '-'}</td>
+                                <td style={lbl}>DIAS P/ TÉRMINO</td><td style={val}>{diasTermino != null ? `${diasTermino} dias` : '-'}</td>
+                            </tr>
+                            <tr>
+                                <td style={lbl}>Cliente</td><td style={val}>{obra?.cliente || '-'}</td>
+                                <td style={lbl}>% Previsto</td><td style={val}>{pct(previsto)}</td>
+                                <td style={lbl}>Início LB</td><td style={val}>{fmt(inicioLB)}</td>
+                                <td style={lbl}>Início tendência</td><td style={val}>{fmt(inicioTend)}</td>
+                            </tr>
+                            <tr>
+                                <td style={lbl}>Projeto</td><td style={val}>{obra?.nome || '-'}</td>
+                                <td style={lbl}>% Real</td><td style={val}>{pct(real)}</td>
+                                <td style={lbl}>Término LB</td><td style={val}>{fmt(fimLB)}</td>
+                                <td style={lbl}>Término tendência</td><td style={val}>{fmt(fimTend)}</td>
+                            </tr>
+                            <tr>
+                                <td style={lbl}>Engº residente</td><td style={val}>{eng || '-'}</td>
+                                <td style={lbl}>% Desvio</td><td style={{ ...val, fontWeight: 700, color: desvio != null && desvio > 0 ? '#b91c1c' : '#15803d' }}>{desvio == null ? '-' : `${desvio.toFixed(0)}%`}</td>
+                                <td style={lbl} colSpan={2}></td><td style={lbl} colSpan={2}></td>
+                            </tr>
+                            <tr>
+                                <td style={lbl}>Fiscal de obras</td><td style={val}>{fiscal || '-'}</td>
+                                <td style={lbl}>Status</td><td style={{ ...val, fontWeight: 700, color: noPrazo == null ? '#1a1a1a' : (noPrazo ? '#15803d' : '#b91c1c') }}>{noPrazo == null ? '-' : (noPrazo ? 'No prazo' : 'Atrasada')}</td>
+                                <td style={lbl} colSpan={2}></td><td style={lbl} colSpan={2}></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
-                {/* Ocorrências + Pluviométrico */}
-                <div className="rep-sec" style={{ ...card, display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '24px' }}>
+                {/* PARTE 2 — Ocorrências + Pluviométrico */}
+                <div className="rep-sec" style={{ ...card, display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '24px' }}>
                     <div>
                         <div style={h2}>Principais ocorrências</div>
                         {ocorrencias.split('\n').filter(Boolean).length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem ocorrências registradas.</div> : (
@@ -259,37 +324,22 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     <div>
                         <div style={h2}>Monitoramento pluviométrico (mm)</div>
                         <table style={tbl}>
-                            <thead><tr><th style={{ ...tdc, background: '#f3f4f6' }}>Período</th>{DIAS.map(([k, l]) => <th key={k} style={{ ...tdc, background: '#f3f4f6' }}>{l}</th>)}</tr></thead>
+                            <thead><tr><th style={lbl}>Período</th>{DIAS.map(([k, l]) => <th key={k} style={lbl}>{l}</th>)}</tr></thead>
                             <tbody>
                                 {PERIODOS.map(([pk, pl]) => (
-                                    <tr key={pk}><td style={{ ...tdc, textAlign: 'left', fontWeight: 600 }}>{pl}</td>{DIAS.map(([dk]) => <td key={dk} style={tdc}>{pluvio?.[dk]?.[pk] ? `${pluvio[dk][pk]}` : '0'}</td>)}</tr>
+                                    <tr key={pk}><td style={{ ...tc, textAlign: 'left', fontWeight: 600 }}>{pl}</td>{DIAS.map(([dk]) => <td key={dk} style={tc}>{pluvio?.[dk]?.[pk] ? `${pluvio[dk][pk]}` : '0'}</td>)}</tr>
                                 ))}
-                                <tr><td style={{ ...tdc, textAlign: 'left', fontWeight: 700, background: '#f3f4f6' }}>Total</td>{DIAS.map(([dk]) => <td key={dk} style={{ ...tdc, fontWeight: 700, background: '#f3f4f6' }}>{totalDia(dk).toFixed(1)}</td>)}</tr>
+                                <tr><td style={{ ...tc, textAlign: 'left', fontWeight: 700, background: '#f3f4f6' }}>Total</td>{DIAS.map(([dk]) => <td key={dk} style={{ ...tc, fontWeight: 700, background: '#f3f4f6' }}>{totalDia(dk).toFixed(1)}</td>)}</tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                {/* PPC + Curva S */}
+                {/* PARTE 3 — Curva S */}
                 <div className="rep-sec rep-break" style={card}>
-                    <div style={h2}>PPC Geral — média {ppcGeral.toFixed(0)}%</div>
-                    <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={ppcPorSemana} margin={{ top: 16, right: 10, left: -10, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
-                            <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
-                            <Tooltip formatter={(v: any) => `${v}%`} />
-                            <Bar dataKey="PPC" radius={[3, 3, 0, 0]}>
-                                {ppcPorSemana.map((e: any, i: number) => <Cell key={i} fill={e.PPC >= 80 ? '#15803d' : e.PPC >= 50 ? '#f59e0b' : '#b91c1c'} />)}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-
-                <div className="rep-sec" style={card}>
                     <div style={h2}>Curva S</div>
                     {curvaChart.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Cadastre a Linha de Base.</div> : (
-                        <ResponsiveContainer width="100%" height={280}>
+                        <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={curvaChart} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                 <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
@@ -304,14 +354,14 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     )}
                 </div>
 
-                {/* Histogramas */}
+                {/* PARTE 4 — Histogramas */}
                 <div className="rep-sec rep-break" style={card}>
                     <div style={h2}>Histogramas (previsto × realizado)</div>
                     {histOrd.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem dados de histograma.</div> : (
                         [['MOI', 'moi_prev', 'moi_real'], ['MOD', 'mod_prev', 'mod_real'], ['Equipamentos', 'equip_prev', 'equip_real']].map(([titulo, p, r]) => (
                             <div key={titulo} style={{ marginBottom: '18px' }}>
                                 <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>{titulo}</div>
-                                <ResponsiveContainer width="100%" height={180}>
+                                <ResponsiveContainer width="100%" height={170}>
                                     <BarChart data={histData(p, r)} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                         <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
@@ -327,40 +377,54 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     )}
                 </div>
 
-                {/* Análise dos desvios */}
-                <div className="rep-sec" style={card}>
-                    <div style={h2}>Análise dos desvios</div>
-                    {MOTIVOS.filter(m => toNum(desvios[m])).length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem desvios registrados.</div> : (
-                        <table style={tbl}>
-                            <thead><tr><th style={{ ...tdc, textAlign: 'left', background: '#f3f4f6' }}>Motivo</th><th style={{ ...tdc, background: '#f3f4f6', width: '120px' }}>Ocorrências</th></tr></thead>
-                            <tbody>{MOTIVOS.filter(m => toNum(desvios[m])).map(m => <tr key={m}><td style={{ ...tdc, textAlign: 'left' }}>{m}</td><td style={tdc}>{toNum(desvios[m])}</td></tr>)}</tbody>
-                        </table>
-                    )}
-                </div>
-
-                {/* Restrições + IRR */}
+                {/* PARTE 5 — Planejamento semanal realizado */}
                 <div className="rep-sec rep-break" style={card}>
-                    <div style={h2}>Restrições — IRR {irr.toFixed(0)}% ({restRemovidas}/{restSemana.length})</div>
-                    {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições nesta semana.</div> : (
-                        <table style={tbl}>
-                            <thead><tr><th style={{ ...tdc, textAlign: 'left', background: '#f3f4f6' }}>Descrição</th><th style={{ ...tdc, background: '#f3f4f6' }}>Categoria</th><th style={{ ...tdc, background: '#f3f4f6' }}>Responsável</th><th style={{ ...tdc, background: '#f3f4f6' }}>Status</th></tr></thead>
-                            <tbody>{restSemana.map((r: any) => <tr key={r.id}><td style={{ ...tdc, textAlign: 'left' }}>{r.descricao}</td><td style={tdc}>{r.categoria || '-'}</td><td style={tdc}>{r.responsavel || '-'}</td><td style={{ ...tdc, color: r.status === 'removida' ? '#15803d' : '#b91c1c', fontWeight: 600 }}>{r.status === 'removida' ? 'Removida' : 'Pendente'}</td></tr>)}</tbody>
-                        </table>
+                    <div style={h2}>Planejamento semanal — Realizado ({semanaObj ? fmtCurto(semanaObj.ref) + (semanaObj.fim ? ` a ${fmtCurto(semanaObj.fim)}` : '') : '-'})</div>
+                    <MatrizSemana progRef={semanaSel} />
+                </div>
+
+                {/* PARTE 6 — Planejamento da próxima semana */}
+                <div className="rep-sec rep-break" style={card}>
+                    <div style={h2}>Planejamento da próxima semana {proxProg ? `(${fmtCurto(proxProg.semana_referente_inicio)}${proxProg.semana_referente_fim ? ` a ${fmtCurto(proxProg.semana_referente_fim)}` : ''})` : ''}</div>
+                    {proxProg ? <MatrizSemana progRef={proxProg.semana_referente_inicio} /> : <div style={{ fontSize: '12px', color: '#999' }}>Não há programação cadastrada para a próxima semana.</div>}
+                </div>
+
+                {/* PARTE 7 — PPC */}
+                <div className="rep-sec rep-break" style={card}>
+                    <div style={h2}>Evolução do PPC — Planos Concluídos (média {ppcGeral.toFixed(0)}%)</div>
+                    {ppcPorSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem programações.</div> : (
+                        <ResponsiveContainer width="100%" height={220}>
+                            <BarChart data={ppcPorSemana} margin={{ top: 16, right: 10, left: -10, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
+                                <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
+                                <Tooltip formatter={(v: any) => `${v}%`} />
+                                <Bar dataKey="PPC" radius={[3, 3, 0, 0]}>
+                                    {ppcPorSemana.map((e: any, i: number) => <Cell key={i} fill={e.PPC >= 80 ? '#15803d' : e.PPC >= 50 ? '#f59e0b' : '#b91c1c'} />)}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
                     )}
                 </div>
 
-                {/* 5W2H */}
+                {/* PARTE 8 — Análise dos desvios (restrições) */}
                 <div className="rep-sec" style={card}>
-                    <div style={h2}>Planos de ação (5W2H)</div>
-                    {analisesSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem planos de ação nesta semana.</div> : (
-                        <table style={tbl}>
-                            <thead><tr>{['O quê', 'Por quê', 'Onde', 'Quando', 'Quem', 'Como', 'Status'].map(h => <th key={h} style={{ ...tdc, background: '#f3f4f6' }}>{h}</th>)}</tr></thead>
-                            <tbody>{analisesSemana.map((a: any) => <tr key={a.id}><td style={{ ...tdc, textAlign: 'left' }}>{a.what_o_que || '-'}</td><td style={{ ...tdc, textAlign: 'left' }}>{a.why_por_que || '-'}</td><td style={tdc}>{a.where_onde || '-'}</td><td style={tdc}>{a.when_quando ? fmt(a.when_quando) : '-'}</td><td style={tdc}>{a.who_quem || '-'}</td><td style={{ ...tdc, textAlign: 'left' }}>{a.how_como || '-'}</td><td style={tdc}>{a.status === 'concluido' ? 'Concluído' : 'Em andamento'}</td></tr>)}</tbody>
-                        </table>
+                    <div style={h2}>Análise dos desvios (restrições da semana)</div>
+                    {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições nesta semana.</div> : (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+                            <table style={tbl}>
+                                <thead><tr><th style={lbl}>Categoria</th><th style={lbl}>Qtd</th></tr></thead>
+                                <tbody>{desviosPorCategoria.map(([cat, n]) => <tr key={cat}><td style={{ ...tc, textAlign: 'left' }}>{CATEGORIAS[cat] || cat}</td><td style={{ ...tc, fontWeight: 700 }}>{n}</td></tr>)}</tbody>
+                            </table>
+                            <table style={tbl}>
+                                <thead><tr><th style={{ ...lbl, textAlign: 'left' }}>Restrição</th><th style={lbl}>Categoria</th><th style={lbl}>Responsável</th><th style={lbl}>Status</th></tr></thead>
+                                <tbody>{restSemana.map((r: any) => <tr key={r.id}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={{ ...tc, fontWeight: 600, color: r.status === 'removida' ? '#15803d' : '#b91c1c' }}>{r.status === 'removida' ? 'Removida' : 'Pendente'}</td></tr>)}</tbody>
+                            </table>
+                        </div>
                     )}
                 </div>
 
-                {/* Imagens */}
+                {/* PARTE 9 — Imagens */}
                 <div className="rep-sec rep-break" style={card}>
                     <div style={h2}>Imagens da semana</div>
                     {fotos.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }} className="no-print">Use “Anexar fotos” acima para incluir imagens (não são salvas).</div> : (

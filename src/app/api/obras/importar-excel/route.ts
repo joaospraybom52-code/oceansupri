@@ -29,6 +29,7 @@ export async function POST(request: Request) {
     try {
         const formData = await request.formData()
         const nome = formData.get('nome') as string
+        const cliente = (formData.get('cliente') as string) || null
         const codigoUau = (formData.get('codigoUau') as string) || null
         const local = (formData.get('local') as string) || null
         const previsaoInicio = (formData.get('previsaoInicio') as string) || null
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
         // Criar Obra
         const { data: obra, error: obraError } = await supabase
             .from('obras_eng')
-            .insert({ nome, status: 'Ativa', codigo_uau: codigoUau, local, previsao_inicio: previsaoInicio, previsao_termino: previsaoTermino })
+            .insert({ nome, cliente, status: 'Ativa', codigo_uau: codigoUau, local, previsao_inicio: previsaoInicio, previsao_termino: previsaoTermino })
             .select('id')
             .single()
         if (obraError || !obra) {

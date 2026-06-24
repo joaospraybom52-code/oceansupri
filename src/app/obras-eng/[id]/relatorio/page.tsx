@@ -20,7 +20,7 @@ export default async function RelatorioPage({ params }: { params: Promise<{ id: 
 
     let tarefas: any[] = []
     if (progIds.length > 0) {
-        const { data } = await supabase.from('tarefas').select('id, status, programacao_id, descricao').in('programacao_id', progIds)
+        const { data } = await supabase.from('tarefas').select('*, itens_orcamento(codigo, descricao)').in('programacao_id', progIds)
         tarefas = data || []
     }
 
