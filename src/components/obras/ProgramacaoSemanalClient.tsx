@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, HelpCircle, Save, Plus, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, HelpCircle, Save, Plus, X, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
@@ -222,6 +222,22 @@ export default function ProgramacaoSemanalClient({
         }
     }
 
+    const [showExcluir, setShowExcluir] = useState(false)
+    const [excluindo, setExcluindo] = useState(false)
+
+    async function excluirProgramacao() {
+        setExcluindo(true)
+        const { error } = await supabase.from('programacoes_semanais').delete().eq('id', programacao.id)
+        if (error) {
+            toast.error('Erro ao excluir: ' + error.message)
+            setExcluindo(false)
+        } else {
+            toast.success('Programação excluída.')
+            router.push(`/obras-eng/${obraId}/programacao`)
+            router.refresh()
+        }
+    }
+
     async function fecharProgramacao() {
         const agora = new Date()
         const prazo = programacao.prazo_envio ? new Date(programacao.prazo_envio) : null
@@ -249,11 +265,38 @@ export default function ProgramacaoSemanalClient({
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Responsável: {programacao.responsavel}</p>
                 </div>
                 {podeEditar && (
-                    <button onClick={fecharProgramacao} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Save size={16} /> Salvar e Enviar
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button onClick={() => setShowExcluir(true)} className="btn-secondary" title="Excluir programação" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>
+                            <Trash2 size={16} /> Excluir
+                        </button>
+                        <button onClick={fecharProgramacao} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Save size={16} /> Salvar e Enviar
+                        </button>
+                    </div>
                 )}
             </div>
+
+            {showExcluir && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '440px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <AlertTriangle size={20} color="#ef4444" /> Excluir programação
+                            </h3>
+                            <button onClick={() => setShowExcluir(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }} disabled={excluindo}><X size={20} /></button>
+                        </div>
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.6 }}>
+                            Excluir esta programação semanal apaga também suas <strong>tarefas, restrições e 5W2H</strong>. Esta ação é irreversível.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button onClick={() => setShowExcluir(false)} className="btn-secondary" disabled={excluindo}>Cancelar</button>
+                            <button onClick={excluirProgramacao} className="btn-primary" disabled={excluindo} style={{ background: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Trash2 size={16} /> {excluindo ? 'Excluindo...' : 'Excluir definitivamente'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* KPIs */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
