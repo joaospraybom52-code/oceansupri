@@ -146,7 +146,14 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const tarSemanaIds = new Set(tarefas.filter((t: any) => progSel && t.programacao_id === progSel.id).map((t: any) => t.id))
     const analisesSemana = (analises || []).filter((a: any) => restIds.has(a.restricao_id) || tarSemanaIds.has(a.tarefa_id))
 
-    const curvaChart = projecao.pontos.map(s => ({ label: fmtCurto(s.semana_ref), 'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct }))
+    const curvaChart = projecao.pontos.map(s => ({
+        label: fmtCurto(s.semana_ref),
+        'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct,
+        lbTxt: s.lb1_pct == null ? '' : `${Math.round(s.lb1_pct)}%`,
+        realTxt: s.real_pct == null ? '' : `${Math.round(s.real_pct)}%`,
+        // Tendência só rotula no trecho projetado (onde não há Real), evitando sobreposição
+        tendTxt: (s.real_pct == null && s.tendencia_pct != null) ? `${Math.round(s.tendencia_pct)}%` : '',
+    }))
     const histOrd = [...histograma].sort((a, b) => a.semana_ref.localeCompare(b.semana_ref))
     const histData = (p: string, r: string) => histOrd.map(h => ({ label: fmtCurto(h.semana_ref), Previsto: toNum(h[p]), Realizado: toNum(h[r]) }))
 
@@ -192,7 +199,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
         if (ts.length === 0) return <div style={{ fontSize: '12px', color: '#999' }}>Sem tarefas nesta semana.</div>
         return (
             <div style={{ overflowX: 'auto' }}>
-                <table style={{ ...tbl, minWidth: '760px' }}>
+                <table className="matriz" style={{ ...tbl, minWidth: '760px' }}>
                     <thead>
                         <tr style={{ background: '#2B2E34', color: '#fff' }}>
                             <th style={{ ...tc, color: '#fff', borderColor: '#54585f' }}>Item</th>
@@ -248,8 +255,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     #relatorio-print, #relatorio-print * { visibility: visible !important; }
                     #relatorio-print { position: absolute; left: 0; top: 0; width: 100%; }
                     .no-print { display: none !important; }
-                    .rep-sec { break-inside: avoid; page-break-inside: avoid; }
-                    .rep-break { page-break-before: always; }
+                    .rep-sec, .rep-avoid { break-inside: avoid; page-break-inside: avoid; }
+                    #relatorio-print tr, #relatorio-print .matriz tbody { break-inside: avoid; page-break-inside: avoid; }
                 }
             `}</style>
 
@@ -390,53 +397,56 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                 <div className="rep-sec" style={card}>
                     <div style={h2}>Curva S</div>
                     {curvaChart.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Cadastre a Linha de Base.</div> : (
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={curvaChart} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                        <ResponsiveContainer width="100%" height={360}>
+                            <LineChart data={curvaChart} margin={{ top: 18, right: 30, left: -10, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
+                                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} interval="preserveStartEnd" minTickGap={20} />
                                 <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
                                 <Tooltip cursor={false} formatter={(v: any) => v == null ? '-' : `${Number(v).toFixed(1)}%`} />
                                 <Legend wrapperStyle={{ fontSize: '11px' }} />
                                 <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls>
-                                    <LabelList dataKey="Linha de Base" position="top" offset={10} formatter={(v: any) => v == null ? '' : `${Math.round(Number(v))}%`} fontSize={9} fill="#0f7a52" />
+                                    <LabelList dataKey="lbTxt" position="top" offset={10} fontSize={10} fontWeight={700} fill="#0f7a52" />
                                 </Line>
                                 <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls>
-                                    <LabelList dataKey="Tendência" position="bottom" offset={22} formatter={(v: any) => v == null ? '' : `${Math.round(Number(v))}%`} fontSize={9} fill="#b45309" />
+                                    <LabelList dataKey="tendTxt" position="bottom" offset={10} fontSize={10} fontWeight={700} fill="#b45309" />
                                 </Line>
                                 <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 2 }} connectNulls>
-                                    <LabelList dataKey="Real" position="bottom" offset={10} formatter={(v: any) => v == null ? '' : `${Math.round(Number(v))}%`} fontSize={9} fill="#b91c1c" />
+                                    <LabelList dataKey="realTxt" position="bottom" offset={10} fontSize={10} fontWeight={700} fill="#b91c1c" />
                                 </Line>
                             </LineChart>
                         </ResponsiveContainer>
                     )}
                 </div>
 
-                {/* PARTE 4 — Histogramas */}
-                <div style={card}>
-                    <div style={h2}>Histogramas (previsto × realizado)</div>
-                    {histOrd.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem dados de histograma.</div> : (
-                        [['MOI', 'moi_prev', 'moi_real'], ['MOD', 'mod_prev', 'mod_real'], ['Equipamentos', 'equip_prev', 'equip_real']].map(([titulo, p, r]) => (
-                            <div key={titulo} style={{ marginBottom: '18px' }}>
-                                <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>{titulo}</div>
-                                <ResponsiveContainer width="100%" height={170}>
-                                    <BarChart data={histData(p, r)} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
-                                        <YAxis tick={{ fontSize: 10, fill: '#555' }} />
-                                        <Tooltip cursor={false} />
-                                        <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                        <Bar dataKey="Previsto" fill="#3b82f6">
-                                            <LabelList dataKey="Previsto" position="top" formatter={(v: any) => v == null ? '' : `${v}`} fontSize={9} fill="#333" />
-                                        </Bar>
-                                        <Bar dataKey="Realizado" fill="#10b981">
-                                            <LabelList dataKey="Realizado" position="top" formatter={(v: any) => v == null ? '' : `${v}`} fontSize={9} fill="#333" />
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        ))
-                    )}
-                </div>
+                {/* PARTE 4 — Histogramas (cada gráfico em seu card p/ não cortar) */}
+                {histOrd.length === 0 ? (
+                    <div className="rep-avoid" style={card}>
+                        <div style={h2}>Histogramas (previsto × realizado)</div>
+                        <div style={{ fontSize: '12px', color: '#999' }}>Sem dados de histograma.</div>
+                    </div>
+                ) : (
+                    ([['MOI', 'moi_prev', 'moi_real'], ['MOD', 'mod_prev', 'mod_real'], ['Equipamentos', 'equip_prev', 'equip_real']] as const).map(([titulo, p, r], idx) => (
+                        <div key={titulo} className="rep-avoid" style={card}>
+                            {idx === 0 && <div style={h2}>Histogramas (previsto × realizado)</div>}
+                            <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>{titulo}</div>
+                            <ResponsiveContainer width="100%" height={180}>
+                                <BarChart data={histData(p, r)} margin={{ top: 16, right: 10, left: -15, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
+                                    <YAxis tick={{ fontSize: 10, fill: '#555' }} />
+                                    <Tooltip cursor={false} />
+                                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                                    <Bar dataKey="Previsto" fill="#3b82f6">
+                                        <LabelList dataKey="Previsto" position="center" formatter={(v: any) => v == null || v === 0 ? '' : `${v}`} fontSize={14} fontWeight={700} fill="#fff" />
+                                    </Bar>
+                                    <Bar dataKey="Realizado" fill="#10b981">
+                                        <LabelList dataKey="Realizado" position="center" formatter={(v: any) => v == null || v === 0 ? '' : `${v}`} fontSize={14} fontWeight={700} fill="#fff" />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    ))
+                )}
 
                 {/* PARTE 5 — Planejamento semanal realizado */}
                 <div style={card}>
@@ -461,7 +471,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                 <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
                                 <Tooltip cursor={false} formatter={(v: any) => `${v}%`} />
                                 <Bar dataKey="PPC" radius={[3, 3, 0, 0]}>
-                                    <LabelList dataKey="PPC" position="top" formatter={(v: any) => `${Math.round(Number(v))}%`} fontSize={10} fill="#333" />
+                                    <LabelList dataKey="PPC" position="center" formatter={(v: any) => `${Math.round(Number(v))}%`} fontSize={15} fontWeight={700} fill="#fff" />
                                     {ppcPorSemana.map((e: any, i: number) => <Cell key={i} fill={e.PPC >= 80 ? '#15803d' : e.PPC >= 50 ? '#f59e0b' : '#b91c1c'} />)}
                                 </Bar>
                             </BarChart>
