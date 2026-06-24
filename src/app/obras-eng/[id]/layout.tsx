@@ -31,7 +31,7 @@ export default async function ObraContextLayout({
             { href: `/obras-eng/${id}/dashboard`, label: 'Resumo', icon: LayoutDashboard },
             { href: `/obras-eng/${id}/medicao`, label: 'Medições', icon: Ruler },
             { href: `/obras-eng/${id}/programacao`, label: 'Programação Semanal', icon: CalendarDays },
-            { href: `/obras-eng/${id}/curva-s`, label: 'Linha de Base', icon: TrendingUp },
+            { href: `/obras-eng/${id}/curva-s`, label: 'Curva S', icon: TrendingUp },
             { href: `/obras-eng/${id}/histograma`, label: 'Histograma', icon: BarChart3 },
             { href: `/obras-eng/${id}/relatorio`, label: 'Relatório', icon: FileText },
         ]
