@@ -35,7 +35,7 @@ function diasDaSemana(ref: string) {
 }
 const somaDias = (t: any, pref: 'qtd_' | 'qtd_real_') => DIAS.reduce((a, [k]) => a + (Number(t[`${pref}${k}`]) || 0), 0)
 
-export default function RelatorioClient({ obra, programacoes, tarefas, restricoes, curva, histograma, relatorios, podeEditar }: any) {
+export default function RelatorioClient({ obra, programacoes, tarefas, restricoes, analises, curva, histograma, relatorios, podeEditar }: any) {
     const supabase = createClient()
 
     const semanas = useMemo(() => {
@@ -103,6 +103,13 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
         restSemana.forEach((r: any) => { const c = r.categoria || 'outros'; m[c] = (m[c] || 0) + 1 })
         return Object.entries(m).sort((a, b) => b[1] - a[1])
     }, [restSemana])
+
+    // IRR e 5W2H da semana
+    const restRemovidas = restSemana.filter((r: any) => r.status === 'removida').length
+    const irr = restSemana.length ? (restRemovidas / restSemana.length) * 100 : 0
+    const restIds = new Set(restSemana.map((r: any) => r.id))
+    const tarSemanaIds = new Set(tarefas.filter((t: any) => progSel && t.programacao_id === progSel.id).map((t: any) => t.id))
+    const analisesSemana = (analises || []).filter((a: any) => restIds.has(a.restricao_id) || tarSemanaIds.has(a.tarefa_id))
 
     const curvaChart = comTendencia.map(s => ({ label: fmtCurto(s.semana_ref), 'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct }))
     const histOrd = [...histograma].sort((a, b) => a.semana_ref.localeCompare(b.semana_ref))
@@ -406,6 +413,24 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
+                    )}
+                </div>
+
+                {/* PARTE 7b — Restrições, IRR e 5W2H */}
+                <div className="rep-sec rep-break" style={card}>
+                    <div style={h2}>Restrições — IRR {irr.toFixed(0)}% ({restRemovidas}/{restSemana.length} removidas)</div>
+                    {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições nesta semana.</div> : (
+                        <table style={tbl}>
+                            <thead><tr><th style={{ ...lbl, textAlign: 'left' }}>Restrição</th><th style={lbl}>Categoria</th><th style={lbl}>Responsável</th><th style={lbl}>Prazo</th><th style={lbl}>Status</th></tr></thead>
+                            <tbody>{restSemana.map((r: any) => <tr key={r.id}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={tc}>{r.prazo_remocao ? fmt(r.prazo_remocao) : '-'}</td><td style={{ ...tc, fontWeight: 600, color: r.status === 'removida' ? '#15803d' : '#b91c1c' }}>{r.status === 'removida' ? 'Removida' : 'Pendente'}</td></tr>)}</tbody>
+                        </table>
+                    )}
+                    <div style={{ ...h2, marginTop: '20px' }}>Planos de ação (5W2H)</div>
+                    {analisesSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem planos de ação nesta semana.</div> : (
+                        <table style={tbl}>
+                            <thead><tr>{['O quê', 'Por quê', 'Onde', 'Quando', 'Quem', 'Como', 'Status'].map(h => <th key={h} style={lbl}>{h}</th>)}</tr></thead>
+                            <tbody>{analisesSemana.map((a: any) => <tr key={a.id}><td style={{ ...tc, textAlign: 'left' }}>{a.what_o_que || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.why_por_que || '-'}</td><td style={tc}>{a.where_onde || '-'}</td><td style={tc}>{a.when_quando ? fmt(a.when_quando) : '-'}</td><td style={tc}>{a.who_quem || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.how_como || '-'}</td><td style={{ ...tc, fontWeight: 600, color: a.status === 'concluido' ? '#15803d' : '#b45309' }}>{a.status === 'concluido' ? 'Concluído' : 'Em andamento'}</td></tr>)}</tbody>
+                        </table>
                     )}
                 </div>
 
