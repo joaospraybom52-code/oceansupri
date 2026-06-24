@@ -71,7 +71,15 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
         return Array.from(map.values()).sort((a, b) => a.ref.localeCompare(b.ref))
     }, [programacoes, curva])
 
-    const [semanaSel, setSemanaSel] = useState<string>(semanas.length ? semanas[semanas.length - 1].ref : '')
+    // Abre na semana atual (última com início <= hoje); se todas no futuro, na 1ª
+    const semanaPadrao = useMemo(() => {
+        if (!semanas.length) return ''
+        const d = new Date()
+        const hojeStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        const atual = [...semanas].reverse().find(s => s.ref <= hojeStr)
+        return (atual || semanas[0]).ref
+    }, [semanas])
+    const [semanaSel, setSemanaSel] = useState<string>(semanaPadrao)
     const [ocorrencias, setOcorrencias] = useState('')
     const [pluvio, setPluvio] = useState<any>({})
     const [observacoes, setObservacoes] = useState('')
