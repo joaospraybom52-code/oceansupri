@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Ruler, CalendarDays, AlertTriangle } from 'lucide-react'
+import { LayoutDashboard, Ruler, CalendarDays, AlertTriangle, TrendingUp, BarChart3, FileText } from 'lucide-react'
 
 export default async function ObraContextLayout({
     children,
@@ -31,6 +31,9 @@ export default async function ObraContextLayout({
             { href: `/obras-eng/${id}/dashboard`, label: 'Resumo', icon: LayoutDashboard },
             { href: `/obras-eng/${id}/medicao`, label: 'Medições', icon: Ruler },
             { href: `/obras-eng/${id}/programacao`, label: 'Programação Semanal', icon: CalendarDays },
+            { href: `/obras-eng/${id}/curva-s`, label: 'Linha de Base', icon: TrendingUp },
+            { href: `/obras-eng/${id}/histograma`, label: 'Histograma', icon: BarChart3 },
+            { href: `/obras-eng/${id}/relatorio`, label: 'Relatório', icon: FileText },
         ]
 
         return (
