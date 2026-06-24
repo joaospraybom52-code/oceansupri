@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Printer, Save, ImagePlus, X } from 'lucide-react'
-import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from 'recharts'
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, LabelList } from 'recharts'
 import { calcularTendencia, projetarConclusao, SemanaCurva } from '@/lib/utils/curva-s'
 
 const DIAS = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb'], ['dom', 'Dom']] as const
@@ -387,7 +387,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                 </div>
 
                 {/* PARTE 3 — Curva S */}
-                <div className="rep-sec rep-break" style={card}>
+                <div className="rep-sec" style={card}>
                     <div style={h2}>Curva S</div>
                     {curvaChart.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Cadastre a Linha de Base.</div> : (
                         <ResponsiveContainer width="100%" height={300}>
@@ -397,16 +397,20 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                 <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
                                 <Tooltip formatter={(v: any) => v == null ? '-' : `${Number(v).toFixed(1)}%`} />
                                 <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls />
+                                <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls>
+                                    <LabelList dataKey="Linha de Base" position="top" offset={10} formatter={(v: any) => v == null ? '' : `${Math.round(Number(v))}%`} fontSize={9} fill="#0f7a52" />
+                                </Line>
                                 <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls />
-                                <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 2 }} connectNulls />
+                                <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 2 }} connectNulls>
+                                    <LabelList dataKey="Real" position="bottom" offset={10} formatter={(v: any) => v == null ? '' : `${Math.round(Number(v))}%`} fontSize={9} fill="#b91c1c" />
+                                </Line>
                             </LineChart>
                         </ResponsiveContainer>
                     )}
                 </div>
 
                 {/* PARTE 4 — Histogramas */}
-                <div className="rep-sec rep-break" style={card}>
+                <div style={card}>
                     <div style={h2}>Histogramas (previsto × realizado)</div>
                     {histOrd.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem dados de histograma.</div> : (
                         [['MOI', 'moi_prev', 'moi_real'], ['MOD', 'mod_prev', 'mod_real'], ['Equipamentos', 'equip_prev', 'equip_real']].map(([titulo, p, r]) => (
@@ -429,19 +433,19 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                 </div>
 
                 {/* PARTE 5 — Planejamento semanal realizado */}
-                <div className="rep-sec rep-break" style={card}>
+                <div style={card}>
                     <div style={h2}>Planejamento semanal — Realizado ({semanaObj ? fmtCurto(semanaObj.ref) + (semanaObj.fim ? ` a ${fmtCurto(semanaObj.fim)}` : '') : '-'})</div>
                     <MatrizSemana progRef={semanaSel} />
                 </div>
 
                 {/* PARTE 6 — Planejamento da próxima semana */}
-                <div className="rep-sec rep-break" style={card}>
+                <div style={card}>
                     <div style={h2}>Planejamento da próxima semana {proxProg ? `(${fmtCurto(proxProg.semana_referente_inicio)}${proxProg.semana_referente_fim ? ` a ${fmtCurto(proxProg.semana_referente_fim)}` : ''})` : ''}</div>
                     {proxProg ? <MatrizSemana progRef={proxProg.semana_referente_inicio} /> : <div style={{ fontSize: '12px', color: '#999' }}>Não há programação cadastrada para a próxima semana.</div>}
                 </div>
 
                 {/* PARTE 7 — PPC */}
-                <div className="rep-sec rep-break" style={card}>
+                <div className="rep-sec" style={card}>
                     <div style={h2}>Evolução do PPC — Planos Concluídos (média {ppcGeral.toFixed(0)}%)</div>
                     {ppcPorSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem programações.</div> : (
                         <ResponsiveContainer width="100%" height={220}>
@@ -459,7 +463,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                 </div>
 
                 {/* PARTE 7b — Restrições, IRR e 5W2H */}
-                <div className="rep-sec rep-break" style={card}>
+                <div style={card}>
                     <div style={h2}>Restrições — IRR {irr.toFixed(0)}% ({restRemovidas}/{restSemana.length} removidas)</div>
                     {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições nesta semana.</div> : (
                         <table style={tbl}>
@@ -494,7 +498,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                 </div>
 
                 {/* PARTE 9 — Imagens */}
-                <div className="rep-sec rep-break" style={card}>
+                <div style={card}>
                     <div style={h2}>Imagens da semana</div>
                     {fotos.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }} className="no-print">Use “Anexar fotos” acima para incluir imagens (não são salvas).</div> : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
