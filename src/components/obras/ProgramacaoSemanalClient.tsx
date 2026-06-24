@@ -35,7 +35,8 @@ export default function ProgramacaoSemanalClient({
     const [loading, setLoading] = useState(false)
 
     // Estado para Nova Tarefa
-    const [novaTarefa, setNovaTarefa] = useState({ descricao: '', responsavel: '', item_orcamento_id: '', data_planejada: '' })
+    const tarefaVazia = { descricao: '', responsavel: '', item_orcamento_id: '', data_planejada: '', unidade: '', qtd_total: '', qtd_seg: '', qtd_ter: '', qtd_qua: '', qtd_qui: '', qtd_sex: '', qtd_sab: '', qtd_dom: '' }
+    const [novaTarefa, setNovaTarefa] = useState(tarefaVazia)
     const [showNovaTarefa, setShowNovaTarefa] = useState(false)
 
     // Estado para Nova Restrição
@@ -100,18 +101,28 @@ export default function ProgramacaoSemanalClient({
     async function handleAddTarefa(e: React.FormEvent) {
         e.preventDefault()
         setLoading(true)
+        const num = (v: string) => v === '' || v === null ? null : Number(String(v).replace(',', '.'))
         const { data, error } = await supabase.from('tarefas').insert({
             programacao_id: programacao.id,
             descricao: novaTarefa.descricao,
             responsavel: novaTarefa.responsavel,
             item_orcamento_id: novaTarefa.item_orcamento_id || null,
             data_planejada: novaTarefa.data_planejada || null,
-            status: 'planejada'
+            status: 'planejada',
+            unidade: novaTarefa.unidade || null,
+            qtd_total: num(novaTarefa.qtd_total),
+            qtd_seg: num(novaTarefa.qtd_seg),
+            qtd_ter: num(novaTarefa.qtd_ter),
+            qtd_qua: num(novaTarefa.qtd_qua),
+            qtd_qui: num(novaTarefa.qtd_qui),
+            qtd_sex: num(novaTarefa.qtd_sex),
+            qtd_sab: num(novaTarefa.qtd_sab),
+            qtd_dom: num(novaTarefa.qtd_dom),
         }).select('*, itens_orcamento(descricao, codigo)').single()
 
         if (data && !error) {
             setTarefas([...tarefas, data])
-            setNovaTarefa({ descricao: '', responsavel: '', item_orcamento_id: '', data_planejada: '' })
+            setNovaTarefa(tarefaVazia)
             setShowNovaTarefa(false)
             toast.success('Tarefa adicionada com sucesso!')
         } else if (error) {
@@ -353,6 +364,26 @@ export default function ProgramacaoSemanalClient({
                                     </select>
                                     <input type="date" value={novaTarefa.data_planejada} onChange={e => setNovaTarefa({...novaTarefa, data_planejada: e.target.value})} className="input-field" required title="Data planejada *" />
                                 </div>
+
+                                {/* Quantitativos de produção da semana */}
+                                <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '14px' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                                        Quantitativo de produção (opcional)
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                                        <input type="text" placeholder="Unidade (ex: m², t, m³)" value={novaTarefa.unidade} onChange={e => setNovaTarefa({...novaTarefa, unidade: e.target.value})} className="input-field" />
+                                        <input type="text" inputMode="decimal" placeholder="Qtd total da semana" value={novaTarefa.qtd_total} onChange={e => setNovaTarefa({...novaTarefa, qtd_total: e.target.value})} className="input-field" />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+                                        {([['qtd_seg','Seg'],['qtd_ter','Ter'],['qtd_qua','Qua'],['qtd_qui','Qui'],['qtd_sex','Sex'],['qtd_sab','Sáb'],['qtd_dom','Dom']] as const).map(([campo, label]) => (
+                                            <div key={campo}>
+                                                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', textAlign: 'center' }}>{label}</label>
+                                                <input type="text" inputMode="decimal" value={(novaTarefa as any)[campo]} onChange={e => setNovaTarefa({...novaTarefa, [campo]: e.target.value})} className="input-field" style={{ textAlign: 'center', padding: '8px 4px' }} placeholder="0" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                     <button type="button" onClick={() => setShowNovaTarefa(false)} className="btn-secondary">Cancelar</button>
                                     <button type="submit" className="btn-primary" disabled={loading}>Salvar Tarefa</button>
@@ -385,6 +416,17 @@ export default function ProgramacaoSemanalClient({
                                         </div>
                                     ) : (
                                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sem item de orçamento</div>
+                                    )}
+                                    {(t.qtd_total != null || t.unidade) && (
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                            <span style={{ fontWeight: 600 }}>Meta: {t.qtd_total != null ? Number(t.qtd_total).toLocaleString('pt-BR') : '-'} {t.unidade || ''}</span>
+                                            {(() => {
+                                                const dias = ([['qtd_seg','Seg'],['qtd_ter','Ter'],['qtd_qua','Qua'],['qtd_qui','Qui'],['qtd_sex','Sex'],['qtd_sab','Sáb'],['qtd_dom','Dom']] as const)
+                                                    .filter(([c]) => (t as any)[c] != null)
+                                                    .map(([c, l]) => `${l} ${Number((t as any)[c]).toLocaleString('pt-BR')}`)
+                                                return dias.length > 0 ? <span style={{ color: 'var(--text-muted)' }}>{'  ·  ' + dias.join(' · ')}</span> : null
+                                            })()}
+                                        </div>
                                     )}
                                 </div>
 

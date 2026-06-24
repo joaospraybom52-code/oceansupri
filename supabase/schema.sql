@@ -343,7 +343,16 @@ CREATE TABLE public.tarefas (
   status text DEFAULT 'Pendente'::text NOT NULL,
   motivo_nao_conclusao text,
   created_at timestamp with time zone DEFAULT now(),
-  item_orcamento_id uuid
+  item_orcamento_id uuid,
+  unidade text,
+  qtd_total numeric,
+  qtd_seg numeric,
+  qtd_ter numeric,
+  qtd_qua numeric,
+  qtd_qui numeric,
+  qtd_sex numeric,
+  qtd_sab numeric,
+  qtd_dom numeric
 );
 ALTER TABLE public.tarefas ADD CONSTRAINT tarefas_item_orcamento_id_fkey FOREIGN KEY (item_orcamento_id) REFERENCES itens_orcamento(id) ON DELETE SET NULL;
 ALTER TABLE public.tarefas ADD CONSTRAINT tarefas_programacao_id_fkey FOREIGN KEY (programacao_id) REFERENCES programacoes_semanais(id) ON DELETE CASCADE;
@@ -360,7 +369,52 @@ CREATE TABLE public.visualizadores (
 );
 ALTER TABLE public.visualizadores ADD CONSTRAINT visualizadores_pkey PRIMARY KEY (id);
 
+CREATE TABLE public.curva_s_semanas (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  obra_id uuid REFERENCES public.obras_eng(id) ON DELETE CASCADE,
+  semana_ref date NOT NULL,
+  ordem int DEFAULT 0,
+  lb1_pct numeric,
+  lb2_pct numeric,
+  real_pct numeric,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (obra_id, semana_ref)
+);
+ALTER TABLE public.curva_s_semanas ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.histograma_semanas (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  obra_id uuid REFERENCES public.obras_eng(id) ON DELETE CASCADE,
+  semana_ref date NOT NULL,
+  ordem int DEFAULT 0,
+  moi_prev numeric, moi_real numeric,
+  mod_prev numeric, mod_real numeric,
+  equip_prev numeric, equip_real numeric,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (obra_id, semana_ref)
+);
+ALTER TABLE public.histograma_semanas ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.relatorio_semanal (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  obra_id uuid REFERENCES public.obras_eng(id) ON DELETE CASCADE,
+  semana_ref date NOT NULL,
+  ocorrencias jsonb DEFAULT '[]'::jsonb,
+  pluviometrico jsonb DEFAULT '{}'::jsonb,
+  desvios jsonb DEFAULT '[]'::jsonb,
+  observacoes text,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (obra_id, semana_ref)
+);
+ALTER TABLE public.relatorio_semanal ENABLE ROW LEVEL SECURITY;
+
 -- ============ POLÍTICAS RLS ============
+CREATE POLICY "Acesso total Curva S" ON public.curva_s_semanas AS PERMISSIVE FOR ALL TO authenticated
+  USING (true);
+CREATE POLICY "Acesso total Histograma" ON public.histograma_semanas AS PERMISSIVE FOR ALL TO authenticated
+  USING (true);
+CREATE POLICY "Acesso total Relatorio Semanal" ON public.relatorio_semanal AS PERMISSIVE FOR ALL TO authenticated
+  USING (true);
 CREATE POLICY "Acesso total Itens Orc" ON public.itens_orcamento AS PERMISSIVE FOR ALL TO authenticated
   USING (true);
 CREATE POLICY "Acesso total Medicao Itens" ON public.medicao_itens AS PERMISSIVE FOR ALL TO authenticated
