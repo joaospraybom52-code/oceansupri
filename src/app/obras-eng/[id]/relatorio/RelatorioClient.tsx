@@ -154,6 +154,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     <thead>
                         <tr style={{ background: '#374151', color: '#fff' }}>
                             <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Item</th>
+                            <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Local</th>
                             <th style={{ ...tc, color: '#fff', borderColor: '#4b5563', textAlign: 'left' }}>Atividade</th>
                             <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Un.</th>
                             <th style={{ ...tc, color: '#fff', borderColor: '#4b5563' }}>Meta</th>
@@ -172,6 +173,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                             <tbody key={t.id} style={{ borderTop: '2px solid #cfcfcf' }}>
                                 <tr>
                                     <td rowSpan={2} style={{ ...tc, fontWeight: 700 }}>{`T-${String(i + 1).padStart(2, '0')}`}</td>
+                                    <td rowSpan={2} style={tc}>{obra?.local || '-'}</td>
                                     <td rowSpan={2} style={{ ...tc, textAlign: 'left', maxWidth: '200px', textTransform: 'capitalize' }}>{t.descricao}</td>
                                     <td rowSpan={2} style={tc}>{t.unidade || '-'}</td>
                                     <td rowSpan={2} style={{ ...tc, fontWeight: 600 }}>{t.qtd_total != null ? Number(t.qtd_total).toLocaleString('pt-BR') : '-'}</td>
