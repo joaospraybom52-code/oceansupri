@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Printer, Save, ImagePlus, X } from 'lucide-react'
-import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, LabelList } from 'recharts'
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, LabelList } from 'recharts'
 import { calcularTendencia, projetarConclusao, SemanaCurva } from '@/lib/utils/curva-s'
 
 const DIAS = [['seg', 'Seg'], ['ter', 'Ter'], ['qua', 'Qua'], ['qui', 'Qui'], ['sex', 'Sex'], ['sab', 'Sáb'], ['dom', 'Dom']] as const
@@ -143,11 +143,6 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const progSel = progAnterior
     const semanaAnteriorLabel = progAnterior ? `${fmtCurto(progAnterior.semana_referente_inicio)}${progAnterior.semana_referente_fim ? ` a ${fmtCurto(progAnterior.semana_referente_fim)}` : ''}` : '-'
     const restSemana = restricoes.filter((r: any) => progSel && r.programacao_id === progSel.id)
-    const desviosPorCategoria = useMemo(() => {
-        const m: Record<string, number> = {}
-        restSemana.forEach((r: any) => { const c = r.categoria || 'outros'; m[c] = (m[c] || 0) + 1 })
-        return Object.entries(m).sort((a, b) => b[1] - a[1])
-    }, [restSemana])
 
     // IRR e 5W2H da semana
     const restRemovidas = restSemana.filter((r: any) => r.status === 'removida').length
@@ -162,6 +157,14 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const restProxIds = new Set(restProx.map((r: any) => r.id))
     const tarAtualIds = new Set(tarefas.filter((t: any) => progAtual && t.programacao_id === progAtual.id).map((t: any) => t.id))
     const analisesProx = (analises || []).filter((a: any) => restProxIds.has(a.restricao_id) || tarAtualIds.has(a.tarefa_id))
+
+    // Análise dos desvios = categorias das restrições da PRÓXIMA semana (gráfico de pizza)
+    const desviosPorCategoria = useMemo(() => {
+        const m: Record<string, number> = {}
+        restProx.forEach((r: any) => { const c = r.categoria || 'outros'; m[c] = (m[c] || 0) + 1 })
+        return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([cat, n]) => ({ name: CATEGORIAS[cat] || cat, value: n }))
+    }, [restProx])
+    const PIE_CORES = ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#64748b']
 
     const curvaChart = projecao.pontos.map(s => ({
         label: fmtCurto(s.semana_ref),
@@ -532,20 +535,20 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     )}
                 </div>
 
-                {/* PARTE 8 — Análise dos desvios (restrições) */}
+                {/* PARTE 8 — Análise dos desvios (restrições da próxima semana) — pizza */}
                 <div className="rep-sec" style={card}>
-                    <div style={h2}>Análise dos desvios (restrições da semana anterior)</div>
-                    {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições na semana anterior.</div> : (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
-                            <table style={tbl}>
-                                <thead><tr><th style={thHead}>Categoria</th><th style={thHead}>Qtd</th></tr></thead>
-                                <tbody>{desviosPorCategoria.map(([cat, n]) => <tr key={cat}><td style={{ ...tc, textAlign: 'left' }}>{CATEGORIAS[cat] || cat}</td><td style={{ ...tc, fontWeight: 700 }}>{n}</td></tr>)}</tbody>
-                            </table>
-                            <table style={tbl}>
-                                <thead><tr><th style={{ ...thHead, textAlign: 'left' }}>Restrição</th><th style={thHead}>Categoria</th><th style={thHead}>Responsável</th><th style={thHead}>Status</th></tr></thead>
-                                <tbody>{restSemana.map((r: any) => <tr key={r.id}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={{ ...tc, fontWeight: 600, color: r.status === 'removida' ? '#15803d' : '#b91c1c' }}>{r.status === 'removida' ? 'Removida' : 'Pendente'}</td></tr>)}</tbody>
-                            </table>
-                        </div>
+                    <div style={h2}>Análise dos desvios (restrições da próxima semana)</div>
+                    {desviosPorCategoria.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Nenhuma restrição cadastrada nesta semana.</div> : (
+                        <ResponsiveContainer width="100%" height={300}>
+                            <PieChart>
+                                <Pie data={desviosPorCategoria} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
+                                    label={(e: any) => `${e.name}: ${e.value}`} labelLine={true} fontSize={11}>
+                                    {desviosPorCategoria.map((_, i) => <Cell key={i} fill={PIE_CORES[i % PIE_CORES.length]} />)}
+                                </Pie>
+                                <Tooltip />
+                                <Legend wrapperStyle={{ fontSize: '11px' }} />
+                            </PieChart>
+                        </ResponsiveContainer>
                     )}
                 </div>
 
