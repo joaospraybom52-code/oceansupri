@@ -156,6 +156,13 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const tarSemanaIds = new Set(tarefas.filter((t: any) => progSel && t.programacao_id === progSel.id).map((t: any) => t.id))
     const analisesSemana = (analises || []).filter((a: any) => restIds.has(a.restricao_id) || tarSemanaIds.has(a.tarefa_id))
 
+    // Restrições/5W2H cadastradas NESTA semana (a resolver na próxima)
+    const progAtual = programacoes.find((p: any) => p.semana_referente_inicio === semanaSel)
+    const restProx = restricoes.filter((r: any) => progAtual && r.programacao_id === progAtual.id)
+    const restProxIds = new Set(restProx.map((r: any) => r.id))
+    const tarAtualIds = new Set(tarefas.filter((t: any) => progAtual && t.programacao_id === progAtual.id).map((t: any) => t.id))
+    const analisesProx = (analises || []).filter((a: any) => restProxIds.has(a.restricao_id) || tarAtualIds.has(a.tarefa_id))
+
     const curvaChart = projecao.pontos.map(s => ({
         label: fmtCurto(s.semana_ref),
         'Linha de Base': s.lb1_pct, 'Tendência': s.tendencia_pct, 'Real': s.real_pct,
@@ -539,6 +546,28 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                 <tbody>{restSemana.map((r: any) => <tr key={r.id}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={{ ...tc, fontWeight: 600, color: r.status === 'removida' ? '#15803d' : '#b91c1c' }}>{r.status === 'removida' ? 'Removida' : 'Pendente'}</td></tr>)}</tbody>
                             </table>
                         </div>
+                    )}
+                </div>
+
+                {/* PARTE 8b — A resolver na próxima semana (cadastradas nesta semana) */}
+                <div className="rep-avoid" style={card}>
+                    <div style={h2}>Restrições a resolver na próxima semana (cadastradas nesta semana)</div>
+                    {restProx.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Nenhuma restrição cadastrada nesta semana.</div> : (
+                        <table style={tbl}>
+                            <thead><tr><th style={{ ...thHead, textAlign: 'left' }}>Restrição</th><th style={thHead}>Categoria</th><th style={thHead}>Responsável</th><th style={thHead}>Prazo</th><th style={thHead}>Status</th></tr></thead>
+                            <tbody>{restProx.map((r: any, i: number) => <tr key={r.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={tc}>{r.prazo_remocao ? fmt(r.prazo_remocao) : '-'}</td><td style={tc}><Badge texto={r.status === 'removida' ? 'Removida' : 'Pendente'} tipo={r.status === 'removida' ? 'ok' : 'erro'} /></td></tr>)}</tbody>
+                        </table>
+                    )}
+                </div>
+
+                {/* PARTE 8c — 5W2H a resolver na próxima semana */}
+                <div className="rep-avoid" style={card}>
+                    <div style={h2}>Planos de ação (5W2H) a resolver na próxima semana</div>
+                    {analisesProx.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Nenhum plano de ação cadastrado nesta semana.</div> : (
+                        <table style={tbl}>
+                            <thead><tr>{['O quê', 'Por quê', 'Onde', 'Quando', 'Quem', 'Como', 'Status'].map(h => <th key={h} style={thHead}>{h}</th>)}</tr></thead>
+                            <tbody>{analisesProx.map((a: any, i: number) => <tr key={a.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{a.what_o_que || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.why_por_que || '-'}</td><td style={tc}>{a.where_onde || '-'}</td><td style={tc}>{a.when_quando ? fmt(a.when_quando) : '-'}</td><td style={tc}>{a.who_quem || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.how_como || '-'}</td><td style={tc}><Badge texto={a.status === 'concluido' ? 'Concluído' : 'Em andamento'} tipo={a.status === 'concluido' ? 'ok' : 'warn'} /></td></tr>)}</tbody>
+                        </table>
                     )}
                 </div>
 
