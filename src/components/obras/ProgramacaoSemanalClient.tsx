@@ -14,7 +14,9 @@ export default function ProgramacaoSemanalClient({
     initialRestricoes,
     initialAnalises,
     itensOrcamento,
-    podeEditar = false
+    podeEditar = false,
+    restricoesNaoResolvidas = [],
+    semanaAnterior = null,
 }: {
     obraId: string
     programacao: any
@@ -23,6 +25,8 @@ export default function ProgramacaoSemanalClient({
     initialAnalises: any[]
     itensOrcamento: any[]
     podeEditar?: boolean
+    restricoesNaoResolvidas?: any[]
+    semanaAnterior?: any
 }) {
     const router = useRouter()
     const supabase = createClient()
@@ -270,6 +274,12 @@ export default function ProgramacaoSemanalClient({
         } else {
             toast.error('Erro ao atualizar restrição: ' + error.message)
         }
+    }
+
+    function recadastrarRestricao(r: any) {
+        setNovaRestricao({ descricao: r.descricao || '', categoria: r.categoria || 'outros', responsavel: r.responsavel || '', prazo_remocao: '', tarefa_id: '' })
+        setActiveTab('restricoes')
+        setShowNovaRestricao(true)
     }
 
     const [showExcluir, setShowExcluir] = useState(false)
@@ -535,6 +545,27 @@ export default function ProgramacaoSemanalClient({
             {/* Tab: Restrições */}
             {activeTab === 'restricoes' && (
                 <div>
+                    {/* Lembrete: restrições não resolvidas da semana anterior */}
+                    {restricoesNaoResolvidas.length > 0 && (
+                        <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '16px', borderLeft: '4px solid #f59e0b', background: 'rgba(245,158,11,0.08)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                <AlertTriangle size={18} color="#f59e0b" />
+                                <span style={{ fontWeight: 700, fontSize: '14px' }}>
+                                    Restrições NÃO resolvidas da semana anterior{semanaAnterior ? ` (${new Date(semanaAnterior.semana_referente_inicio + 'T00:00:00').toLocaleDateString('pt-BR')})` : ''} — lembre de re-cadastrar
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {restricoesNaoResolvidas.map((r: any) => (
+                                    <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', fontSize: '13px', padding: '6px 0', borderTop: '1px solid var(--border-glass)' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}><strong>{r.descricao}</strong> · {r.categoria} · {r.responsavel || 's/ responsável'}</span>
+                                        {podeEditar && (
+                                            <button onClick={() => recadastrarRestricao(r)} className="btn-secondary" style={{ padding: '4px 12px', fontSize: '12px', whiteSpace: 'nowrap' }}>Re-cadastrar</button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     {!showNovaRestricao ? (
                         podeEditar && (
                         <button onClick={() => setShowNovaRestricao(true)} className="btn-secondary" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -638,6 +669,7 @@ export default function ProgramacaoSemanalClient({
                                     <select value={r.status} disabled={!podeEditar} onChange={(e) => updateRestricaoStatus(r.id, e.target.value)} className="select-field" style={{ width: '140px', padding: '6px 10px', fontSize: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)' }}>
                                         <option value="pendente">Pendente</option>
                                         <option value="removida">Removida</option>
+                                        <option value="nao_resolvida">Não resolvida</option>
                                     </select>
                                 </div>
                             </div>

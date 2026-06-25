@@ -537,7 +537,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições na semana anterior.</div> : (
                         <table style={tbl}>
                             <thead><tr><th style={{ ...thHead, textAlign: 'left' }}>Restrição</th><th style={thHead}>Categoria</th><th style={thHead}>Responsável</th><th style={thHead}>Prazo</th><th style={thHead}>Status</th></tr></thead>
-                            <tbody>{restSemana.map((r: any, i: number) => <tr key={r.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={tc}>{r.prazo_remocao ? fmt(r.prazo_remocao) : '-'}</td><td style={tc}><Badge texto={r.status === 'removida' ? 'Removida' : 'Pendente'} tipo={r.status === 'removida' ? 'ok' : 'erro'} /></td></tr>)}</tbody>
+                            <tbody>{restSemana.map((r: any, i: number) => <tr key={r.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={tc}>{r.prazo_remocao ? fmt(r.prazo_remocao) : '-'}</td><td style={tc}><Badge texto={r.status === 'removida' ? 'Removida' : r.status === 'nao_resolvida' ? 'Não resolvida' : 'Pendente'} tipo={r.status === 'removida' ? 'ok' : r.status === 'nao_resolvida' ? 'warn' : 'erro'} /></td></tr>)}</tbody>
                         </table>
                     )}
                 </div>
@@ -576,7 +576,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     {restProx.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Nenhuma restrição cadastrada nesta semana.</div> : (
                         <table style={tbl}>
                             <thead><tr><th style={{ ...thHead, textAlign: 'left' }}>Restrição</th><th style={thHead}>Categoria</th><th style={thHead}>Responsável</th><th style={thHead}>Prazo</th><th style={thHead}>Status</th></tr></thead>
-                            <tbody>{restProx.map((r: any, i: number) => <tr key={r.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={tc}>{r.prazo_remocao ? fmt(r.prazo_remocao) : '-'}</td><td style={tc}><Badge texto={r.status === 'removida' ? 'Removida' : 'Pendente'} tipo={r.status === 'removida' ? 'ok' : 'erro'} /></td></tr>)}</tbody>
+                            <tbody>{restProx.map((r: any, i: number) => <tr key={r.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={tc}>{r.prazo_remocao ? fmt(r.prazo_remocao) : '-'}</td><td style={tc}><Badge texto={r.status === 'removida' ? 'Removida' : r.status === 'nao_resolvida' ? 'Não resolvida' : 'Pendente'} tipo={r.status === 'removida' ? 'ok' : r.status === 'nao_resolvida' ? 'warn' : 'erro'} /></td></tr>)}</tbody>
                         </table>
                     )}
                 </div>

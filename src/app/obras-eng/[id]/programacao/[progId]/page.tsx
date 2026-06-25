@@ -70,6 +70,26 @@ export default async function ProgramacaoDetalhePage({ params }: { params: Promi
             .select('id, descricao, codigo')
             .eq('obra_id', id)
 
+        // 6. Restrições NÃO RESOLVIDAS da semana anterior (lembrete para re-cadastrar)
+        const { data: progAnt } = await supabase
+            .from('programacoes_semanais')
+            .select('id, semana_referente_inicio, semana_referente_fim')
+            .eq('obra_id', id)
+            .lt('semana_referente_inicio', programacao.semana_referente_inicio)
+            .order('semana_referente_inicio', { ascending: false })
+            .limit(1)
+        let restricoesNaoResolvidas: any[] = []
+        let semanaAnterior: any = null
+        if (progAnt && progAnt.length > 0) {
+            semanaAnterior = progAnt[0]
+            const { data } = await supabase
+                .from('restricoes')
+                .select('*')
+                .eq('programacao_id', progAnt[0].id)
+                .eq('status', 'nao_resolvida')
+            restricoesNaoResolvidas = data || []
+        }
+
         return (
             <ProgramacaoSemanalClient
                 obraId={id}
@@ -79,6 +99,8 @@ export default async function ProgramacaoDetalhePage({ params }: { params: Promi
                 initialAnalises={analises}
                 itensOrcamento={itensOrcamento || []}
                 podeEditar={podeCriarMedProg(await getPapelObras())}
+                restricoesNaoResolvidas={restricoesNaoResolvidas}
+                semanaAnterior={semanaAnterior}
             />
         )
     } catch (err: any) {
