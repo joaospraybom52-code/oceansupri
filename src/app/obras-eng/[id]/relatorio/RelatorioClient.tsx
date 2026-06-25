@@ -136,8 +136,12 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     }), [programacoes, tarefas])
     const ppcGeral = ppcPorSemana.length ? ppcPorSemana.reduce((a: number, b: any) => a + b.PPC, 0) / ppcPorSemana.length : 0
 
-    // Análise dos desvios via restrições da semana
-    const progSel = programacoes.find((p: any) => p.semana_referente_inicio === semanaSel)
+    // Restrições/5W2H/IRR vêm da SEMANA ANTERIOR (as que deviam ser removidas até esta semana)
+    const progAnterior = programacoes
+        .filter((p: any) => p.semana_referente_inicio < semanaSel)
+        .sort((a: any, b: any) => b.semana_referente_inicio.localeCompare(a.semana_referente_inicio))[0]
+    const progSel = progAnterior
+    const semanaAnteriorLabel = progAnterior ? `${fmtCurto(progAnterior.semana_referente_inicio)}${progAnterior.semana_referente_fim ? ` a ${fmtCurto(progAnterior.semana_referente_fim)}` : ''}` : '-'
     const restSemana = restricoes.filter((r: any) => progSel && r.programacao_id === progSel.id)
     const desviosPorCategoria = useMemo(() => {
         const m: Record<string, number> = {}
@@ -501,8 +505,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
 
                 {/* PARTE 7b — Restrições + IRR */}
                 <div className="rep-avoid" style={card}>
-                    <div style={h2}>Restrições — IRR {irr.toFixed(0)}% ({restRemovidas}/{restSemana.length} removidas)</div>
-                    {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições nesta semana.</div> : (
+                    <div style={h2}>Restrições da semana anterior ({semanaAnteriorLabel}) — IRR {irr.toFixed(0)}% ({restRemovidas}/{restSemana.length} removidas)</div>
+                    {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições na semana anterior.</div> : (
                         <table style={tbl}>
                             <thead><tr><th style={{ ...thHead, textAlign: 'left' }}>Restrição</th><th style={thHead}>Categoria</th><th style={thHead}>Responsável</th><th style={thHead}>Prazo</th><th style={thHead}>Status</th></tr></thead>
                             <tbody>{restSemana.map((r: any, i: number) => <tr key={r.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={tc}>{r.prazo_remocao ? fmt(r.prazo_remocao) : '-'}</td><td style={tc}><Badge texto={r.status === 'removida' ? 'Removida' : 'Pendente'} tipo={r.status === 'removida' ? 'ok' : 'erro'} /></td></tr>)}</tbody>
@@ -512,8 +516,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
 
                 {/* PARTE 7c — Planos de ação (5W2H) */}
                 <div className="rep-avoid" style={card}>
-                    <div style={h2}>Planos de ação (5W2H)</div>
-                    {analisesSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem planos de ação nesta semana.</div> : (
+                    <div style={h2}>Planos de ação (5W2H) — semana anterior ({semanaAnteriorLabel})</div>
+                    {analisesSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem planos de ação na semana anterior.</div> : (
                         <table style={tbl}>
                             <thead><tr>{['O quê', 'Por quê', 'Onde', 'Quando', 'Quem', 'Como', 'Status'].map(h => <th key={h} style={thHead}>{h}</th>)}</tr></thead>
                             <tbody>{analisesSemana.map((a: any, i: number) => <tr key={a.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{a.what_o_que || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.why_por_que || '-'}</td><td style={tc}>{a.where_onde || '-'}</td><td style={tc}>{a.when_quando ? fmt(a.when_quando) : '-'}</td><td style={tc}>{a.who_quem || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.how_como || '-'}</td><td style={tc}><Badge texto={a.status === 'concluido' ? 'Concluído' : 'Em andamento'} tipo={a.status === 'concluido' ? 'ok' : 'warn'} /></td></tr>)}</tbody>
@@ -523,8 +527,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
 
                 {/* PARTE 8 — Análise dos desvios (restrições) */}
                 <div className="rep-sec" style={card}>
-                    <div style={h2}>Análise dos desvios (restrições da semana)</div>
-                    {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições nesta semana.</div> : (
+                    <div style={h2}>Análise dos desvios (restrições da semana anterior)</div>
+                    {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições na semana anterior.</div> : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
                             <table style={tbl}>
                                 <thead><tr><th style={thHead}>Categoria</th><th style={thHead}>Qtd</th></tr></thead>
