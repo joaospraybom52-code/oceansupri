@@ -406,11 +406,11 @@ export default function ProgramacaoSemanalClient({
                                 {/* Quantitativos de produção da semana */}
                                 <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '14px' }}>
                                     <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                                        Quantitativo de produção (opcional)
+                                        Quantitativo de produção
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
-                                        <input type="text" placeholder="Unidade (ex: m², t, m³)" value={novaTarefa.unidade} onChange={e => setNovaTarefa({...novaTarefa, unidade: e.target.value})} className="input-field" />
-                                        <input type="text" inputMode="decimal" placeholder="Qtd total da semana" value={novaTarefa.qtd_total} onChange={e => setNovaTarefa({...novaTarefa, qtd_total: e.target.value})} className="input-field" />
+                                        <input type="text" placeholder="Unidade (ex: m², t, m³) *" value={novaTarefa.unidade} onChange={e => setNovaTarefa({...novaTarefa, unidade: e.target.value})} className="input-field" required />
+                                        <input type="text" inputMode="decimal" placeholder="Qtd total da semana *" value={novaTarefa.qtd_total} onChange={e => setNovaTarefa({...novaTarefa, qtd_total: e.target.value})} className="input-field" required />
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
                                         {([['qtd_seg','Seg'],['qtd_ter','Ter'],['qtd_qua','Qua'],['qtd_qui','Qui'],['qtd_sex','Sex'],['qtd_sab','Sáb'],['qtd_dom','Dom']] as const).map(([campo, label]) => (
