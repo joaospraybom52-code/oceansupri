@@ -28,6 +28,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
     const handleUpdate = (index: number, field: 'atual_quantidade' | 'atual_percentual', valueStr: string) => {
         let val = parseFloat(valueStr)
         if (isNaN(val)) val = 0
+        if (val < 0) val = 0 // não permite valores negativos
 
         const newItens = [...itens]
         const item = newItens[index]
@@ -225,6 +226,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
                                         ) : (
                                             <input
                                                 type="number"
+                                                min={0}
                                                 value={item.atual_quantidade === 0 ? '' : item.atual_quantidade}
                                                 onChange={(e) => handleUpdate(index, 'atual_quantidade', e.target.value)}
                                                 disabled={medicao.status === 'Concluída' || !podeEditar}
@@ -243,6 +245,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                                                 <input
                                                     type="number"
+                                                    min={0}
                                                     value={item.atual_percentual === 0 ? '' : Number(item.atual_percentual).toFixed(2)}
                                                     onChange={(e) => handleUpdate(index, 'atual_percentual', e.target.value)}
                                                     disabled={medicao.status === 'Concluída' || !podeEditar}
