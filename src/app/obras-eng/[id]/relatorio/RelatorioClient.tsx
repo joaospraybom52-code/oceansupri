@@ -581,7 +581,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                             {fotos.map((f, i) => (
                                 <div key={i} style={{ position: 'relative' }}>
-                                    <img src={f.url} alt={f.name} style={{ width: '100%', height: '240px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd' }} />
+                                    <img src={f.url} alt={f.name} style={{ width: '100%', height: 'auto', maxHeight: '340px', objectFit: 'contain', borderRadius: '4px', border: '1px solid #ddd', background: '#f3f4f6', display: 'block' }} />
                                     <button onClick={() => removeFoto(i)} className="no-print" title="Remover" style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '26px', height: '26px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={15} /></button>
                                 </div>
                             ))}
