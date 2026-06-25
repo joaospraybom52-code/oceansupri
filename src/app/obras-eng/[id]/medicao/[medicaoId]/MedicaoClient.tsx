@@ -15,6 +15,9 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
     const [itens, setItens] = useState(dadosTabela)
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
+    // Buffer do texto digitado (preserva "0,5" etc. enquanto edita)
+    const [buf, setBuf] = useState<Record<string, string>>({})
+    const fmtQtd = (n: number) => !n ? '' : String(parseFloat(Number(n).toFixed(3))).replace('.', ',')
 
     // Formatação
     const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
@@ -26,21 +29,26 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
 
     // Atualiza linha quando o usuário digita
     const handleUpdate = (index: number, field: 'atual_quantidade' | 'atual_percentual', valueStr: string) => {
-        let val = parseFloat(valueStr)
+        let val = parseFloat(valueStr.replace(',', '.'))
         if (isNaN(val)) val = 0
-        if (val < 0) val = 0 // não permite valores negativos
 
         const newItens = [...itens]
         const item = newItens[index]
 
         const qtyOrcada = Number(item.quantidade_orcada || 0)
         const valTotalOrcado = Number(item.valor_total_orcado || 0)
+        const maxQtd = Math.max(0, qtyOrcada - Number(item.anterior_quantidade || 0))   // saldo disponível
+        const maxPct = qtyOrcada > 0 ? (maxQtd / qtyOrcada) * 100 : 0
+
+        if (val < 0) { toast.warning('Não é permitido valor negativo.', { id: 'med-neg' }); val = 0 }
 
         if (field === 'atual_quantidade') {
+            if (val > maxQtd) { toast.warning(`Quantidade acima do saldo disponível (${fmtQtd(maxQtd) || '0'}).`, { id: 'med-saldo' }); val = maxQtd }
             item.atual_quantidade = val
             item.atual_percentual = qtyOrcada > 0 ? (val / qtyOrcada) * 100 : 0
             item.atual_valor = qtyOrcada > 0 ? (val / qtyOrcada) * valTotalOrcado : 0
         } else {
+            if (val > maxPct) { toast.warning(`Percentual acima do saldo disponível (${maxPct.toFixed(1)}%).`, { id: 'med-saldo' }); val = maxPct }
             item.atual_percentual = val
             item.atual_quantidade = qtyOrcada > 0 ? (val / 100) * qtyOrcada : 0
             item.atual_valor = (val / 100) * valTotalOrcado
@@ -225,10 +233,11 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
                                             <span style={{ color: 'var(--text-muted)' }}>—</span>
                                         ) : (
                                             <input
-                                                type="number"
-                                                min={0}
-                                                value={item.atual_quantidade === 0 ? '' : item.atual_quantidade}
-                                                onChange={(e) => handleUpdate(index, 'atual_quantidade', e.target.value)}
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={buf[`q${index}`] ?? fmtQtd(item.atual_quantidade)}
+                                                onChange={(e) => { const v = e.target.value; setBuf(b => ({ ...b, [`q${index}`]: v })); handleUpdate(index, 'atual_quantidade', v) }}
+                                                onBlur={() => setBuf(b => { const n = { ...b }; delete n[`q${index}`]; return n })}
                                                 disabled={medicao.status === 'Concluída' || !podeEditar}
                                                 style={{
                                                     width: '60px', padding: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)',
@@ -244,10 +253,11 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
                                         ) : (
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                                                 <input
-                                                    type="number"
-                                                    min={0}
-                                                    value={item.atual_percentual === 0 ? '' : Number(item.atual_percentual).toFixed(2)}
-                                                    onChange={(e) => handleUpdate(index, 'atual_percentual', e.target.value)}
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={buf[`p${index}`] ?? (item.atual_percentual === 0 ? '' : Number(item.atual_percentual).toFixed(2).replace('.', ','))}
+                                                    onChange={(e) => { const v = e.target.value; setBuf(b => ({ ...b, [`p${index}`]: v })); handleUpdate(index, 'atual_percentual', v) }}
+                                                    onBlur={() => setBuf(b => { const n = { ...b }; delete n[`p${index}`]; return n })}
                                                     disabled={medicao.status === 'Concluída' || !podeEditar}
                                                     style={{
                                                         width: '50px', padding: '6px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)',
