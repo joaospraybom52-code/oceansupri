@@ -122,6 +122,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const inicioTend = inicioLB
     const projecao = useMemo(() => projetarConclusao(comTendencia), [comTendencia])
     const fimTend = projecao.dataTermino || comTendencia[comTendencia.length - 1]?.semana_ref || ''
+    // Diferença (dias) entre término da tendência e término da LB: + = atraso, - = adiantado
+    const desvioPrazoDias = (fimLB && fimTend) ? Math.round((Date.parse(fimTend + 'T00:00:00Z') - Date.parse(fimLB + 'T00:00:00Z')) / 86400000) : null
 
     const hoje = new Date()
     const diasPercorridos = obra?.data_inicio ? Math.max(0, Math.floor((hoje.getTime() - new Date(obra.data_inicio).getTime()) / 86400000)) : null
@@ -392,7 +394,11 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                             <tr>
                                 <td style={lbl}>Engº residente</td><td style={val}>{eng || '-'}</td>
                                 <td style={lbl}>% Desvio</td><td style={{ ...val, fontWeight: 700, color: desvio != null && desvio > 0 ? '#b91c1c' : '#15803d' }}>{desvio == null ? '-' : `${desvio.toFixed(0)}%`}</td>
-                                <td style={lbl} colSpan={2}></td><td style={lbl} colSpan={2}></td>
+                                <td style={lbl} colSpan={2}></td>
+                                <td style={lbl}>Desvio do prazo</td>
+                                <td style={{ ...val, fontWeight: 700, color: desvioPrazoDias == null ? '#1a1a1a' : (desvioPrazoDias > 0 ? '#b91c1c' : '#15803d') }}>
+                                    {desvioPrazoDias == null ? '-' : desvioPrazoDias === 0 ? 'No prazo' : desvioPrazoDias > 0 ? `${desvioPrazoDias} dias de atraso` : `${Math.abs(desvioPrazoDias)} dias adiantado`}
+                                </td>
                             </tr>
                             <tr>
                                 <td style={lbl}>Fiscal de obras</td><td style={val}>{fiscal || '-'}</td>
