@@ -246,6 +246,14 @@ export default function ProgramacaoSemanalClient({
         }
     }
 
+    async function excluirTarefa(id: string) {
+        if (!window.confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) return
+        const { error } = await supabase.from('tarefas').delete().eq('id', id)
+        if (error) { toast.error('Erro ao excluir tarefa: ' + error.message); return }
+        setTarefas(tarefas.filter(t => t.id !== id))
+        toast.success('Tarefa excluída.')
+    }
+
     async function updateRestricaoStatus(id: string, newStatus: string) {
         const dataRemocao = newStatus === 'removida' ? new Date().toISOString().split('T')[0] : null
         const { error } = await supabase.from('restricoes')
@@ -422,90 +430,6 @@ export default function ProgramacaoSemanalClient({
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {tarefas.map(t => (
-                            <div key={t.id} className="glass-card" style={{ 
-                                padding: '16px', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '16px',
-                                borderLeft: t.status === 'concluida' ? '4px solid var(--accent-green)' : (t.status === 'nao_concluida' ? '4px solid var(--accent-red)' : '4px solid var(--text-muted)'),
-                                marginBottom: '4px'
-                            }}>
-                                {/* Coluna 0: Código */}
-                                <div style={{ width: '40px', fontWeight: 700, fontSize: '13px', color: 'var(--accent-blue)' }}>
-                                    {getTaskCode(t.id)}
-                                </div>
-
-                                {/* Coluna 1: Descrição e Item */}
-                                <div style={{ flex: 2, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)', marginBottom: '4px', textTransform: 'capitalize' }}>{t.descricao}</div>
-                                    {t.itens_orcamento ? (
-                                        <div style={{ fontSize: '11px', color: 'var(--accent-blue)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={`${t.itens_orcamento.codigo} - ${t.itens_orcamento.descricao}`}>
-                                            Item: {t.itens_orcamento.codigo} - {t.itens_orcamento.descricao}
-                                        </div>
-                                    ) : (
-                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sem item de orçamento</div>
-                                    )}
-                                    {(t.qtd_total != null || t.unidade) && (
-                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                            <span style={{ fontWeight: 600 }}>Meta: {t.qtd_total != null ? Number(t.qtd_total).toLocaleString('pt-BR') : '-'} {t.unidade || ''}</span>
-                                            {(() => {
-                                                const dias = ([['qtd_seg','Seg'],['qtd_ter','Ter'],['qtd_qua','Qua'],['qtd_qui','Qui'],['qtd_sex','Sex'],['qtd_sab','Sáb'],['qtd_dom','Dom']] as const)
-                                                    .filter(([c]) => (t as any)[c] != null)
-                                                    .map(([c, l]) => `${l} ${Number((t as any)[c]).toLocaleString('pt-BR')}`)
-                                                return dias.length > 0 ? <span style={{ color: 'var(--text-muted)' }}>{'  ·  ' + dias.join(' · ')}</span> : null
-                                            })()}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Coluna 2: Responsável */}
-                                <div style={{ flex: 1, minWidth: 0, paddingLeft: '8px' }}>
-                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Responsável</div>
-                                    <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        {t.responsavel || '-'}
-                                    </div>
-                                </div>
-
-                                {/* Coluna 4: Motivo */}
-                                <div style={{ flex: 1, minWidth: 0, paddingLeft: '8px' }}>
-                                    {t.status === 'nao_concluida' && (
-                                        <>
-                                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>Motivo</div>
-                                            <div 
-                                                onClick={() => {
-                                                    setMotivoParaVer(t.motivo_nao_conclusao ? getMotivoLabel(t.motivo_nao_conclusao) : '')
-                                                    setModalVerMotivoAberto(true)
-                                                }}
-                                                style={{ fontWeight: 500, fontSize: '13px', color: 'var(--accent-red)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', textDecoration: 'underline' }} 
-                                                title="Clique para ver o motivo completo"
-                                            >
-                                                {t.motivo_nao_conclusao ? getMotivoLabel(t.motivo_nao_conclusao) : '-'}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-
-                                {/* Coluna 5: Status */}
-                                <div style={{ width: '150px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                                    <select value={t.status} onChange={(e) => {
-                                        if (e.target.value === 'nao_concluida') {
-                                            setTarefaIdParaMotivo(t.id)
-                                            setMotivoSelecionado('material') // reset para padrão
-                                            setModalMotivoAberto(true)
-                                        } else {
-                                            updateTarefaStatus(t.id, e.target.value)
-                                        }
-                                    }} className="select-field" style={{ width: '140px', padding: '6px 10px', fontSize: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)' }}>
-                                        <option value="planejada">Planejada</option>
-                                        <option value="concluida">Concluída</option>
-                                        <option value="nao_concluida">Não Concluída</option>
-                                    </select>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
 
                     {/* Matriz diária: Previsto x Realizado */}
                     {tarefas.length > 0 && (
@@ -526,6 +450,8 @@ export default function ProgramacaoSemanalClient({
                                         ))}
                                         <th style={{ ...mth, textAlign: 'center' }}>Total</th>
                                         <th style={{ ...mth, textAlign: 'center' }}>% atg.</th>
+                                        <th style={{ ...mth, textAlign: 'center' }}>Status</th>
+                                        {podeEditar && <th style={{ ...mth, textAlign: 'center' }}></th>}
                                     </tr>
                                 </thead>
                                 {tarefas.map(t => {
@@ -537,7 +463,15 @@ export default function ProgramacaoSemanalClient({
                                                 {/* Linha Previsto */}
                                                 <tr>
                                                     <td rowSpan={2} style={{ ...mtd, fontWeight: 700, color: 'var(--accent-blue)' }}>{getTaskCode(t.id)}</td>
-                                                    <td rowSpan={2} style={{ ...mtd, maxWidth: '240px', textTransform: 'capitalize' }}>{t.descricao}</td>
+                                                    <td rowSpan={2} style={{ ...mtd, maxWidth: '320px' }}>
+                                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>{t.descricao}</div>
+                                                        {t.itens_orcamento && (
+                                                            <div style={{ fontSize: '11px', color: 'var(--accent-blue)', marginTop: '2px' }}>Item: {t.itens_orcamento.codigo} - {t.itens_orcamento.descricao}</div>
+                                                        )}
+                                                        {t.responsavel && (
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Responsável: {t.responsavel}</div>
+                                                        )}
+                                                    </td>
                                                     <td rowSpan={2} style={{ ...mtd, textAlign: 'center' }}>{t.unidade || '-'}</td>
                                                     <td rowSpan={2} style={{ ...mtd, textAlign: 'center', fontWeight: 600 }}>{t.qtd_total != null ? Number(t.qtd_total).toLocaleString('pt-BR') : '-'}</td>
                                                     <td style={{ ...mtd, fontWeight: 600, color: '#3b82f6' }}>Previsto</td>
@@ -550,6 +484,24 @@ export default function ProgramacaoSemanalClient({
                                                     <td rowSpan={2} style={{ ...mtd, textAlign: 'center', fontWeight: 700, color: atg == null ? 'var(--text-muted)' : (atg >= 100 ? 'var(--accent-green)' : atg >= 50 ? '#f59e0b' : 'var(--accent-red)') }}>
                                                         {atg == null ? '-' : `${atg.toFixed(0)}%`}
                                                     </td>
+                                                    <td rowSpan={2} style={{ ...mtd, textAlign: 'center' }}>
+                                                        <select value={t.status} disabled={!podeEditar} onChange={(e) => {
+                                                            if (e.target.value === 'nao_concluida') { setTarefaIdParaMotivo(t.id); setMotivoSelecionado('material'); setModalMotivoAberto(true) }
+                                                            else updateTarefaStatus(t.id, e.target.value)
+                                                        }} className="select-field" style={{ padding: '5px 8px', fontSize: '12px', width: '130px' }}>
+                                                            <option value="planejada">Planejada</option>
+                                                            <option value="concluida">Concluída</option>
+                                                            <option value="nao_concluida">Não Concluída</option>
+                                                        </select>
+                                                        {t.status === 'nao_concluida' && t.motivo_nao_conclusao && (
+                                                            <div style={{ fontSize: '10px', color: 'var(--accent-red)', marginTop: '4px' }}>{getMotivoLabel(t.motivo_nao_conclusao)}</div>
+                                                        )}
+                                                    </td>
+                                                    {podeEditar && (
+                                                        <td rowSpan={2} style={{ ...mtd, textAlign: 'center' }}>
+                                                            <button onClick={() => excluirTarefa(t.id)} title="Excluir tarefa" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                                 {/* Linha Realizado */}
                                                 <tr>
