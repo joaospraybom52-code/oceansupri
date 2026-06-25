@@ -115,9 +115,12 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar }:
                         <thead>
                             <tr>
                                 <th style={{ ...th, textAlign: 'left' }}>Semana</th>
-                                <th style={th} colSpan={2}>MOI (P / R)</th>
-                                <th style={th} colSpan={2}>MOD (P / R)</th>
-                                <th style={th} colSpan={2}>Equip. (P / R)</th>
+                                <th style={{ ...th, textAlign: 'center' }}>MOI Prev.</th>
+                                <th style={{ ...th, textAlign: 'center' }}>MOI Real.</th>
+                                <th style={{ ...th, textAlign: 'center' }}>MOD Prev.</th>
+                                <th style={{ ...th, textAlign: 'center' }}>MOD Real.</th>
+                                <th style={{ ...th, textAlign: 'center' }}>Equip. Prev.</th>
+                                <th style={{ ...th, textAlign: 'center' }}>Equip. Real.</th>
                                 {podeEditar && <th style={th}></th>}
                             </tr>
                         </thead>
