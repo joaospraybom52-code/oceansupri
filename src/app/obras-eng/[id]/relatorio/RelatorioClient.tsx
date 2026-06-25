@@ -39,28 +39,6 @@ const somaDias = (t: any, pref: 'qtd_' | 'qtd_real_') => DIAS.reduce((a, [k]) =>
 const BRAND_DARK = '#2B2E34'
 const BRAND_RED = '#E63329'
 
-// Marca Constrowins (aprox. do "C" de arcos + letreiro)
-function LogoConstrowins({ height = 40 }: { height?: number }) {
-    const radii = [10, 17, 24, 31, 38]
-    const sw = 4.4
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <svg viewBox="0 0 100 100" width={height} height={height} style={{ flexShrink: 0 }}>
-                {radii.map(r => {
-                    const c = 2 * Math.PI * r
-                    const g = c * 95 / 360   // metade do vão (vão total ~190° abrindo à direita)
-                    const d = c - g * 2
-                    return <circle key={r} cx="50" cy="50" r={r} fill="none" stroke={BRAND_RED} strokeWidth={sw} strokeLinecap="round" strokeDasharray={`0 ${g} ${d} ${g}`} />
-                })}
-            </svg>
-            <div style={{ lineHeight: 1 }}>
-                <div style={{ fontSize: `${height * 0.62}px`, fontWeight: 900, color: BRAND_DARK, letterSpacing: '0.5px' }}>CONSTROWINS</div>
-                <div style={{ fontSize: `${height * 0.22}px`, fontWeight: 600, color: BRAND_DARK, letterSpacing: `${height * 0.13}px`, marginTop: '3px' }}>ENGENHARIA</div>
-            </div>
-        </div>
-    )
-}
-
 function Badge({ texto, tipo }: { texto: string, tipo: 'ok' | 'warn' | 'erro' | 'neutro' }) {
     const map = { ok: { bg: '#dcfce7', fg: '#15803d' }, warn: { bg: '#fef3c7', fg: '#b45309' }, erro: { bg: '#fee2e2', fg: '#b91c1c' }, neutro: { bg: '#eef0f2', fg: '#555' } } as const
     const c = map[tipo]
@@ -363,7 +341,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                 {/* PARTE 1 — Cabeçalho */}
                 <div className="rep-sec" style={card}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#d6d6d6', padding: '14px 18px', borderRadius: '3px 3px 0 0', borderTop: `4px solid ${BRAND_RED}` }}>
-                        <LogoConstrowins height={42} />
+                        <img src="/logo-constrowins.png" alt="Constrowins Engenharia" style={{ height: '46px', width: 'auto' }} />
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '18px', fontWeight: 900, color: BRAND_DARK, letterSpacing: '1px' }}>RELATÓRIO SEMANAL</div>
                             <div style={{ fontSize: '12px', color: '#555' }}>{semanaObj ? `${fmt(semanaObj.ref)}${semanaObj.fim ? ` a ${fmt(semanaObj.fim)}` : ''}` : '-'} · {semanaLabel}</div>
