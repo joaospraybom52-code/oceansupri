@@ -437,24 +437,35 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                 <div className="rep-sec" style={card}>
                     <div style={h2}>Curva S</div>
                     {curvaChart.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Cadastre a Linha de Base.</div> : (
-                        <ResponsiveContainer width="100%" height={360}>
-                            <LineChart data={curvaChart} margin={{ top: 18, right: 30, left: -10, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} interval="preserveStartEnd" minTickGap={20} />
-                                <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
-                                <Tooltip cursor={false} formatter={(v: any) => v == null ? '-' : `${Number(v).toFixed(1)}%`} />
-                                <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls>
-                                    <LabelList dataKey="lbTxt" position="top" offset={10} fontSize={10} fontWeight={700} fill="#0f7a52" />
-                                </Line>
-                                <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls>
-                                    <LabelList dataKey="tendTxt" position="bottom" offset={10} fontSize={10} fontWeight={700} fill="#b45309" />
-                                </Line>
-                                <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 2 }} connectNulls>
-                                    <LabelList dataKey="realTxt" position="bottom" offset={10} fontSize={10} fontWeight={700} fill="#b91c1c" />
-                                </Line>
-                            </LineChart>
-                        </ResponsiveContainer>
+                        <>
+                            <ResponsiveContainer width="100%" height={340}>
+                                <LineChart data={curvaChart} margin={{ top: 24, right: 34, left: 4, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} interval="preserveStartEnd" minTickGap={20} />
+                                    <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} width={34} />
+                                    <Tooltip cursor={false} formatter={(v: any) => v == null ? '-' : `${Number(v).toFixed(1)}%`} />
+                                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                                    <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls>
+                                        <LabelList dataKey="lbTxt" position="top" offset={10} fontSize={10} fontWeight={700} fill="#0f7a52" />
+                                    </Line>
+                                    <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls>
+                                        <LabelList dataKey="tendTxt" position="bottom" offset={10} fontSize={10} fontWeight={700} fill="#b45309" />
+                                    </Line>
+                                    <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 2 }} connectNulls>
+                                        <LabelList dataKey="realTxt" position="bottom" offset={10} fontSize={10} fontWeight={700} fill="#b91c1c" />
+                                    </Line>
+                                </LineChart>
+                            </ResponsiveContainer>
+                            {/* Tabela de valores (garante os números no PDF) */}
+                            <table style={{ ...tbl, marginTop: '14px' }}>
+                                <thead><tr><th style={{ ...thHead, textAlign: 'left' }}>Semana</th>{comTendencia.map(s => <th key={s.semana_ref} style={thHead}>{fmtCurto(s.semana_ref)}</th>)}</tr></thead>
+                                <tbody>
+                                    <tr><td style={{ ...tc, textAlign: 'left', fontWeight: 700, color: '#0f7a52' }}>Linha de Base</td>{comTendencia.map(s => <td key={s.semana_ref} style={tc}>{s.lb1_pct == null ? '-' : `${Math.round(s.lb1_pct)}%`}</td>)}</tr>
+                                    <tr style={{ background: ZEBRA }}><td style={{ ...tc, textAlign: 'left', fontWeight: 700, color: '#b91c1c' }}>Real</td>{comTendencia.map(s => <td key={s.semana_ref} style={tc}>{s.real_pct == null ? '-' : `${Math.round(s.real_pct)}%`}</td>)}</tr>
+                                    <tr><td style={{ ...tc, textAlign: 'left', fontWeight: 700, color: '#b45309' }}>Tendência</td>{comTendencia.map(s => <td key={s.semana_ref} style={tc}>{s.tendencia_pct == null ? '-' : `${Math.round(s.tendencia_pct)}%`}</td>)}</tr>
+                                </tbody>
+                            </table>
+                        </>
                     )}
                 </div>
 
