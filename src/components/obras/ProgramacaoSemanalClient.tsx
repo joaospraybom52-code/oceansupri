@@ -808,9 +808,9 @@ export default function ProgramacaoSemanalClient({
 
                                 // Chain para Nova Restrição
                                 const t = tarefas.find(t => t.id === tarefaIdParaMotivo)
-                                setNovaRestricao({ 
-                                    descricao: getMotivoLabel(motivoSelecionado), 
-                                    categoria: ['projeto','material','mao_de_obra','equipamento','area_frente','clima'].includes(motivoSelecionado) ? motivoSelecionado : 'outros', 
+                                setNovaRestricao({
+                                    descricao: '',
+                                    categoria: ['projeto','material','mao_de_obra','equipamento','area_frente','clima'].includes(motivoSelecionado) ? motivoSelecionado : 'outros',
                                     responsavel: t?.responsavel || '', 
                                     prazo_remocao: '', 
                                     tarefa_id: tarefaIdParaMotivo 
