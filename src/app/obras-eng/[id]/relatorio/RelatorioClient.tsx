@@ -61,6 +61,12 @@ function LogoConstrowins({ height = 40 }: { height?: number }) {
     )
 }
 
+function Badge({ texto, tipo }: { texto: string, tipo: 'ok' | 'warn' | 'erro' | 'neutro' }) {
+    const map = { ok: { bg: '#dcfce7', fg: '#15803d' }, warn: { bg: '#fef3c7', fg: '#b45309' }, erro: { bg: '#fee2e2', fg: '#b91c1c' }, neutro: { bg: '#eef0f2', fg: '#555' } } as const
+    const c = map[tipo]
+    return <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 700, background: c.bg, color: c.fg, whiteSpace: 'nowrap' }}>{texto}</span>
+}
+
 export default function RelatorioClient({ obra, programacoes, tarefas, restricoes, analises, curva, histograma, relatorios, podeEditar }: any) {
     const supabase = createClient()
 
@@ -183,12 +189,14 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const totalDia = (dia: string) => PERIODOS.reduce((a, [k]) => a + (Number(pluvio?.[dia]?.[k]) || 0), 0)
 
     // estilos do "papel"
-    const card: React.CSSProperties = { background: '#fff', color: '#1a1a1a', borderRadius: '4px', padding: '24px', marginBottom: '16px', border: '1px solid #e2e2e2' }
-    const h2: React.CSSProperties = { fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: BRAND_DARK, borderBottom: `2px solid ${BRAND_RED}`, paddingBottom: '6px', marginBottom: '14px' }
+    const card: React.CSSProperties = { background: '#fff', color: '#1a1a1a', borderRadius: '6px', padding: '22px', marginBottom: '14px', border: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }
+    const h2: React.CSSProperties = { fontSize: '15px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: BRAND_DARK, borderBottom: `2px solid ${BRAND_RED}`, paddingBottom: '7px', marginBottom: '14px' }
     const tbl: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: '11px' }
-    const tc: React.CSSProperties = { border: '1px solid #cfcfcf', padding: '4px 6px', textAlign: 'center' }
-    const lbl: React.CSSProperties = { border: '1px solid #cfcfcf', padding: '6px 8px', fontWeight: 700, background: '#f3f4f6', fontSize: '12px' }
-    const val: React.CSSProperties = { border: '1px solid #cfcfcf', padding: '6px 8px', textAlign: 'center', fontSize: '12px' }
+    const tc: React.CSSProperties = { border: '1px solid #dcdce0', padding: '5px 7px', textAlign: 'center' }
+    const thHead: React.CSSProperties = { border: `1px solid ${BRAND_DARK}`, padding: '6px 7px', background: BRAND_DARK, color: '#fff', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center' }
+    const lbl: React.CSSProperties = { border: '1px solid #dcdce0', padding: '6px 8px', fontWeight: 700, background: '#eef0f3', fontSize: '12px', color: BRAND_DARK }
+    const val: React.CSSProperties = { border: '1px solid #dcdce0', padding: '6px 8px', textAlign: 'center', fontSize: '12px' }
+    const ZEBRA = '#f6f7f9'
 
     // ===== Matriz Previsto x Realizado de uma semana =====
     function MatrizSemana({ progRef }: { progRef: string }) {
@@ -219,7 +227,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                         const ok = prevTot > 0 && realTot >= prevTot
                         const temReal = realTot > 0 || t.status === 'concluida'
                         return (
-                            <tbody key={t.id} style={{ borderTop: '2px solid #cfcfcf' }}>
+                            <tbody key={t.id} style={{ borderTop: '2px solid #cfcfcf', background: i % 2 ? ZEBRA : '#fff' }}>
                                 <tr>
                                     <td rowSpan={2} style={{ ...tc, fontWeight: 700 }}>{`T-${String(i + 1).padStart(2, '0')}`}</td>
                                     <td rowSpan={2} style={tc}>{obra?.local || '-'}</td>
@@ -229,7 +237,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                     <td style={{ ...tc, fontWeight: 600, color: '#1d4ed8' }}>Prev.</td>
                                     {dias.map(d => <td key={d.key} style={tc}>{t[`qtd_${d.key}`] != null ? Number(t[`qtd_${d.key}`]).toLocaleString('pt-BR') : ''}</td>)}
                                     <td style={{ ...tc, fontWeight: 700, color: '#1d4ed8' }}>{prevTot ? prevTot.toLocaleString('pt-BR') : '-'}</td>
-                                    <td rowSpan={2} style={{ ...tc, fontWeight: 700, background: !temReal ? '#fff' : (ok ? '#dcfce7' : '#fee2e2'), color: !temReal ? '#888' : (ok ? '#15803d' : '#b91c1c') }}>{!temReal ? '—' : (ok ? 'Ok' : 'Reprogramar')}</td>
+                                    <td rowSpan={2} style={tc}>{!temReal ? <span style={{ color: '#999' }}>—</span> : <Badge texto={ok ? 'Ok' : 'Reprogramar'} tipo={ok ? 'ok' : 'warn'} />}</td>
                                     <td rowSpan={2} style={{ ...tc, textAlign: 'left' }}>{t.status === 'nao_concluida' && t.motivo_nao_conclusao ? (MOTIVO_LABEL[t.motivo_nao_conclusao] || t.motivo_nao_conclusao) : ''}</td>
                                 </tr>
                                 <tr>
@@ -248,15 +256,21 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     return (
         <div>
             <style>{`
+                .print-footer { display: none; }
                 @media print {
-                    @page { size: A4 landscape; margin: 8mm; }
+                    @page { size: A4 landscape; margin: 8mm 8mm 14mm; }
                     body { background: #fff !important; }
                     body * { visibility: hidden !important; }
                     #relatorio-print, #relatorio-print * { visibility: visible !important; }
                     #relatorio-print { position: absolute; left: 0; top: 0; width: 100%; }
                     .no-print { display: none !important; }
                     .rep-sec, .rep-avoid { break-inside: avoid; page-break-inside: avoid; }
+                    #relatorio-print thead { display: table-header-group; }
                     #relatorio-print tr, #relatorio-print .matriz tbody { break-inside: avoid; page-break-inside: avoid; }
+                    .print-footer { display: flex !important; visibility: visible !important; justify-content: space-between; align-items: center;
+                        position: fixed; bottom: 0; left: 0; right: 0; padding: 4px 8px; background: #fff;
+                        border-top: 1px solid #ccc; font-size: 8px; color: #555; }
+                    .print-footer * { visibility: visible !important; }
                 }
             `}</style>
 
@@ -323,6 +337,12 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
 
             {/* ========== RELATÓRIO ========== */}
             <div id="relatorio-print">
+                {/* Rodapé fixo (repete em todas as páginas na impressão) */}
+                <div className="print-footer">
+                    <span>CONSTROWINS ENGENHARIA — Relatório de Acompanhamento de Obra (RG.089)</span>
+                    <span>{obra?.nome || ''} · {semanaLabel} · Emitido em {hoje.toLocaleDateString('pt-BR')}</span>
+                </div>
+
                 {/* PARTE 1 — Cabeçalho */}
                 <div className="rep-sec" style={card}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#d6d6d6', padding: '14px 18px', borderRadius: '3px 3px 0 0', borderTop: `4px solid ${BRAND_RED}` }}>
@@ -382,7 +402,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     <div>
                         <div style={h2}>Monitoramento pluviométrico (mm)</div>
                         <table style={tbl}>
-                            <thead><tr><th style={lbl}>Período</th>{DIAS.map(([k, l]) => <th key={k} style={lbl}>{l}</th>)}</tr></thead>
+                            <thead><tr><th style={thHead}>Período</th>{DIAS.map(([k, l]) => <th key={k} style={thHead}>{l}</th>)}</tr></thead>
                             <tbody>
                                 {PERIODOS.map(([pk, pl]) => (
                                     <tr key={pk}><td style={{ ...tc, textAlign: 'left', fontWeight: 600 }}>{pl}</td>{DIAS.map(([dk]) => <td key={dk} style={tc}>{pluvio?.[dk]?.[pk] ? `${pluvio[dk][pk]}` : '0'}</td>)}</tr>
@@ -449,13 +469,13 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                 )}
 
                 {/* PARTE 5 — Planejamento semanal realizado */}
-                <div style={card}>
+                <div className="rep-avoid" style={card}>
                     <div style={h2}>Planejamento semanal — Realizado ({semanaObj ? fmtCurto(semanaObj.ref) + (semanaObj.fim ? ` a ${fmtCurto(semanaObj.fim)}` : '') : '-'})</div>
                     <MatrizSemana progRef={semanaSel} />
                 </div>
 
                 {/* PARTE 6 — Planejamento da próxima semana */}
-                <div style={card}>
+                <div className="rep-avoid" style={card}>
                     <div style={h2}>Planejamento da próxima semana {proxProg ? `(${fmtCurto(proxProg.semana_referente_inicio)}${proxProg.semana_referente_fim ? ` a ${fmtCurto(proxProg.semana_referente_fim)}` : ''})` : ''}</div>
                     {proxProg ? <MatrizSemana progRef={proxProg.semana_referente_inicio} /> : <div style={{ fontSize: '12px', color: '#999' }}>Não há programação cadastrada para a próxima semana.</div>}
                 </div>
@@ -479,20 +499,24 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     )}
                 </div>
 
-                {/* PARTE 7b — Restrições, IRR e 5W2H */}
-                <div style={card}>
+                {/* PARTE 7b — Restrições + IRR */}
+                <div className="rep-avoid" style={card}>
                     <div style={h2}>Restrições — IRR {irr.toFixed(0)}% ({restRemovidas}/{restSemana.length} removidas)</div>
                     {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições nesta semana.</div> : (
                         <table style={tbl}>
-                            <thead><tr><th style={{ ...lbl, textAlign: 'left' }}>Restrição</th><th style={lbl}>Categoria</th><th style={lbl}>Responsável</th><th style={lbl}>Prazo</th><th style={lbl}>Status</th></tr></thead>
-                            <tbody>{restSemana.map((r: any) => <tr key={r.id}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={tc}>{r.prazo_remocao ? fmt(r.prazo_remocao) : '-'}</td><td style={{ ...tc, fontWeight: 600, color: r.status === 'removida' ? '#15803d' : '#b91c1c' }}>{r.status === 'removida' ? 'Removida' : 'Pendente'}</td></tr>)}</tbody>
+                            <thead><tr><th style={{ ...thHead, textAlign: 'left' }}>Restrição</th><th style={thHead}>Categoria</th><th style={thHead}>Responsável</th><th style={thHead}>Prazo</th><th style={thHead}>Status</th></tr></thead>
+                            <tbody>{restSemana.map((r: any, i: number) => <tr key={r.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={tc}>{r.prazo_remocao ? fmt(r.prazo_remocao) : '-'}</td><td style={tc}><Badge texto={r.status === 'removida' ? 'Removida' : 'Pendente'} tipo={r.status === 'removida' ? 'ok' : 'erro'} /></td></tr>)}</tbody>
                         </table>
                     )}
-                    <div style={{ ...h2, marginTop: '20px' }}>Planos de ação (5W2H)</div>
+                </div>
+
+                {/* PARTE 7c — Planos de ação (5W2H) */}
+                <div className="rep-avoid" style={card}>
+                    <div style={h2}>Planos de ação (5W2H)</div>
                     {analisesSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem planos de ação nesta semana.</div> : (
                         <table style={tbl}>
-                            <thead><tr>{['O quê', 'Por quê', 'Onde', 'Quando', 'Quem', 'Como', 'Status'].map(h => <th key={h} style={lbl}>{h}</th>)}</tr></thead>
-                            <tbody>{analisesSemana.map((a: any) => <tr key={a.id}><td style={{ ...tc, textAlign: 'left' }}>{a.what_o_que || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.why_por_que || '-'}</td><td style={tc}>{a.where_onde || '-'}</td><td style={tc}>{a.when_quando ? fmt(a.when_quando) : '-'}</td><td style={tc}>{a.who_quem || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.how_como || '-'}</td><td style={{ ...tc, fontWeight: 600, color: a.status === 'concluido' ? '#15803d' : '#b45309' }}>{a.status === 'concluido' ? 'Concluído' : 'Em andamento'}</td></tr>)}</tbody>
+                            <thead><tr>{['O quê', 'Por quê', 'Onde', 'Quando', 'Quem', 'Como', 'Status'].map(h => <th key={h} style={thHead}>{h}</th>)}</tr></thead>
+                            <tbody>{analisesSemana.map((a: any, i: number) => <tr key={a.id} style={{ background: i % 2 ? ZEBRA : '#fff' }}><td style={{ ...tc, textAlign: 'left' }}>{a.what_o_que || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.why_por_que || '-'}</td><td style={tc}>{a.where_onde || '-'}</td><td style={tc}>{a.when_quando ? fmt(a.when_quando) : '-'}</td><td style={tc}>{a.who_quem || '-'}</td><td style={{ ...tc, textAlign: 'left' }}>{a.how_como || '-'}</td><td style={tc}><Badge texto={a.status === 'concluido' ? 'Concluído' : 'Em andamento'} tipo={a.status === 'concluido' ? 'ok' : 'warn'} /></td></tr>)}</tbody>
                         </table>
                     )}
                 </div>
@@ -503,11 +527,11 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     {restSemana.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Sem restrições nesta semana.</div> : (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
                             <table style={tbl}>
-                                <thead><tr><th style={lbl}>Categoria</th><th style={lbl}>Qtd</th></tr></thead>
+                                <thead><tr><th style={thHead}>Categoria</th><th style={thHead}>Qtd</th></tr></thead>
                                 <tbody>{desviosPorCategoria.map(([cat, n]) => <tr key={cat}><td style={{ ...tc, textAlign: 'left' }}>{CATEGORIAS[cat] || cat}</td><td style={{ ...tc, fontWeight: 700 }}>{n}</td></tr>)}</tbody>
                             </table>
                             <table style={tbl}>
-                                <thead><tr><th style={{ ...lbl, textAlign: 'left' }}>Restrição</th><th style={lbl}>Categoria</th><th style={lbl}>Responsável</th><th style={lbl}>Status</th></tr></thead>
+                                <thead><tr><th style={{ ...thHead, textAlign: 'left' }}>Restrição</th><th style={thHead}>Categoria</th><th style={thHead}>Responsável</th><th style={thHead}>Status</th></tr></thead>
                                 <tbody>{restSemana.map((r: any) => <tr key={r.id}><td style={{ ...tc, textAlign: 'left' }}>{r.descricao}</td><td style={tc}>{CATEGORIAS[r.categoria] || r.categoria || '-'}</td><td style={tc}>{r.responsavel || '-'}</td><td style={{ ...tc, fontWeight: 600, color: r.status === 'removida' ? '#15803d' : '#b91c1c' }}>{r.status === 'removida' ? 'Removida' : 'Pendente'}</td></tr>)}</tbody>
                             </table>
                         </div>
