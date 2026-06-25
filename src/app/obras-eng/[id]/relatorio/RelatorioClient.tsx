@@ -126,7 +126,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const desvioPrazoDias = (fimLB && fimTend) ? Math.round((Date.parse(fimTend + 'T00:00:00Z') - Date.parse(fimLB + 'T00:00:00Z')) / 86400000) : null
 
     const hoje = new Date()
-    const diasPercorridos = obra?.data_inicio ? Math.max(0, Math.floor((hoje.getTime() - new Date(obra.data_inicio).getTime()) / 86400000)) : null
+    // Dias percorridos = hoje − Início da LB (primeira semana da curva)
+    const diasPercorridos = inicioLB ? Math.max(0, Math.floor((hoje.getTime() - Date.parse(inicioLB + 'T00:00:00')) / 86400000)) : null
     const termino = obra?.previsao_termino || obra?.data_fim
     const diasTermino = termino ? Math.floor((new Date(termino).getTime() - hoje.getTime()) / 86400000) : null
 
