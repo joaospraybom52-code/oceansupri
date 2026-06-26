@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import sql from 'mssql'
+import { agendar } from './schedule'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import path from 'path'
@@ -30,7 +31,6 @@ const sqlConfig: sql.config = {
     requestTimeout: 180000,
 }
 
-const INTERVALO_MS = 10 * 60 * 1000 // 10 min
 
 // Consulta "recebido" (idêntica à do Power BI). Mantemos a query completa como
 // subconsulta e, no nível externo, projetamos só as 3 colunas que a tabela
@@ -120,10 +120,5 @@ process.on('unhandledRejection', (r) => console.log('[RECEBIDO] unhandledRejecti
 process.on('uncaughtException', (e) => console.log('[RECEBIDO] uncaughtException:', (e as any)?.message || e))
 process.on('SIGINT', () => { console.log('[RECEBIDO] encerrado.'); process.exit(0) })
 
-async function loop() {
-    await ciclo()
-    setTimeout(loop, INTERVALO_MS)
-}
-
-console.log('[RECEBIDO] Worker de atualização do Recebido (KPI Controle) iniciado.')
-loop()
+console.log('[RECEBIDO] Worker iniciado — atualiza 3x/dia (09:00, 13:00, 17:30 BRT).')
+agendar(ciclo, 'RECEBIDO')

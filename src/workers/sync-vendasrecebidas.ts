@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import sql from 'mssql'
+import { agendar } from './schedule'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import path from 'path'
@@ -30,7 +31,6 @@ const sqlConfig: sql.config = {
     requestTimeout: 180000,
 }
 
-const INTERVALO_MS = 10 * 60 * 1000 // 10 min
 
 const queryVendas = `
 SELECT Obra_VRec, Data_VRec, ValProvisaoCurto_Vrec, ValDescontoImposto_vrec
@@ -82,10 +82,5 @@ process.on('unhandledRejection', (r) => console.log('[VENDASREC] unhandledReject
 process.on('uncaughtException', (e) => console.log('[VENDASREC] uncaughtException:', (e as any)?.message || e))
 process.on('SIGINT', () => { console.log('[VENDASREC] encerrado.'); process.exit(0) })
 
-async function loop() {
-    await ciclo()
-    setTimeout(loop, INTERVALO_MS)
-}
-
-console.log('[VENDASREC] Worker de atualização do VendasRecebidas (KPI Controle) iniciado.')
-loop()
+console.log('[VENDASREC] Worker iniciado — atualiza 3x/dia (09:00, 13:00, 17:30 BRT).')
+agendar(ciclo, 'VENDASREC')

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import sql from 'mssql'
+import { agendar } from './schedule'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import path from 'path'
@@ -32,7 +33,6 @@ const sqlConfig: sql.config = {
     requestTimeout: 300000,
 }
 
-const INTERVALO_MS = 10 * 60 * 1000 // 10 min
 
 const EMPRESA_CONSTROWINS = '4 - CONSTROWINS SERVIÇOS DE ENGENHARIA LTDA'
 
@@ -435,17 +435,12 @@ process.on('unhandledRejection', (r) => console.log('[PAGO] unhandledRejection:'
 process.on('uncaughtException', (e) => console.log('[PAGO] uncaughtException:', (e as any)?.message || e))
 process.on('SIGINT', () => { console.log('[PAGO] encerrado.'); process.exit(0) })
 
-async function loop() {
-    await ciclo()
-    setTimeout(loop, INTERVALO_MS)
-}
-
-// Só inicia o loop quando executado diretamente (não ao ser importado por um diag).
+// Só agenda quando executado diretamente (não ao ser importado por um diag).
 const isMain = (() => {
     try { return import.meta.url === new URL(`file://${process.argv[1]}`).href || process.argv[1]?.includes('sync-pago-apagar') }
     catch { return true }
 })()
 if (isMain) {
-    console.log('[PAGO] Worker de atualização do Pago/A Pagar (KPI Controle) iniciado.')
-    loop()
+    console.log('[PAGO] Worker iniciado — atualiza 3x/dia (09:00, 13:00, 17:30 BRT).')
+    agendar(ciclo, 'PAGO')
 }

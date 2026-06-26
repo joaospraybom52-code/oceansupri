@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import sql from 'mssql'
+import { agendar } from './schedule'
 import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import path from 'path'
@@ -31,7 +32,6 @@ const sqlConfig: sql.config = {
     requestTimeout: 180000,
 }
 
-const INTERVALO_MS = 10 * 60 * 1000 // 10 min
 
 const queryAReceber = `
 SELECT DISTINCT cr.Obra_Prc, cr.Data_Prc, cr.NumParcGer_Prc, cr.NumVend_Prc, cr.NumParc_Prc, cr.Tipo_Prc,
@@ -92,10 +92,5 @@ process.on('unhandledRejection', (r) => console.log('[ARECEBER] unhandledRejecti
 process.on('uncaughtException', (e) => console.log('[ARECEBER] uncaughtException:', (e as any)?.message || e))
 process.on('SIGINT', () => { console.log('[ARECEBER] encerrado.'); process.exit(0) })
 
-async function loop() {
-    await ciclo()
-    setTimeout(loop, INTERVALO_MS)
-}
-
-console.log('[ARECEBER] Worker de atualização do A Receber (KPI Controle) iniciado.')
-loop()
+console.log('[ARECEBER] Worker iniciado — atualiza 3x/dia (09:00, 13:00, 17:30 BRT).')
+agendar(ciclo, 'ARECEBER')
