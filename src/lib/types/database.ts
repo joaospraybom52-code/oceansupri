@@ -720,6 +720,201 @@ export type Database = {
                 Update: { [k: string]: unknown }
                 Relationships: []
             }
+            controle_recebido: {
+                Row: {
+                    id: string
+                    obra_rec: string | null
+                    tot_conf: number | null
+                    data_rec: string | null
+                    tot_desc: number | null
+                    tot_princ: number | null
+                    atualizado_em: string | null
+                }
+                Insert: {
+                    id?: string
+                    obra_rec?: string | null
+                    tot_conf?: number | null
+                    data_rec?: string | null
+                    tot_desc?: number | null
+                    tot_princ?: number | null
+                    atualizado_em?: string | null
+                }
+                Update: {
+                    id?: string
+                    obra_rec?: string | null
+                    tot_conf?: number | null
+                    data_rec?: string | null
+                    tot_desc?: number | null
+                    tot_princ?: number | null
+                    atualizado_em?: string | null
+                }
+                Relationships: []
+            }
+            controle_a_receber: {
+                Row: {
+                    id: string
+                    obra: string | null
+                    data_prc: string | null
+                    num_parc_ger: string | null
+                    val_provisao_curto_ven: number | null
+                    val_desconto_imposto_ven: number | null
+                    valor_prc: number | null
+                    data_fim_contrato_ven: string | null
+                    hist_lanc_ven: string | null
+                    data_ven: string | null
+                    atualizado_em: string | null
+                }
+                Insert: {
+                    id?: string
+                    obra?: string | null
+                    data_prc?: string | null
+                    num_parc_ger?: string | null
+                    val_provisao_curto_ven?: number | null
+                    val_desconto_imposto_ven?: number | null
+                    valor_prc?: number | null
+                    data_fim_contrato_ven?: string | null
+                    hist_lanc_ven?: string | null
+                    data_ven?: string | null
+                    atualizado_em?: string | null
+                }
+                Update: {
+                    id?: string
+                    obra?: string | null
+                    data_prc?: string | null
+                    num_parc_ger?: string | null
+                    val_provisao_curto_ven?: number | null
+                    val_desconto_imposto_ven?: number | null
+                    valor_prc?: number | null
+                    data_fim_contrato_ven?: string | null
+                    hist_lanc_ven?: string | null
+                    data_ven?: string | null
+                    atualizado_em?: string | null
+                }
+                Relationships: []
+            }
+            controle_pago_insumo_cliente: {
+                Row: {
+                    id: string
+                    descrinsumo: string | null
+                    cliente: string | null
+                    data_movimento: string | null
+                    vlr_at_pagar: number | null
+                    vlr_at_pago: number | null
+                    atualizado_em: string | null
+                }
+                Insert: {
+                    id?: string
+                    descrinsumo?: string | null
+                    cliente?: string | null
+                    data_movimento?: string | null
+                    vlr_at_pagar?: number | null
+                    vlr_at_pago?: number | null
+                    atualizado_em?: string | null
+                }
+                Update: {
+                    id?: string
+                    descrinsumo?: string | null
+                    cliente?: string | null
+                    data_movimento?: string | null
+                    vlr_at_pagar?: number | null
+                    vlr_at_pago?: number | null
+                    atualizado_em?: string | null
+                }
+                Relationships: []
+            }
+            controle_vendasrecebidas: {
+                Row: {
+                    id: string
+                    obra_vrec: string | null
+                    data_vrec: string | null
+                    val_provisao_curto_vrec: number | null
+                    val_desconto_imposto_vrec: number | null
+                    atualizado_em: string | null
+                }
+                Insert: {
+                    id?: string
+                    obra_vrec?: string | null
+                    data_vrec?: string | null
+                    val_provisao_curto_vrec?: number | null
+                    val_desconto_imposto_vrec?: number | null
+                    atualizado_em?: string | null
+                }
+                Update: {
+                    id?: string
+                    obra_vrec?: string | null
+                    data_vrec?: string | null
+                    val_provisao_curto_vrec?: number | null
+                    val_desconto_imposto_vrec?: number | null
+                    atualizado_em?: string | null
+                }
+                Relationships: []
+            }
+            controle_pago_apagar: {
+                Row: {
+                    id: string
+                    obra: string | null
+                    data_movimento: string | null
+                    tipo_controle: string | null
+                    vlr_at_pago: number | null
+                    vlr_at_pagar: number | null
+                    vlr_comp: number | null
+                    total_receita: number | null
+                    atualizado_em: string | null
+                }
+                Insert: {
+                    id?: string
+                    obra?: string | null
+                    data_movimento?: string | null
+                    tipo_controle?: string | null
+                    vlr_at_pago?: number | null
+                    vlr_at_pagar?: number | null
+                    vlr_comp?: number | null
+                    total_receita?: number | null
+                    atualizado_em?: string | null
+                }
+                Update: {
+                    id?: string
+                    obra?: string | null
+                    data_movimento?: string | null
+                    tipo_controle?: string | null
+                    vlr_at_pago?: number | null
+                    vlr_at_pagar?: number | null
+                    vlr_comp?: number | null
+                    total_receita?: number | null
+                    atualizado_em?: string | null
+                }
+                Relationships: []
+            }
+            controle_vgv: {
+                Row: {
+                    id: string
+                    codigo_obra: string | null
+                    ano: number | null
+                    nome_obra: string | null
+                    cliente: string | null
+                    valor_venda: number | null
+                    created_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    codigo_obra?: string | null
+                    ano?: number | null
+                    nome_obra?: string | null
+                    cliente?: string | null
+                    valor_venda?: number | null
+                    created_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    codigo_obra?: string | null
+                    ano?: number | null
+                    nome_obra?: string | null
+                    cliente?: string | null
+                    valor_venda?: number | null
+                    created_at?: string | null
+                }
+                Relationships: []
+            }
             permissao_modulocontrole: {
                 Row: {
                     id: string
@@ -789,6 +984,12 @@ export type PermissaoObra = Database["public"]["Tables"]["permissoes_obras"]["Ro
 export type ControleMedicao = Database["public"]["Tables"]["controle_medicoes"]["Row"]
 export type CustoUau = Database["public"]["Tables"]["custo_uau"]["Row"]
 export type PermissaoModuloControle = Database["public"]["Tables"]["permissao_modulocontrole"]["Row"]
+export type ControleRecebido = Database["public"]["Tables"]["controle_recebido"]["Row"]
+export type ControlePagoApagar = Database["public"]["Tables"]["controle_pago_apagar"]["Row"]
+export type ControleVendasRecebidas = Database["public"]["Tables"]["controle_vendasrecebidas"]["Row"]
+export type ControleAReceber = Database["public"]["Tables"]["controle_a_receber"]["Row"]
+export type ControleVgv = Database["public"]["Tables"]["controle_vgv"]["Row"]
+export type ControlePagoInsumoCliente = Database["public"]["Tables"]["controle_pago_insumo_cliente"]["Row"]
 
 // PedidoCompra with joined relations
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

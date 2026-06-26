@@ -9,7 +9,11 @@
     "lint": "eslint",
     "sync:uau": "tsx src/workers/sync-uau.ts",
     "sync:uau:reconcile": "tsx src/workers/sync-uau-reconcile.ts",
-    "sync:custo": "tsx src/workers/sync-custo.ts"
+    "sync:custo": "tsx src/workers/sync-custo.ts",
+    "sync:recebido": "tsx src/workers/sync-recebido.ts",
+    "sync:pago": "tsx src/workers/sync-pago-apagar.ts",
+    "sync:vendasrec": "tsx src/workers/sync-vendasrecebidas.ts",
+    "sync:areceber": "tsx src/workers/sync-a-receber.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

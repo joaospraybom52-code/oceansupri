@@ -1,12 +1,13 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { LineChart, ArrowLeftRight, LogOut } from 'lucide-react'
+import { useRouter, usePathname } from 'next/navigation'
+import { LineChart, ArrowLeftRight, LogOut, BarChart3, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Toaster } from 'sonner'
 
 export default function ControleLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter()
+    const pathname = usePathname()
     const supabase = createClient()
 
     async function handleLogout() {
@@ -43,10 +44,30 @@ export default function ControleLayout({ children }: { children: React.ReactNode
                             Menu principal
                         </span>
                     </div>
-                    <div className="sidebar-link active">
+                    <button
+                        onClick={() => router.push('/controle')}
+                        className={`sidebar-link${pathname === '/controle' ? ' active' : ''}`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'Inter, sans-serif', fontSize: '14px', textAlign: 'left' }}
+                    >
                         <LineChart size={18} />
                         Painel de Recebimentos
-                    </div>
+                    </button>
+                    <button
+                        onClick={() => router.push('/controle/kpis')}
+                        className={`sidebar-link${pathname?.startsWith('/controle/kpis') ? ' active' : ''}`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'Inter, sans-serif', fontSize: '14px', textAlign: 'left' }}
+                    >
+                        <BarChart3 size={18} />
+                        KPI&apos;S
+                    </button>
+                    <button
+                        onClick={() => router.push('/controle/cadastro-venda')}
+                        className={`sidebar-link${pathname?.startsWith('/controle/cadastro-venda') ? ' active' : ''}`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'Inter, sans-serif', fontSize: '14px', textAlign: 'left' }}
+                    >
+                        <Receipt size={18} />
+                        Cadastro de venda
+                    </button>
                 </nav>
 
                 <div style={{ padding: '12px', borderTop: '1px solid var(--border-glass)' }}>
