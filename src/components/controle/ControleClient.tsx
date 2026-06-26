@@ -77,8 +77,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
     const [filtroDe, setFiltroDe] = useState('')
     const [filtroAte, setFiltroAte] = useState('')
 
-    // Aba do painel da direita: a receber / recebidas / descontos por antecipação
-    const [aba, setAba] = useState<'aReceber' | 'recebidas' | 'descontos'>('aReceber')
+    // Aba do painel da direita: previsão / a receber / recebidas / descontos por antecipação
+    const [aba, setAba] = useState<'previsao' | 'aReceber' | 'recebidas' | 'descontos'>('aReceber')
 
     // Modal cadastro/edição
     const [showModal, setShowModal] = useState(false)
@@ -204,13 +204,14 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
     const totalRecebido = medicoesFiltradas.filter(isRecebida).reduce((s, m) => s + valorRecebido(m), 0)
 
     // Listas por aba do painel da direita
-    const naoRecebidas = medicoesFiltradas.filter(m => !isRecebida(m))
+    const previsoes = medicoesFiltradas.filter(m => !isRecebida(m) && m.tipo !== 'emitida')
+    const aReceberLista = medicoesFiltradas.filter(m => !isRecebida(m) && m.tipo === 'emitida')
     const recebidas = medicoesFiltradas.filter(isRecebida)
     const comDesconto = recebidas.filter(m => Number(m.percentual_recebido) < 100)
-    const listaAba = aba === 'recebidas' ? recebidas : aba === 'descontos' ? comDesconto : naoRecebidas
+    const listaAba = aba === 'previsao' ? previsoes : aba === 'recebidas' ? recebidas : aba === 'descontos' ? comDesconto : aReceberLista
     const valorDaLinha = (m: Medicao) => aba === 'descontos' ? valorDesconto(m) : aba === 'recebidas' ? valorRecebido(m) : Number(m.valor_medicao || 0)
     const totalAba = listaAba.reduce((s, m) => s + valorDaLinha(m), 0)
-    const corAba = aba === 'descontos' ? 'var(--accent-red, #ef4444)' : 'var(--accent-green)'
+    const corAba = aba === 'descontos' ? 'var(--accent-red, #ef4444)' : aba === 'previsao' ? '#6366f1' : 'var(--accent-green)'
 
     const limparFiltros = () => { setFiltroCodigo(''); setFiltroDe(''); setFiltroAte('') }
 
@@ -311,7 +312,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                 <div className="glass-card" style={{ padding: '24px' }}>
                     {/* Abas */}
                     <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                        <AbaBtn ativa={aba === 'aReceber'} cor="#f59e0b" label="A receber" qtd={naoRecebidas.length} onClick={() => setAba('aReceber')} />
+                        <AbaBtn ativa={aba === 'previsao'} cor="#6366f1" label="Previsão" qtd={previsoes.length} onClick={() => setAba('previsao')} />
+                        <AbaBtn ativa={aba === 'aReceber'} cor="#f59e0b" label="A receber" qtd={aReceberLista.length} onClick={() => setAba('aReceber')} />
                         <AbaBtn ativa={aba === 'recebidas'} cor="#10b981" label="Notas recebidas" qtd={recebidas.length} onClick={() => setAba('recebidas')} />
                         <AbaBtn ativa={aba === 'descontos'} cor="#ef4444" label="Desconto antecipação" qtd={comDesconto.length} onClick={() => setAba('descontos')} />
                     </div>
@@ -322,7 +324,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                     )}
                     {listaAba.length === 0 ? (
                         <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-                            {aba === 'recebidas' ? 'Nenhuma nota recebida no filtro.' : aba === 'descontos' ? 'Nenhum desconto por antecipação no filtro.' : 'Nenhuma medição a receber no filtro.'}
+                            {aba === 'previsao' ? 'Nenhuma previsão no filtro.' : aba === 'recebidas' ? 'Nenhuma nota recebida no filtro.' : aba === 'descontos' ? 'Nenhum desconto por antecipação no filtro.' : 'Nenhuma nota a receber no filtro.'}
                         </p>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '420px', overflowY: 'auto' }}>
@@ -345,8 +347,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                                             </span>
                                             {podeEditar && (
                                                 <>
-                                                    {aba === 'aReceber' && <button onClick={() => abrirRecebimento(m)} title="Confirmar recebimento" style={{ ...iconBtnStyle, color: '#10b981' }}><CheckCircle2 size={14} /></button>}
-                                                    {aba !== 'aReceber' && <button onClick={() => abrirRecebimento(m)} title="Ajustar recebimento" style={{ ...iconBtnStyle, color: '#10b981' }}><CheckCircle2 size={14} /></button>}
+                                                    <button onClick={() => abrirRecebimento(m)} title={isRecebida(m) ? 'Ajustar recebimento' : 'Confirmar recebimento'} style={{ ...iconBtnStyle, color: '#10b981' }}><CheckCircle2 size={14} /></button>
                                                     <button onClick={() => abrirEdicao(m)} title="Editar" style={iconBtnStyle}><Pencil size={14} /></button>
                                                     <button onClick={() => handleExcluir(m)} title="Excluir" style={{ ...iconBtnStyle, color: 'var(--accent-red, #ef4444)' }}><Trash2 size={14} /></button>
                                                 </>
@@ -359,7 +360,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', marginTop: '12px', paddingTop: '12px' }}>
                         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                            {aba === 'descontos' ? 'Total deixado de receber' : aba === 'recebidas' ? 'Total recebido' : 'Total a receber'}
+                            {aba === 'previsao' ? 'Total previsto' : aba === 'descontos' ? 'Total deixado de receber' : aba === 'recebidas' ? 'Total recebido' : 'Total a receber'}
                         </span>
                         <span style={{ fontSize: '15px', fontWeight: 800, color: corAba }}>{aba === 'descontos' ? '− ' : ''}{formatCurrency(totalAba)}</span>
                     </div>
