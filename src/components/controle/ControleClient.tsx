@@ -49,6 +49,8 @@ const ymLabel = (ym: string) => {
 // estágio derivado de cada medição
 const isRecebida = (m: Medicao) => m.percentual_recebido != null
 const valorRecebido = (m: Medicao) => Number(m.valor_medicao || 0) * (Number(m.percentual_recebido || 0) / 100)
+// Valor que deixou de receber por antecipação = diferença entre 100% e o % recebido
+const valorDesconto = (m: Medicao) => Number(m.valor_medicao || 0) * ((100 - Number(m.percentual_recebido || 0)) / 100)
 const statusInfo = (m: Medicao) => {
     if (isRecebida(m)) return { label: `Recebida ${Number(m.percentual_recebido)}%`, color: '#10b981' }
     if (m.tipo === 'emitida') return { label: 'Emitida', color: '#f59e0b' }
@@ -74,6 +76,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
     const [filtroCodigo, setFiltroCodigo] = useState('')
     const [filtroDe, setFiltroDe] = useState('')
     const [filtroAte, setFiltroAte] = useState('')
+
+    // Aba do painel da direita: a receber / recebidas / descontos por antecipação
+    const [aba, setAba] = useState<'aReceber' | 'recebidas' | 'descontos'>('aReceber')
 
     // Modal cadastro/edição
     const [showModal, setShowModal] = useState(false)
@@ -198,6 +203,15 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
     const totalAReceber = medicoesFiltradas.filter(m => m.tipo === 'emitida' && !isRecebida(m)).reduce((s, m) => s + Number(m.valor_medicao || 0), 0)
     const totalRecebido = medicoesFiltradas.filter(isRecebida).reduce((s, m) => s + valorRecebido(m), 0)
 
+    // Listas por aba do painel da direita
+    const naoRecebidas = medicoesFiltradas.filter(m => !isRecebida(m))
+    const recebidas = medicoesFiltradas.filter(isRecebida)
+    const comDesconto = recebidas.filter(m => Number(m.percentual_recebido) < 100)
+    const listaAba = aba === 'recebidas' ? recebidas : aba === 'descontos' ? comDesconto : naoRecebidas
+    const valorDaLinha = (m: Medicao) => aba === 'descontos' ? valorDesconto(m) : aba === 'recebidas' ? valorRecebido(m) : Number(m.valor_medicao || 0)
+    const totalAba = listaAba.reduce((s, m) => s + valorDaLinha(m), 0)
+    const corAba = aba === 'descontos' ? 'var(--accent-red, #ef4444)' : 'var(--accent-green)'
+
     const limparFiltros = () => { setFiltroCodigo(''); setFiltroDe(''); setFiltroAte('') }
 
     return (
@@ -293,17 +307,26 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                     )}
                 </div>
 
-                {/* Tabela */}
+                {/* Tabela com abas */}
                 <div className="glass-card" style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Obras a receber</h3>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{medicoesFiltradas.length} medições</span>
+                    {/* Abas */}
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                        <AbaBtn ativa={aba === 'aReceber'} cor="#f59e0b" label="A receber" qtd={naoRecebidas.length} onClick={() => setAba('aReceber')} />
+                        <AbaBtn ativa={aba === 'recebidas'} cor="#10b981" label="Notas recebidas" qtd={recebidas.length} onClick={() => setAba('recebidas')} />
+                        <AbaBtn ativa={aba === 'descontos'} cor="#ef4444" label="Desconto antecipação" qtd={comDesconto.length} onClick={() => setAba('descontos')} />
                     </div>
-                    {medicoesFiltradas.length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Nenhuma medição no filtro atual.</p>
+                    {aba === 'descontos' && (
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '-8px 0 12px' }}>
+                            Valor que deixou de receber em cada nota recebida abaixo de 100%.
+                        </p>
+                    )}
+                    {listaAba.length === 0 ? (
+                        <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+                            {aba === 'recebidas' ? 'Nenhuma nota recebida no filtro.' : aba === 'descontos' ? 'Nenhum desconto por antecipação no filtro.' : 'Nenhuma medição a receber no filtro.'}
+                        </p>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '420px', overflowY: 'auto' }}>
-                            {medicoesFiltradas.map(m => {
+                            {listaAba.map(m => {
                                 const st = statusInfo(m)
                                 return (
                                     <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', gap: '8px' }}>
@@ -313,13 +336,17 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                                                 <span style={{ color: st.color, fontWeight: 600 }}>{st.label}</span>
                                                 <span>· {m.obra?.codigo}{m.obra?.cidade ? ` · ${m.obra.cidade}` : ''} · {ymLabel(toYm(isRecebida(m) ? m.mes_recebimento_real : m.mes_recebimento))}</span>
                                                 {m.nota_fiscal && <span>· NF {m.nota_fiscal}</span>}
+                                                {aba === 'descontos' && <span>· de {formatCurrency(Number(m.valor_medicao))}</span>}
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-green)', whiteSpace: 'nowrap' }}>{formatCurrency(Number(m.valor_medicao))}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: 700, color: corAba, whiteSpace: 'nowrap' }}>
+                                                {aba === 'descontos' ? '− ' : ''}{formatCurrency(valorDaLinha(m))}
+                                            </span>
                                             {podeEditar && (
                                                 <>
-                                                    <button onClick={() => abrirRecebimento(m)} title="Confirmar recebimento" style={{ ...iconBtnStyle, color: '#10b981' }}><CheckCircle2 size={14} /></button>
+                                                    {aba === 'aReceber' && <button onClick={() => abrirRecebimento(m)} title="Confirmar recebimento" style={{ ...iconBtnStyle, color: '#10b981' }}><CheckCircle2 size={14} /></button>}
+                                                    {aba !== 'aReceber' && <button onClick={() => abrirRecebimento(m)} title="Ajustar recebimento" style={{ ...iconBtnStyle, color: '#10b981' }}><CheckCircle2 size={14} /></button>}
                                                     <button onClick={() => abrirEdicao(m)} title="Editar" style={iconBtnStyle}><Pencil size={14} /></button>
                                                     <button onClick={() => handleExcluir(m)} title="Excluir" style={{ ...iconBtnStyle, color: 'var(--accent-red, #ef4444)' }}><Trash2 size={14} /></button>
                                                 </>
@@ -331,8 +358,10 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                         </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', marginTop: '12px', paddingTop: '12px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Total (filtro)</span>
-                        <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(medicoesFiltradas.reduce((s, m) => s + Number(m.valor_medicao || 0), 0))}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            {aba === 'descontos' ? 'Total deixado de receber' : aba === 'recebidas' ? 'Total recebido' : 'Total a receber'}
+                        </span>
+                        <span style={{ fontSize: '15px', fontWeight: 800, color: corAba }}>{aba === 'descontos' ? '− ' : ''}{formatCurrency(totalAba)}</span>
                     </div>
                 </div>
             </div>
@@ -422,6 +451,21 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
 }
 
 const lbl: React.CSSProperties = { fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }
+
+function AbaBtn({ ativa, cor, label, qtd, onClick }: { ativa: boolean; cor: string; label: string; qtd: number; onClick: () => void }) {
+    return (
+        <button type="button" onClick={onClick} style={{
+            padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600,
+            fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: '7px',
+            background: ativa ? `${cor}22` : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${ativa ? cor : 'var(--border-glass)'}`,
+            color: ativa ? cor : 'var(--text-secondary)',
+        }}>
+            {label}
+            <span style={{ fontSize: '11px', fontWeight: 700, background: ativa ? cor : 'rgba(255,255,255,0.1)', color: ativa ? '#fff' : 'var(--text-muted)', borderRadius: '10px', padding: '1px 7px' }}>{qtd}</span>
+        </button>
+    )
+}
 
 function TipoBtn({ ativo, cor, label, onClick }: { ativo: boolean; cor: string; label: string; onClick: () => void }) {
     return (
