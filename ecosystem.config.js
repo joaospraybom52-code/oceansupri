@@ -10,5 +10,6 @@ module.exports = {
         { name: 'sync-pago', script: 'npm', args: 'run sync:pago', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
         { name: 'sync-vendasrec', script: 'npm', args: 'run sync:vendasrec', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
         { name: 'sync-areceber', script: 'npm', args: 'run sync:areceber', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
+        { name: 'sync-compras', script: 'npm', args: 'run sync:compras', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
     ],
 }

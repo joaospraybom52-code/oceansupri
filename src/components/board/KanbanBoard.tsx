@@ -152,8 +152,11 @@ export default function KanbanBoard({ initialPedidos, isReadOnly = false }: Kanb
     }
 
     function getPedidosByStatus(status: StatusFSM): PedidoCompra[] {
+        if (status === 'em_cotacao') {
+            return pedidos.filter(p => ['em_cotacao', 'aguardando_aprovacao'].includes(p.status_fsm || ''))
+        }
         if (status === 'ordem_gerada') {
-            return pedidos.filter(p => ['aprovado', 'ordem_gerada', 'aguardando_entrega'].includes(p.status_fsm || ''))
+            return pedidos.filter(p => ['aprovado', 'ordem_gerada', 'em_transito', 'aguardando_entrega', 'entregue'].includes(p.status_fsm || ''))
         }
         return pedidos.filter(p => p.status_fsm === status)
     }

@@ -25,10 +25,7 @@ export const STATUS_COLORS: Record<StatusFSM, string> = {
 export const KANBAN_COLUMNS: StatusFSM[] = [
     'requisitado',
     'em_cotacao',
-    'aguardando_aprovacao',
     'ordem_gerada',
-    'em_transito',
-    'entregue',
 ]
 
 export const STATUS_ORDER: StatusFSM[] = [
