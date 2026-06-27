@@ -25,6 +25,8 @@ interface Medicao {
     observacoes: string | null
     percentual_recebido: number | null
     mes_recebimento_real: string | null
+    iss_percentual: number | null
+    inss_percentual: number | null
     created_at: string | null
     obra: Obra | null
 }
@@ -84,7 +86,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
     const [showModal, setShowModal] = useState(false)
     const [editId, setEditId] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
-    const [form, setForm] = useState({ tipo: 'previsao', obra_id: '', valor: '', mes: '', nota_fiscal: '', observacoes: '' })
+    const [form, setForm] = useState({ tipo: 'previsao', obra_id: '', valor: '', mes: '', nota_fiscal: '', observacoes: '', iss: '', inss: '' })
     const obraSelecionada = obras.find(o => o.id === form.obra_id) || null
 
     // Modal recebimento
@@ -94,7 +96,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
 
     function abrirCadastro() {
         setEditId(null)
-        setForm({ tipo: 'previsao', obra_id: '', valor: '', mes: '', nota_fiscal: '', observacoes: '' })
+        setForm({ tipo: 'previsao', obra_id: '', valor: '', mes: '', nota_fiscal: '', observacoes: '', iss: '', inss: '' })
         setShowModal(true)
     }
 
@@ -107,6 +109,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
             mes: toYm(m.mes_recebimento),
             nota_fiscal: m.nota_fiscal ?? '',
             observacoes: m.observacoes ?? '',
+            iss: m.iss_percentual != null ? String(m.iss_percentual) : '',
+            inss: m.inss_percentual != null ? String(m.inss_percentual) : '',
         })
         setShowModal(true)
     }
@@ -138,8 +142,10 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
             tipo: form.tipo,
             nota_fiscal: form.tipo === 'emitida' ? (form.nota_fiscal || null) : null,
             observacoes: form.tipo === 'emitida' ? (form.observacoes || null) : null,
+            iss_percentual: form.tipo === 'emitida' && form.iss !== '' ? Number(form.iss) : null,
+            inss_percentual: form.tipo === 'emitida' && form.inss !== '' ? Number(form.inss) : null,
         }
-        const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, created_at'
+        const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at'
         if (editId) {
             const { data, error } = await supabase.from('controle_medicoes').update(payload).eq('id', editId).select(sel).single()
             if (error) toast.error('Erro ao salvar: ' + error.message)
@@ -157,7 +163,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
 
     function fecharCadastro() {
         setShowModal(false); setEditId(null)
-        setForm({ tipo: 'previsao', obra_id: '', valor: '', mes: '', nota_fiscal: '', observacoes: '' })
+        setForm({ tipo: 'previsao', obra_id: '', valor: '', mes: '', nota_fiscal: '', observacoes: '', iss: '', inss: '' })
     }
 
     async function handleConfirmarRecebimento(e: React.FormEvent) {
@@ -405,6 +411,17 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                             {form.tipo === 'emitida' && (
                                 <>
                                     <div><label style={lbl}>Nota fiscal</label><input type="text" value={form.nota_fiscal} onChange={e => setForm({ ...form, nota_fiscal: e.target.value })} className="input-field" placeholder="Nº da NF" /></div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div><label style={lbl}>ISS (%)</label><input type="number" step="0.01" min="0" max="100" value={form.iss} onChange={e => setForm({ ...form, iss: e.target.value })} className="input-field" placeholder="Ex: 5" /></div>
+                                        <div><label style={lbl}>INSS (%)</label><input type="number" step="0.01" min="0" max="100" value={form.inss} onChange={e => setForm({ ...form, inss: e.target.value })} className="input-field" placeholder="Ex: 11" /></div>
+                                    </div>
+                                    {(form.iss || form.inss) && form.valor && (
+                                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '-4px 0 0' }}>
+                                            ISS: <strong style={{ color: 'var(--text-secondary)' }}>{formatCurrency(Number(form.valor) * (Number(form.iss || 0) / 100))}</strong>
+                                            {' · '}INSS: <strong style={{ color: 'var(--text-secondary)' }}>{formatCurrency(Number(form.valor) * (Number(form.inss || 0) / 100))}</strong>
+                                            {' · '}Líquido: <strong style={{ color: 'var(--accent-green)' }}>{formatCurrency(Number(form.valor) * (1 - (Number(form.iss || 0) + Number(form.inss || 0)) / 100))}</strong>
+                                        </p>
+                                    )}
                                     <div><label style={lbl}>Observações</label><textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} className="input-field" rows={2} placeholder="Observações" /></div>
                                 </>
                             )}
