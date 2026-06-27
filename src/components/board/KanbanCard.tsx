@@ -21,10 +21,12 @@ interface KanbanCardProps {
 export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard, onDelete, onCompradorChange, compradores = [], isReadOnly = false }: KanbanCardProps) {
     const [deleting, setDeleting] = useState(false)
     const [dragOverCard, setDragOverCard] = useState(false)
+    const [showInsumos, setShowInsumos] = useState(false)
     const supabase = createClient()
 
     const isGroup = pedidos.length > 1;
     const master = pedidos[0];
+    const insumosLista = pedidos.map(p => p.descricao_insumo).filter(Boolean) as string[];
     const dragData = master.grupo_cotacao_id ? `group:${master.grupo_cotacao_id}` : `pedido:${master.id}`;
 
     async function handleDelete(e: React.MouseEvent) {
@@ -55,12 +57,12 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
     const hasFechado = pedidos.some(p => p.valor_fechado != null)
     const hasOrcado = pedidos.some(p => p.valor_orcado != null)
 
-    // Agrupados
-    const title = isGroup ? `Múltiplos Insumos (${pedidos.length} itens)` : master.descricao_insumo;
+    // Agrupados (dedup pra não repetir mesma obra/pedido)
     const numPedidosUau = Array.from(new Set(pedidos.map(p => p.numero_pedido).filter(Boolean))).join(', ') || '--';
     const numCodigosObra = Array.from(new Set(pedidos.map(p => p.codigo_uau).filter(Boolean))).join(', ') || '--';
     const numCotacoes = Array.from(new Set(pedidos.map(p => p.categoria_cap).filter(Boolean))).join(', ') || '--';
     const numOcs = Array.from(new Set(pedidos.map(p => p.numero_ordem_compra).filter(Boolean))).join(', ') || '--';
+    const compradorNome = Array.from(new Set(pedidos.map(p => p.comprador_uau).filter(Boolean))).join(', ') || master.solicitante_obra || '—';
 
     const isHighValue = valorFechadoTotal > 5000 || valorOrcadoTotal > 5000;
 
@@ -123,9 +125,35 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
         >
             {/* Header: Insumo + Emergency Badge */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
-                <h4 style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.3, flex: 1, pointerEvents: 'none', minWidth: 0, wordBreak: 'break-word' }}>
-                    {title}
-                </h4>
+                <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                    <h4
+                        onClick={isGroup ? (e) => { e.stopPropagation(); setShowInsumos(s => !s) } : undefined}
+                        style={{
+                            fontSize: '13px', fontWeight: 600, lineHeight: 1.3, minWidth: 0, wordBreak: 'break-word',
+                            cursor: isGroup ? 'pointer' : 'default',
+                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        }}
+                    >
+                        {isGroup ? insumosLista.join(', ') : master.descricao_insumo}
+                        {isGroup && <span style={{ color: 'var(--accent-blue)', marginLeft: '4px', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap' }}>({insumosLista.length})</span>}
+                    </h4>
+                    {showInsumos && isGroup && (
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                position: 'absolute', top: '100%', left: 0, zIndex: 30, marginTop: '4px',
+                                background: '#14142b', border: '1px solid var(--border-glass)', borderRadius: '8px',
+                                boxShadow: '0 8px 24px rgba(0,0,0,0.45)', padding: '8px 10px',
+                                maxHeight: '220px', overflowY: 'auto', minWidth: '220px', maxWidth: '300px',
+                            }}
+                        >
+                            <p style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 700, letterSpacing: '.04em' }}>INSUMOS ({insumosLista.length})</p>
+                            {insumosLista.map((ins, i) => (
+                                <p key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', padding: '3px 0', borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>• {ins}</p>
+                            ))}
+                        </div>
+                    )}
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                     {isGroup && (
                         <span className="badge" style={{ background: 'rgba(56,189,248,0.15)', color: 'var(--accent-blue)', flexShrink: 0 }}>
@@ -170,10 +198,7 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
             {/* Comprador */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                 {(() => {
-                    const resolvedName = master.comprador?.nome ||
-                        compradores.find(c => c.id === master.comprador_id)?.nome ||
-                        master.solicitante_obra ||
-                        '—';
+                    const resolvedName = compradorNome;
                     const iconChar = resolvedName !== '—' ? resolvedName.charAt(0).toUpperCase() : '?';
 
                     return (

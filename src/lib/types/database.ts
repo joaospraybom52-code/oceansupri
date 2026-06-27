@@ -1036,6 +1036,9 @@ export interface PedidoCompra {
     data_saiu_entrega: string | null
     data_previsao_entrega: string | null
     data_entrega_real: string | null
+    comprador_uau: string | null
+    data_em_cotacao: string | null
+    data_ordem_gerada: string | null
     created_at: string | null
     updated_at: string | null
     obra?: Obra | null

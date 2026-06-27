@@ -41,17 +41,21 @@ const INTERVALO_MS = 2 * 60 * 1000 // 2 min
 const queryCompras = `
 SELECT it.Obra_temp AS CodObra, it.NumPedido_temp AS Pedido, it.Cotacao_temp AS Cotacao,
        it.Insumo_temp AS CodIns, ig.Descr_ins AS Insumo,
-       COALESCE((
-           SELECT MAX(NumeroOC_Ocp)
-           FROM OrdemCompra ord
-           INNER JOIN ItensOrdemCompra ioc
-               ON ord.Empresa_Ocp = ioc.Empresa_Ioc AND ord.Obra_Ocp = ioc.Obra_Ioc AND ord.NumeroOC_Ocp = ioc.NumeroOC_Ioc
-           WHERE ord.Empresa_Ocp = it.Empresa_temp AND ord.NumCot_Ocp = it.Cotacao_temp AND ioc.CodInsumo_Ioc = it.Insumo_temp
-       ), NULL) AS OC
+       oci.OC, oci.Preco, oci.UsuarioCompra, oci.DataCompra,
+       (SELECT MIN(s.DataConf_Smlc) FROM SimulacoesConf s
+        WHERE s.Empresa_Smlc = it.Empresa_temp AND s.NumCot_Smlc = it.Cotacao_temp AND s.ObraCot_Smlc = it.Obra_temp) AS DataCotacao
 FROM ItensCot_temp it
 LEFT JOIN Pedidos p ON p.Empresa_ped = it.Empresa_temp AND p.Obra_ped = it.Obra_temp AND p.Cod_ped = it.NumPedido_temp
 INNER JOIN InsumosGeral ig ON it.Insumo_temp = ig.Cod_ins
 INNER JOIN Obras o ON it.Obra_temp = o.cod_obr AND it.Empresa_temp = o.Empresa_obr
+OUTER APPLY (
+    SELECT MAX(ord.NumeroOC_Ocp) AS OC, MAX(ioc.Preco_ioc) AS Preco,
+           MIN(ord.Usuario_Ocp) AS UsuarioCompra, MIN(ord.DataGer_Ocp) AS DataCompra
+    FROM OrdemCompra ord
+    INNER JOIN ItensOrdemCompra ioc
+        ON ord.Empresa_Ocp = ioc.Empresa_Ioc AND ord.Obra_Ocp = ioc.Obra_Ioc AND ord.NumeroOC_Ocp = ioc.NumeroOC_Ioc
+    WHERE ord.Empresa_Ocp = it.Empresa_temp AND ord.NumCot_Ocp = it.Cotacao_temp AND ioc.CodInsumo_Ioc = it.Insumo_temp
+) oci
 WHERE p.Tipo_ped <> 8 AND p.DtPedido_Ped BETWEEN '20260101' AND '20300101'
 `
 
@@ -80,54 +84,69 @@ async function ciclo() {
 
         // 2. Mapa de match: obra|pedido|insumo -> { cotacao, oc }. Em re-cotação,
         //    prefere a linha com OC e, depois, a maior cotação.
-        const mapa = new Map<string, { cotacao: number; oc: number }>()
+        const toISO = (d: any) => d ? new Date(d).toISOString() : null
+        const mapa = new Map<string, { cotacao: number; oc: number; preco: number; usuario: string | null; dataCompra: string | null; dataCotacao: string | null }>()
         for (const r of rows) {
             const key = `${norm(r.CodObra)}||${norm(r.Pedido)}||${norm(r.Insumo)}`
             const cotacao = r.Cotacao != null ? Number(r.Cotacao) : 0
             const oc = r.OC != null ? Number(r.OC) : 0
             const cur = mapa.get(key)
             if (!cur || (oc > 0 && cur.oc <= 0) || (oc === cur.oc && cotacao > cur.cotacao)) {
-                mapa.set(key, { cotacao, oc })
+                mapa.set(key, {
+                    cotacao, oc,
+                    preco: r.Preco != null ? Number(r.Preco) : 0,
+                    usuario: r.UsuarioCompra != null ? r.UsuarioCompra.toString().trim() : null,
+                    dataCompra: toISO(r.DataCompra),
+                    dataCotacao: toISO(r.DataCotacao),
+                })
             }
         }
 
         // 3. Pedidos do app
         const { data: pedidos, error } = await supabase
             .from('pedidos_compra')
-            .select('id, codigo_uau, numero_pedido, descricao_insumo, status_fsm, categoria_cap, numero_ordem_compra, grupo_cotacao_id')
+            .select('id, codigo_uau, numero_pedido, descricao_insumo, status_fsm, categoria_cap, numero_ordem_compra, grupo_cotacao_id, valor_fechado, comprador_uau, data_em_cotacao, data_ordem_gerada')
         if (error) throw new Error('pedidos_compra select: ' + error.message)
 
-        // 4. Match + alvo + avanço
+        // 4. Match + alvo + avanço (só os campos que mudaram)
         const updates: { id: string; patch: any }[] = []
         for (const p of pedidos ?? []) {
             const key = `${norm(p.codigo_uau)}||${norm(p.numero_pedido)}||${norm(p.descricao_insumo)}`
             const m = mapa.get(key)
             if (!m) continue
-
             const obra = norm(p.codigo_uau)
-            let alvo: any = null
+
+            const patch: any = {}
             if (m.oc > 0) {
-                alvo = {
-                    status_fsm: 'ordem_gerada',
-                    categoria_cap: m.cotacao > 0 ? String(m.cotacao) : p.categoria_cap,
-                    numero_ordem_compra: String(m.oc),
-                    grupo_cotacao_id: uuidDe(`OC|${obra}|${m.oc}`),
-                }
+                patch.status_fsm = 'ordem_gerada'
+                if (m.cotacao > 0) patch.categoria_cap = String(m.cotacao)
+                patch.numero_ordem_compra = String(m.oc)
+                patch.grupo_cotacao_id = uuidDe(`OC|${obra}|${m.oc}`)
+                if (m.preco > 0) patch.valor_fechado = m.preco
+                if (m.usuario) patch.comprador_uau = m.usuario
+                if (m.dataCompra) patch.data_ordem_gerada = m.dataCompra
+                if (m.dataCotacao) patch.data_em_cotacao = m.dataCotacao
             } else if (m.cotacao > 0) {
-                alvo = {
-                    status_fsm: 'em_cotacao',
-                    categoria_cap: String(m.cotacao),
-                    numero_ordem_compra: p.numero_ordem_compra,
-                    grupo_cotacao_id: uuidDe(`COT|${obra}|${m.cotacao}`),
-                }
+                patch.status_fsm = 'em_cotacao'
+                patch.categoria_cap = String(m.cotacao)
+                patch.grupo_cotacao_id = uuidDe(`COT|${obra}|${m.cotacao}`)
+                if (m.dataCotacao) patch.data_em_cotacao = m.dataCotacao
+            } else continue
+
+            // só avança de status (nunca regride)
+            if (RANK[patch.status_fsm] < (RANK[p.status_fsm ?? 'requisitado'] ?? 0)) continue
+
+            const diff: any = {}
+            for (const k of Object.keys(patch)) {
+                const cur = (p as any)[k]; const nxt = patch[k]
+                let igual: boolean
+                if (k === 'data_em_cotacao' || k === 'data_ordem_gerada') igual = (cur ? new Date(cur).getTime() : 0) === (nxt ? new Date(nxt).getTime() : 0)
+                else if (k === 'valor_fechado') igual = Number(cur || 0) === Number(nxt || 0)
+                else igual = String(cur ?? '') === String(nxt ?? '')
+                if (!igual) diff[k] = nxt
             }
-            if (!alvo) continue
-            // só avança (nunca regride)
-            if (RANK[alvo.status_fsm] < (RANK[p.status_fsm ?? 'requisitado'] ?? 0)) continue
-            // só grava se mudou algo
-            if (p.status_fsm === alvo.status_fsm && p.categoria_cap === alvo.categoria_cap
-                && p.numero_ordem_compra === alvo.numero_ordem_compra && p.grupo_cotacao_id === alvo.grupo_cotacao_id) continue
-            updates.push({ id: p.id, patch: alvo })
+            if (Object.keys(diff).length === 0) continue
+            updates.push({ id: p.id, patch: diff })
         }
 
         // 5. Aplica updates (em paralelo, em lotes)
