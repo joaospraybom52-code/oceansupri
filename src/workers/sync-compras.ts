@@ -126,11 +126,13 @@ async function ciclo() {
                 if (m.usuario) patch.comprador_uau = m.usuario
                 if (m.dataCompra) patch.data_ordem_gerada = m.dataCompra
                 if (m.dataCotacao) patch.data_em_cotacao = m.dataCotacao
+                else if (!p.data_em_cotacao) patch.data_em_cotacao = new Date().toISOString()
             } else if (m.cotacao > 0) {
                 patch.status_fsm = 'em_cotacao'
                 patch.categoria_cap = String(m.cotacao)
                 patch.grupo_cotacao_id = uuidDe(`COT|${obra}|${m.cotacao}`)
                 if (m.dataCotacao) patch.data_em_cotacao = m.dataCotacao
+                else if (!p.data_em_cotacao) patch.data_em_cotacao = new Date().toISOString()
             } else continue
 
             // só avança de status (nunca regride)
