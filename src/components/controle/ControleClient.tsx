@@ -50,9 +50,12 @@ const ymLabel = (ym: string) => {
 
 // estágio derivado de cada medição
 const isRecebida = (m: Medicao) => m.percentual_recebido != null
-const valorRecebido = (m: Medicao) => Number(m.valor_medicao || 0) * (Number(m.percentual_recebido || 0) / 100)
-// Valor que deixou de receber por antecipação = diferença entre 100% e o % recebido
-const valorDesconto = (m: Medicao) => Number(m.valor_medicao || 0) * ((100 - Number(m.percentual_recebido || 0)) / 100)
+// Valor líquido da nota = bruto menos ISS e INSS (impostos da nota de serviço)
+const valorLiquido = (m: Medicao) => Number(m.valor_medicao || 0) * (1 - ((Number(m.iss_percentual || 0) + Number(m.inss_percentual || 0)) / 100))
+const temImposto = (m: Medicao) => (Number(m.iss_percentual || 0) + Number(m.inss_percentual || 0)) > 0
+const valorRecebido = (m: Medicao) => valorLiquido(m) * (Number(m.percentual_recebido || 0) / 100)
+// Valor que deixou de receber por antecipação = diferença entre 100% e o % recebido (sobre o líquido)
+const valorDesconto = (m: Medicao) => valorLiquido(m) * ((100 - Number(m.percentual_recebido || 0)) / 100)
 const statusInfo = (m: Medicao) => {
     if (isRecebida(m)) return { label: `Recebida ${Number(m.percentual_recebido)}%`, color: '#10b981' }
     if (m.tipo === 'emitida') return { label: 'Emitida', color: '#f59e0b' }
@@ -199,14 +202,14 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
         }
         for (const m of medicoesFiltradas) {
             if (isRecebida(m)) add(toYm(m.mes_recebimento_real), 'recebido', valorRecebido(m))
-            else if (m.tipo === 'emitida') add(toYm(m.mes_recebimento), 'emitida', Number(m.valor_medicao || 0))
-            else add(toYm(m.mes_recebimento), 'previsto', Number(m.valor_medicao || 0))
+            else if (m.tipo === 'emitida') add(toYm(m.mes_recebimento), 'emitida', valorLiquido(m))
+            else add(toYm(m.mes_recebimento), 'previsto', valorLiquido(m))
         }
         return Object.keys(map).sort().map(ym => ({ ym, label: ymLabel(ym), ...map[ym] }))
     }, [medicoesFiltradas])
 
     // KPIs: "A receber" = só nota emitida ainda não recebida; "Já recebido" = o que foi recebido
-    const totalAReceber = medicoesFiltradas.filter(m => m.tipo === 'emitida' && !isRecebida(m)).reduce((s, m) => s + Number(m.valor_medicao || 0), 0)
+    const totalAReceber = medicoesFiltradas.filter(m => m.tipo === 'emitida' && !isRecebida(m)).reduce((s, m) => s + valorLiquido(m), 0)
     const totalRecebido = medicoesFiltradas.filter(isRecebida).reduce((s, m) => s + valorRecebido(m), 0)
 
     // Listas por aba do painel da direita
@@ -215,7 +218,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
     const recebidas = medicoesFiltradas.filter(isRecebida)
     const comDesconto = recebidas.filter(m => Number(m.percentual_recebido) < 100)
     const listaAba = aba === 'previsao' ? previsoes : aba === 'recebidas' ? recebidas : aba === 'descontos' ? comDesconto : aReceberLista
-    const valorDaLinha = (m: Medicao) => aba === 'descontos' ? valorDesconto(m) : aba === 'recebidas' ? valorRecebido(m) : Number(m.valor_medicao || 0)
+    const valorDaLinha = (m: Medicao) => aba === 'descontos' ? valorDesconto(m) : aba === 'recebidas' ? valorRecebido(m) : valorLiquido(m)
     const totalAba = listaAba.reduce((s, m) => s + valorDaLinha(m), 0)
     const corAba = aba === 'descontos' ? 'var(--accent-red, #ef4444)' : aba === 'previsao' ? '#6366f1' : 'var(--accent-green)'
 
@@ -344,6 +347,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                                                 <span style={{ color: st.color, fontWeight: 600 }}>{st.label}</span>
                                                 <span>· {m.obra?.codigo}{m.obra?.cidade ? ` · ${m.obra.cidade}` : ''} · {ymLabel(toYm(isRecebida(m) ? m.mes_recebimento_real : m.mes_recebimento))}</span>
                                                 {m.nota_fiscal && <span>· NF {m.nota_fiscal}</span>}
+                                                {temImposto(m) && aba !== 'descontos' && <span>· líq. de {formatCurrency(Number(m.valor_medicao))} (− ISS {Number(m.iss_percentual || 0)}% − INSS {Number(m.inss_percentual || 0)}%)</span>}
                                                 {aba === 'descontos' && <span>· de {formatCurrency(Number(m.valor_medicao))}</span>}
                                             </div>
                                         </div>
