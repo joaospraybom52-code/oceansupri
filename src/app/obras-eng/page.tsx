@@ -1,7 +1,8 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { HardHat, Plus, Calendar, Pencil, BarChart3 } from 'lucide-react'
+import { HardHat, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { getPapelObras, podeAdminObra } from '@/lib/utils/obras-access'
+import ObrasListClient from '@/components/obras-eng/ObrasListClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -71,70 +72,7 @@ export default async function ObrasListPage() {
                     )}
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                    {obras.map(obra => (
-                        <div key={obra.id} className="glass-card hover-lift" style={{ padding: '20px', cursor: 'pointer' }}>
-                            
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <div style={{
-                                        width: 40, height: 40, borderRadius: '10px',
-                                        background: 'rgba(16, 185, 129, 0.1)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <HardHat size={20} color="var(--accent-green)" />
-                                    </div>
-                                    <div>
-                                        <h3 style={{ fontSize: '16px', fontWeight: 600 }}>{obra.nome}</h3>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-                                            <span style={{ 
-                                                fontSize: '10px', fontWeight: 700, 
-                                                color: obra.status === 'Ativa' ? 'var(--accent-green)' : 'var(--text-muted)',
-                                                background: obra.status === 'Ativa' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)',
-                                                padding: '2px 8px', borderRadius: '12px', display: 'inline-block',
-                                                textTransform: 'uppercase', letterSpacing: '0.3px'
-                                            }}>
-                                                {obra.status}
-                                            </span>
-                                            {obra.codigo_uau && (
-                                                <span style={{ fontSize: '11px', color: 'var(--accent-blue-light)', fontWeight: 600, background: 'rgba(99, 102, 241, 0.08)', padding: '2px 8px', borderRadius: '12px' }}>
-                                                    UAU: {obra.codigo_uau}
-                                                </span>
-                                            )}
-                                            {obra.local && (
-                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '3px' }} title={obra.local}>
-                                                    📍 {obra.local}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {((obra as any).previsao_inicio || (obra as any).previsao_termino) && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                                <Calendar size={13} />
-                                                <span>
-                                                    Previsão: {(obra as any).previsao_inicio ? new Date((obra as any).previsao_inicio + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não def.'} — {(obra as any).previsao_termino ? new Date((obra as any).previsao_termino + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não def.'}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid var(--border-glass)', paddingTop: '16px' }}>
-                                <Link href={`/obras-eng/${obra.id}/dashboard`} className="btn-secondary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, padding: '10px 0' }}>
-                                    <BarChart3 size={16} /> Painel
-                                </Link>
-                                <Link href={`/obras-eng/${obra.id}/medicao`} className="btn-secondary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, padding: '10px 0' }}>
-                                    <Calendar size={16} /> Medição
-                                </Link>
-                                {isAdmin && (
-                                    <Link href={`/obras-eng/${obra.id}/editar`} className="btn-secondary" title="Editar Obra" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', padding: 0 }}>
-                                        <Pencil size={16} />
-                                    </Link>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <ObrasListClient obras={obras} isAdmin={isAdmin} />
             )}
         </div>
         )
