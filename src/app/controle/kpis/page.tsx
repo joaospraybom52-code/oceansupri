@@ -93,7 +93,21 @@ export default async function KpisPage() {
     ])
     const obras = obrasRes.data
 
+    // Última atualização das consultas (sync UAU) = maior atualizado_em entre as tabelas
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sclient = supabase as any
+    const ultimas = await Promise.all(
+        ['controle_recebido', 'controle_pago_apagar', 'controle_a_receber', 'controle_vendasrecebidas'].map(t =>
+            sclient.from(t).select('atualizado_em').order('atualizado_em', { ascending: false }).limit(1),
+        ),
+    )
+    const atualizadoEm: string | null = ultimas
+        .map((r: any) => r.data?.[0]?.atualizado_em as string | undefined)
+        .filter(Boolean)
+        .sort()
+        .pop() ?? null
+
     return (
-        <KpisClient obras={obras ?? []} recebido={recebido} pago={pago} vendasrec={vendasrec} areceber={areceber} vgv={vgv} pagoIC={pagoIC} />
+        <KpisClient obras={obras ?? []} recebido={recebido} pago={pago} vendasrec={vendasrec} areceber={areceber} vgv={vgv} pagoIC={pagoIC} atualizadoEm={atualizadoEm} />
     )
 }

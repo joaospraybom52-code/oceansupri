@@ -104,7 +104,7 @@ const MESES = [
     { v: '10', n: 'Outubro' }, { v: '11', n: 'Novembro' }, { v: '12', n: 'Dezembro' },
 ]
 
-export default function KpisClient({ obras, recebido, pago, vendasrec, areceber, vgv, pagoIC }: { obras: Obra[]; recebido: RecebidoRow[]; pago: PagoRow[]; vendasrec: VendasRecRow[]; areceber: AReceberRow[]; vgv: VgvRow[]; pagoIC: PagoICRow[] }) {
+export default function KpisClient({ obras, recebido, pago, vendasrec, areceber, vgv, pagoIC, atualizadoEm }: { obras: Obra[]; recebido: RecebidoRow[]; pago: PagoRow[]; vendasrec: VendasRecRow[]; areceber: AReceberRow[]; vgv: VgvRow[]; pagoIC: PagoICRow[]; atualizadoEm: string | null }) {
     // Filtros (dimensões código da obra + ano + mês)
     const [filtroCodigo, setFiltroCodigo] = useState('')
     const [filtroAnos, setFiltroAnos] = useState<string[]>([])
@@ -250,7 +250,12 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
             {/* Header */}
             <div style={{ marginBottom: '24px' }}>
                 <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '4px' }}>KPI&apos;S</h1>
-                <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Indicadores de recebimento por obra e período</p>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+                    Indicadores de recebimento por obra e período
+                    {atualizadoEm && (
+                        <span style={{ color: 'var(--text-secondary)' }}> · consultas atualizadas em {new Date(atualizadoEm).toLocaleString('pt-BR')}</span>
+                    )}
+                </p>
             </div>
 
             {/* Filtros */}
