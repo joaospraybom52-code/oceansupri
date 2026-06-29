@@ -51,6 +51,9 @@ export default function ObrasListClient({ obras, isAdmin }: { obras: any[]; isAd
         color: 'var(--text-primary)', outline: 'none',
     }
 
+    // Opções do dropdown precisam de fundo sólido (o nativo usa branco por padrão).
+    const optStyle: React.CSSProperties = { background: '#1e1b3a', color: '#f1f5f9' }
+
     return (
         <>
             {/* Barra de filtros */}
@@ -65,8 +68,8 @@ export default function ObrasListClient({ obras, isAdmin }: { obras: any[]; isAd
                     />
                 </div>
                 <select value={ano} onChange={e => setAno(e.target.value)} style={{ ...inputStyle, minWidth: '150px', cursor: 'pointer' }}>
-                    <option value="">Todos os anos</option>
-                    {anos.map(a => <option key={a} value={a}>{a}</option>)}
+                    <option value="" style={optStyle}>Todos os anos</option>
+                    {anos.map(a => <option key={a} value={a} style={optStyle}>{a}</option>)}
                 </select>
                 <span style={{ fontSize: '13px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     {filtradas.length} de {obras.length}
