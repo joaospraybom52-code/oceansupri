@@ -21,11 +21,13 @@ export function msAteProximo(horarios = HORARIOS): number {
 }
 
 // Agenda ciclo() para rodar nos horários definidos e se reagenda após cada execução.
+// Roda UMA vez ao iniciar (deploy/reboot/crash) e depois nos horários fixos —
+// assim os dados não ficam velhos esperando o próximo horário.
 export function agendar(ciclo: () => Promise<void>, nome: string): void {
     const proxima = () => {
         const ms = msAteProximo()
         console.log(`[${nome}] Próxima atualização em ~${(ms / 3600000).toFixed(1)}h (09:00, 13:00 ou 17:30 BRT).`)
         setTimeout(async () => { try { await ciclo() } finally { proxima() } }, ms)
     }
-    proxima()
+    ciclo().finally(proxima)
 }
