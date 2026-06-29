@@ -414,21 +414,45 @@ async function gravarInsumoCliente(rows: any[]) {
     return payload.length
 }
 
-async function ciclo() {
-    console.log(`[PAGO] [${new Date().toISOString()}] Iniciando atualização...`)
+// Executa a query pesada numa conexão própria e fecha sem travar (a query
+// devolve ~106k linhas; se a conexão cair, o close() de um pool quebrado pode
+// pendurar por minutos — por isso o close é limitado a 5s).
+async function executarConsulta(): Promise<any[]> {
     let pool: sql.ConnectionPool | null = null
     try {
         pool = await sql.connect(sqlConfig)
         pool.on('error', () => { })
         const r = await pool.request().query(queryPagoApagar)
-        const n = await gravarPagoApagar(r.recordset)
-        const nic = await gravarInsumoCliente(r.recordset)
-        console.log(`[PAGO] OK: ${r.recordset.length} lidas, ${n} pago_apagar, ${nic} insumo_cliente (Empresa 4 / Obra válida).`)
-    } catch (e: any) {
-        console.log(`[PAGO] ERRO: ${(e?.message || e).toString().slice(0, 150)}`)
+        return r.recordset
     } finally {
-        if (pool) { try { await pool.close() } catch { /* ignora */ } }
+        if (pool) {
+            const p = pool
+            await Promise.race([
+                p.close().catch(() => { }),
+                new Promise(res => setTimeout(res, 5000)),
+            ])
+        }
     }
+}
+
+async function ciclo() {
+    console.log(`[PAGO] [${new Date().toISOString()}] Iniciando atualização...`)
+    const MAX = 3
+    let ultimoErro: any = null
+    for (let tent = 1; tent <= MAX; tent++) {
+        try {
+            const rows = await executarConsulta()
+            const n = await gravarPagoApagar(rows)
+            const nic = await gravarInsumoCliente(rows)
+            console.log(`[PAGO] OK: ${rows.length} lidas, ${n} pago_apagar, ${nic} insumo_cliente (Empresa 4 / Obra válida).`)
+            return
+        } catch (e: any) {
+            ultimoErro = e
+            console.log(`[PAGO] tentativa ${tent}/${MAX} falhou: ${(e?.message || e).toString().slice(0, 150)}`)
+            if (tent < MAX) await new Promise(res => setTimeout(res, 8000))
+        }
+    }
+    throw new Error(`[PAGO] falhou após ${MAX} tentativas: ${(ultimoErro?.message || ultimoErro).toString().slice(0, 150)}`)
 }
 
 process.on('unhandledRejection', (r) => console.log('[PAGO] unhandledRejection:', r))
