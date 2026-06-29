@@ -8,6 +8,7 @@ import {
   Clock,
   ShieldAlert,
   User,
+  Wallet,
 } from 'lucide-react'
 import DashboardCharts from './DashboardCharts'
 import type { MedicaoChartItem, PPCChartItem } from './DashboardCharts'
@@ -126,6 +127,52 @@ export default async function ObraDashboardPage({
     const restricoesAbertas = restricoes ?? []
     const restricoesPendentes = restricoesAbertas.filter((r) => r.status === 'pendente').length
 
+    /* ── 5. Custo (UAU) — Planejado vs Saldo, casando pelo código UAU da obra ── */
+    const { data: obraRow } = await supabase
+      .from('obras_eng')
+      .select('codigo_uau')
+      .eq('id', id)
+      .single()
+    const codigoUau = (obraRow as any)?.codigo_uau?.toString().trim() || null
+
+    let custoPlanejado = 0
+    let custoSaldo = 0
+    let temCusto = false
+    if (codigoUau) {
+      const [{ data: custoLinhas }, { data: custoOrc }] = await Promise.all([
+        supabase
+          .from('custo_uau')
+          .select('item_plt, serv_plt, valor_aprov, saldo_vlr_vinc')
+          .eq('obra_plt', codigoUau),
+        supabase
+          .from('custo_orcamento')
+          .select('valor_planejado')
+          .eq('obra_plt', codigoUau),
+      ])
+      // Planejado total = soma do orçamento (mesma base da aba Acompanhamento de Custo)
+      const planejado = ((custoOrc as any[]) ?? []).reduce(
+        (s, o) => s + Number(o.valor_planejado || 0), 0,
+      )
+      // Custo (aprov) e Vinculado totais = linhas-raiz (serviço '-1' sem ponto no item)
+      let aprov = 0, vinc = 0
+      for (const l of ((custoLinhas as any[]) ?? [])) {
+        const item = (l.item_plt || '').toString()
+        if (String(l.serv_plt) === '-1' && !item.includes('.')) {
+          aprov += Number(l.valor_aprov || 0)
+          vinc += Number(l.saldo_vlr_vinc || 0)
+        }
+      }
+      custoPlanejado = planejado
+      custoSaldo = planejado - aprov - vinc      // Saldo = Planejado − Custo − Vinculado
+      temCusto = ((custoLinhas?.length ?? 0) > 0) || planejado > 0
+    }
+
+    // Cor/%, mesma régua de status da aba de custo
+    const custoConsumido = custoPlanejado - custoSaldo
+    const pctConsumido = custoPlanejado > 0 ? (custoConsumido / custoPlanejado) * 100 : 0
+    const saldoColor =
+      custoSaldo <= 0 ? '#ef4444' : custoSaldo <= 0.4 * custoPlanejado ? '#f59e0b' : '#10b981'
+
     /* ────────────────────────── Urgency helper ────────────────────────── */
 
     function getUrgency(prazo: string | null) {
@@ -208,6 +255,47 @@ export default async function ObraDashboardPage({
             subtitle={`${restricoesAbertas.length} abertas no total`}
           />
         </div>
+
+        {/* ─── Custo (UAU): Planejado vs Saldo ─── */}
+        {temCusto && (
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '22px' }}>
+              <div style={{ padding: '10px', borderRadius: '12px', background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Wallet size={20} color="#10b981" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.01em' }}>
+                  Custo (UAU) — Planejado vs Saldo
+                </h3>
+                <p style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  Origem: Acompanhamento de Custo · código UAU {codigoUau}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '36px', marginBottom: '20px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, marginBottom: '6px' }}>Planejado</div>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>{fmt.format(custoPlanejado)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, marginBottom: '6px' }}>Saldo</div>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: saldoColor, letterSpacing: '-0.02em' }}>{fmt.format(custoSaldo)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, marginBottom: '6px' }}>Consumido</div>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
+                  {pctConsumido.toFixed(1)}%
+                  <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748b', marginLeft: '8px' }}>{fmt.format(custoConsumido)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ height: '10px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, pctConsumido))}%`, background: saldoColor, borderRadius: '6px', transition: 'width 0.3s ease' }} />
+            </div>
+          </div>
+        )}
 
         {/* ─── Charts ─── */}
         <DashboardCharts medicoesData={medicoesChartData} ppcData={ppcChartData} />
