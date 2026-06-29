@@ -4,12 +4,13 @@
 // Status:        pm2 status
 // Logs:          pm2 logs sync-pago
 // Salvar p/ boot: pm2 save  &&  pm2 startup
+// ⚠️ Os 4 workers da KPI'S (recebido, pago, vendasrec, areceber) NÃO rodam aqui:
+// são pesados demais pra VM Always Free de 1GB (o 'pago' carrega ~106k linhas e
+// estoura a memória). Eles rodam MANUALMENTE no PC: `npm run sync:kpis`.
+// Na VM ficam só os leves: sync-compras (board) — custo e uau-reconcile são geridos
+// fora deste arquivo.
 module.exports = {
     apps: [
-        { name: 'sync-recebido', script: 'npm', args: 'run sync:recebido', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
-        { name: 'sync-pago', script: 'npm', args: 'run sync:pago', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
-        { name: 'sync-vendasrec', script: 'npm', args: 'run sync:vendasrec', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
-        { name: 'sync-areceber', script: 'npm', args: 'run sync:areceber', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
-        { name: 'sync-compras', script: 'npm', args: 'run sync:compras', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
+        { name: 'robo-compras', script: 'npm', args: 'run sync:compras', cwd: __dirname, autorestart: true, max_restarts: 50, time: true },
     ],
 }

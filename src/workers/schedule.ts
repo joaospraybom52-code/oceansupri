@@ -24,6 +24,12 @@ export function msAteProximo(horarios = HORARIOS): number {
 // Roda UMA vez ao iniciar (deploy/reboot/crash) e depois nos horários fixos —
 // assim os dados não ficam velhos esperando o próximo horário.
 export function agendar(ciclo: () => Promise<void>, nome: string): void {
+    // Modo "rodar uma vez e sair" (pra rodar manualmente no PC): SYNC_ONCE=1
+    if (process.env.SYNC_ONCE === '1') {
+        ciclo().then(() => { console.log(`[${nome}] concluído (modo único).`); process.exit(0) })
+            .catch(() => process.exit(1))
+        return
+    }
     const proxima = () => {
         const ms = msAteProximo()
         console.log(`[${nome}] Próxima atualização em ~${(ms / 3600000).toFixed(1)}h (09:00, 13:00 ou 17:30 BRT).`)
