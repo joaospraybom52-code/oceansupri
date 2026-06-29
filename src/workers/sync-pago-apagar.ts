@@ -340,7 +340,8 @@ BEGIN
         FROM PlanTotal
         WHERE Serv_Plt = '-1'
     ) [PlanTotal] ON Cod_Emp = Empresa_Plt AND Obra = Obra_Plt AND Produto = Prod_Plt AND ItemPlPai = Item_Plt AND Servico = Serv_plt AND ContratoPL = Contrato_plt
-    WHERE CAST(Produto AS VARCHAR) LIKE('%')
+    -- Filtro de período: só movimentos de 02/01/2025 em diante (formato YYYYMMDD, à prova de locale).
+    WHERE CAST(Produto AS VARCHAR) LIKE('%') AND DataMovimento >= '20250102'
 END
 `
 
