@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { PedidoCompra } from '@/lib/types/database'
 import { formatCurrency, formatPercent, calcSavingAbsoluto, calcSavingPercentual, calcLeadTimeDays } from '@/lib/utils/kpi-calculations'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
-import { TrendingUp, Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar, Scale, Banknote } from 'lucide-react'
+import { Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar, Banknote } from 'lucide-react'
 
 export default function AnalyticsPage() {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
@@ -44,11 +44,7 @@ export default function AnalyticsPage() {
         const dataRef = p.data_ordem_compra || p.created_at;
         return dataRef?.startsWith(mesFiltro);
     })
-    const savingTotal = pedidosComSaving.reduce((sum, p) => sum + (calcSavingAbsoluto(p.valor_orcado, p.valor_fechado) || 0), 0)
     const valorTotalFechado = pedidosComSaving.reduce((sum, p) => sum + (p.valor_fechado || 0), 0)
-    const savingPercentualMedio = pedidosComSaving.length > 0
-        ? pedidosComSaving.reduce((sum, p) => sum + (calcSavingPercentual(p.valor_orcado, p.valor_fechado) || 0), 0) / pedidosComSaving.length
-        : 0
 
     const pedidosEntregues = filteredPedidos.filter(p => p.data_entrega_real)
     const leadTimeMedio = pedidosEntregues.length > 0
@@ -72,15 +68,6 @@ export default function AnalyticsPage() {
     //    e compradores não cadastrados são ignorados. ──
     // Pedidos do mês (qualquer status) para o volume de cotações
     const pedidosDoMes = pedidos.filter(p => !mesFiltro || (p.data_ordem_compra || p.created_at)?.startsWith(mesFiltro))
-
-    const orcadoVsFechadoPorComprador: Record<string, { nome: string; valorOrcado: number; valorFechado: number }> = {}
-    compradores.forEach(c => { orcadoVsFechadoPorComprador[c.id] = { nome: c.nome, valorOrcado: 0, valorFechado: 0 } })
-    pedidosComValores.forEach(p => {
-        if (!p.comprador_id || !orcadoVsFechadoPorComprador[p.comprador_id]) return
-        orcadoVsFechadoPorComprador[p.comprador_id].valorOrcado += p.valor_orcado || 0
-        orcadoVsFechadoPorComprador[p.comprador_id].valorFechado += p.valor_fechado || 0
-    })
-    const orcadoVsFechadoData = Object.values(orcadoVsFechadoPorComprador).sort((a, b) => b.valorOrcado - a.valorOrcado)
 
     const savingPorComprador: Record<string, { nome: string; saving: number; cotacoes: number }> = {}
     compradores.forEach(c => { savingPorComprador[c.id] = { nome: c.nome, saving: 0, cotacoes: 0 } })
@@ -138,10 +125,18 @@ export default function AnalyticsPage() {
         }).length;
     }
 
+    // "Ordem Gerada" = cards que estão na coluna Ordem Gerada do board (mesmos
+    // status agrupados lá), não a data da transição. Respeita o filtro de mês.
+    const STATUS_ORDEM_GERADA = ['aprovado', 'ordem_gerada', 'em_transito', 'aguardando_entrega', 'entregue'];
+    const countOrdemGerada = pedidos.filter(p => {
+        if (!STATUS_ORDEM_GERADA.includes(p.status_fsm || '')) return false;
+        if (!mesFiltro) return true;
+        return (p.data_ordem_compra || p.created_at)?.startsWith(mesFiltro) ?? false;
+    }).length;
+
     const transicoesData = [
         { name: 'Pedido Confirmado', count: countTransitions('data_requisicao') },
-        { name: 'Ordem Gerada', count: countTransitions('data_ordem_compra') },
-        { name: 'Entregue', count: countTransitions('data_entrega_real') },
+        { name: 'Ordem Gerada', count: countOrdemGerada },
     ];
 
     if (loading) {
@@ -180,18 +175,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* KPI Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                <div className="kpi-card green">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <DollarSign size={18} style={{ color: 'var(--accent-green)' }} />
-                        </div>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Saving Total</span>
-                    </div>
-                    <p style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(savingTotal)}</p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Média {formatPercent(savingPercentualMedio)} de desconto</p>
-                </div>
-
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
                 <div className="kpi-card">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                         <div style={{ width: 36, height: 36, borderRadius: '10px', background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -281,33 +265,7 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Charts Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                {/* Saving por Comprador */}
-                <div className="chart-container">
-                    <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <TrendingUp size={16} style={{ color: 'var(--accent-green)' }} />
-                        Saving por Comprador
-                    </h3>
-                    <ResponsiveContainer width="100%" height={280}>
-                        <BarChart data={savingCompradorData} layout="vertical" margin={{ left: 60 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                            <XAxis type="number" tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} stroke="var(--text-muted)" fontSize={10} />
-                            <YAxis type="category" dataKey="nome" stroke="var(--text-muted)" fontSize={11} width={80} />
-                            <Tooltip
-                                contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '12px' }}
-                                formatter={(value) => [formatCurrency(value as number), 'Saving']}
-                            />
-                            <Bar dataKey="saving" fill="url(#greenGradient)" radius={[0, 4, 4, 0]} />
-                            <defs>
-                                <linearGradient id="greenGradient" x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#059669" />
-                                    <stop offset="100%" stopColor="#10b981" />
-                                </linearGradient>
-                            </defs>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 {/* Compras Emergenciais Pie */}
                 <div className="chart-container">
                     <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -335,50 +293,6 @@ export default function AnalyticsPage() {
                         ))}
                     </div>
                 </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                {/* Orçado vs Fechado por Comprador */}
-                <div className="chart-container">
-                    <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Scale size={16} style={{ color: '#3b82f6' }} />
-                        Orçado vs Fechado por Comprador {mesFiltro ? `em ${mesFiltro.split('-').reverse().join('/')}` : '(Geral)'}
-                    </h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={orcadoVsFechadoData} margin={{ bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                            <XAxis dataKey="nome" stroke="var(--text-muted)" fontSize={10} />
-                            <YAxis stroke="var(--text-muted)" fontSize={10} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                            <Tooltip
-                                contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '12px' }}
-                                formatter={(value, name) => [formatCurrency(value as number), name]}
-                            />
-                            <Bar dataKey="valorOrcado" name="Valor Orçado" fill="url(#orcadoGradient)" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="valorFechado" name="Valor Fechado" fill="url(#fechadoGradient)" radius={[4, 4, 0, 0]} />
-                            <defs>
-                                <linearGradient id="orcadoGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#f59e0b" />
-                                    <stop offset="100%" stopColor="#d97706" />
-                                </linearGradient>
-                                <linearGradient id="fechadoGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#10b981" />
-                                    <stop offset="100%" stopColor="#059669" />
-                                </linearGradient>
-                            </defs>
-                        </BarChart>
-                    </ResponsiveContainer>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div style={{ width: 10, height: 10, borderRadius: '2px', background: '#f59e0b' }} />
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Valor Orçado</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div style={{ width: 10, height: 10, borderRadius: '2px', background: '#10b981' }} />
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Valor Fechado</span>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Cotações por Comprador */}
                 <div className="chart-container">
                     <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
