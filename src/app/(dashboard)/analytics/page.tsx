@@ -94,6 +94,21 @@ export default function AnalyticsPage() {
     })
     const savingCompradorData = Object.values(savingPorComprador).sort((a, b) => b.saving - a.saving)
 
+    // Volume de ordens geradas por comprador: SÓ Juliana e Everaldo (pelo comprador
+    // do UAU que gerou a OC). Conta pedidos com data_ordem_gerada no período.
+    const ordemGeradaData = [
+        { key: 'juliana', nome: 'Juliana' },
+        { key: 'everaldo', nome: 'Everaldo' },
+    ].map(c => ({
+        nome: c.nome,
+        ordens: pedidos.filter(p => {
+            if (!(p.comprador_uau || '').toLowerCase().includes(c.key)) return false
+            if (!p.data_ordem_gerada) return false
+            if (!mesFiltro) return true
+            return p.data_ordem_gerada.startsWith(mesFiltro)
+        }).length,
+    }))
+
     // Desconto mensal (sempre mostrar evolução total ou filtrar pelo mês selecionado - evolução geralmente não usa o filtro de 1 mês, mas manteremos coerente)
     const descontoMensal: Record<string, { mes: string; total: number; count: number }> = {}
     pedidosComSaving.forEach(p => {
@@ -305,21 +320,25 @@ export default function AnalyticsPage() {
                         ))}
                     </div>
                 </div>
-                {/* Cotações por Comprador */}
+                {/* Ordem Gerada por Comprador */}
                 <div className="chart-container">
                     <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Users size={16} style={{ color: 'var(--accent-purple)' }} />
-                        Volume de Cotações por Comprador
+                        Volume de Ordem Gerada por Comprador {mesFiltro ? `em ${mesFiltro.split('-').reverse().join('/')}` : '(Geral)'}
                     </h3>
                     <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={savingCompradorData}>
+                        <BarChart data={ordemGeradaData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                             <XAxis dataKey="nome" stroke="var(--text-muted)" fontSize={10} />
-                            <YAxis stroke="var(--text-muted)" fontSize={10} />
+                            <YAxis stroke="var(--text-muted)" fontSize={10} allowDecimals={false} />
                             <Tooltip
                                 contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '12px' }}
+                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                formatter={(value) => [value, 'Ordens geradas']}
                             />
-                            <Bar dataKey="cotacoes" fill="url(#purpleGradient)" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="ordens" fill="url(#purpleGradient)" radius={[4, 4, 0, 0]}>
+                                <LabelList dataKey="ordens" position="top" fill="var(--text-secondary)" fontSize={12} fontWeight={700} />
+                            </Bar>
                             <defs>
                                 <linearGradient id="purpleGradient" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="0%" stopColor="#8b5cf6" />
