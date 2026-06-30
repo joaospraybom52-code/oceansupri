@@ -46,9 +46,21 @@ export default function AnalyticsPage() {
     })
     const valorTotalFechado = pedidosComSaving.reduce((sum, p) => sum + (p.valor_fechado || 0), 0)
 
-    const pedidosEntregues = filteredPedidos.filter(p => p.data_entrega_real)
-    const leadTimeMedio = pedidosEntregues.length > 0
-        ? pedidosEntregues.reduce((sum, p) => sum + (calcLeadTimeDays(p.data_requisicao, p.data_entrega_real!) || 0), 0) / pedidosEntregues.length
+    // Lead Time = dias do pedido gerado (data_requisicao) até a ordem gerada
+    // (data_ordem_gerada). Conta SÓ os compradores Juliana e Everaldo (pelo
+    // comprador do UAU que gerou a OC); ignora AMANDA, LUIS e os demais.
+    const ehCompradorAlvo = (p: PedidoCompra) => {
+        const nome = (p.comprador_uau || '').toLowerCase()
+        return nome.includes('juliana') || nome.includes('everaldo')
+    }
+    const pedidosLeadTime = pedidos.filter(p => {
+        if (!ehCompradorAlvo(p)) return false
+        if (!p.data_requisicao || !p.data_ordem_gerada) return false
+        if (!mesFiltro) return true
+        return p.data_ordem_gerada.startsWith(mesFiltro)
+    })
+    const leadTimeMedio = pedidosLeadTime.length > 0
+        ? pedidosLeadTime.reduce((sum, p) => sum + Math.max(0, calcLeadTimeDays(p.data_requisicao!, p.data_ordem_gerada!) || 0), 0) / pedidosLeadTime.length
         : 0
 
     const totalEmergenciais = filteredPedidos.filter(p => p.emergencial).length
@@ -195,7 +207,7 @@ export default function AnalyticsPage() {
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Lead Time Médio</span>
                     </div>
                     <p style={{ fontSize: '28px', fontWeight: 800 }}>{leadTimeMedio.toFixed(0)} <span style={{ fontSize: '16px', color: 'var(--text-muted)' }}>dias</span></p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{pedidosEntregues.length} pedidos entregues</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{pedidosLeadTime.length} ordens · Juliana/Everaldo</p>
                 </div>
 
                 <div className="kpi-card">
