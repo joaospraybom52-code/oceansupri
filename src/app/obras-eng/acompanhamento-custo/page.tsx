@@ -14,7 +14,7 @@ export default async function AcompanhamentoCustoPage() {
 
     const { data: orcamento } = await supabase
         .from('custo_orcamento')
-        .select('obra_plt, item_plt, insumo, valor_planejado')
+        .select('id, obra_plt, item_plt, insumo, valor_planejado')
 
     const { data: materiais } = await supabase
         .from('custo_materiais')

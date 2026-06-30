@@ -1,7 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Wallet, X, Package } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+
+const ADMIN_EDIT_EMAIL = 'engjoao@constrowins.eng.br'
 
 interface Linha {
     obra_plt: string
@@ -19,6 +22,7 @@ interface Linha {
 }
 
 interface Orcamento {
+    id: string
     obra_plt: string
     item_plt: string
     insumo: string
@@ -72,6 +76,52 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
     const [obraSel, setObraSel] = useState(obras[0]?.codigo ?? '')
     const [sel, setSel] = useState<{ item: string; descr: string; ins_cins: string } | null>(null)
 
+    // Orçamento mutável (PLANEJADO editável só pelo admin nas linhas de insumo).
+    const supabase = createClient()
+    const [orc, setOrc] = useState<Orcamento[]>(orcamento)
+    const [canEdit, setCanEdit] = useState(false)
+    const [salvando, setSalvando] = useState<string | null>(null)
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data }) => {
+            setCanEdit((data.user?.email || '').toLowerCase() === ADMIN_EDIT_EMAIL)
+        })
+    }, [])
+
+    // Grava o PLANEJADO de um insumo. Atualiza a linha existente do orçamento
+    // (casando por item + insumo normalizado) ou insere uma nova. As somas das
+    // linhas amarelas (serviço) e azuis (raiz/subtotal) recalculam sozinhas.
+    async function salvarPlanejado(item: string, insumoNome: string, raw: string) {
+        const valor = parseFloat(String(raw).trim().replace(',', '.'))
+        if (isNaN(valor) || valor < 0) return
+        const insumoUpper = insumoNome.trim().toUpperCase()
+        const chave = `${item}|${insumoUpper}`
+        const existente = orc.find(o => o.obra_plt === obraSel && (o.item_plt || '') === item && (o.insumo || '').trim().toUpperCase() === insumoUpper)
+        if (existente && Number(existente.valor_planejado || 0) === valor) return
+        setSalvando(chave)
+        try {
+            if (existente) {
+                const anterior = existente.valor_planejado
+                setOrc(prev => prev.map(o => o.id === existente.id ? { ...o, valor_planejado: valor } : o))
+                const { error } = await supabase.from('custo_orcamento').update({ valor_planejado: valor, atualizado_em: new Date().toISOString() }).eq('id', existente.id)
+                if (error) {
+                    setOrc(prev => prev.map(o => o.id === existente.id ? { ...o, valor_planejado: anterior } : o))
+                    throw error
+                }
+            } else {
+                const { data, error } = await supabase.from('custo_orcamento')
+                    .insert({ obra_plt: obraSel, item_plt: item, insumo: insumoNome, valor_planejado: valor })
+                    .select('id').single()
+                if (error) throw error
+                setOrc(prev => [...prev, { id: (data as any).id, obra_plt: obraSel, item_plt: item, insumo: insumoNome, valor_planejado: valor }])
+            }
+        } catch (e) {
+            console.error('Erro ao salvar planejado:', e)
+            alert('Não foi possível salvar o valor planejado.')
+        } finally {
+            setSalvando(null)
+        }
+    }
+
     const materiaisSel = useMemo(() => {
         if (!sel) return []
         return materiais
@@ -82,11 +132,11 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
 
     const { rows, atualizado } = useMemo(() => {
         const ls = linhas.filter(l => l.obra_plt === obraSel)
-        const orc = orcamento.filter(o => o.obra_plt === obraSel)
+        const orcObra = orc.filter(o => o.obra_plt === obraSel)
         // Planejado (Excel/orçamento fixo): por insumo e por prefixo de item
         const planejInsumo = new Map<string, number>()
-        for (const o of orc) planejInsumo.set(`${o.item_plt}|${(o.insumo || '').trim().toUpperCase()}`, Number(o.valor_planejado || 0))
-        const planejPrefixo = (p: string) => orc.reduce((s, o) => {
+        for (const o of orcObra) planejInsumo.set(`${o.item_plt}|${(o.insumo || '').trim().toUpperCase()}`, Number(o.valor_planejado || 0))
+        const planejPrefixo = (p: string) => orcObra.reduce((s, o) => {
             const it = o.item_plt || ''
             return (it === p || it.startsWith(p + '.')) ? s + Number(o.valor_planejado || 0) : s
         }, 0)
@@ -120,7 +170,7 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
         }
         const at = ls[0]?.atualizado_em ?? null
         return { rows: out, atualizado: at }
-    }, [linhas, orcamento, obraSel])
+    }, [linhas, orc, obraSel])
 
     const th: React.CSSProperties = { padding: '10px 12px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', textAlign: 'right', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--bg-secondary)' }
     const td: React.CSSProperties = { padding: '8px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }
@@ -133,6 +183,7 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                         <Wallet size={22} color="#10b981" /> Acompanhamento de Custo
                     </h1>
                     <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Orçado × realizado por item (origem: UAU){atualizado ? ` · atualizado em ${new Date(atualizado).toLocaleString('pt-BR')}` : ''}</p>
+                    {canEdit && <p style={{ fontSize: '12px', color: 'var(--accent-green)', marginTop: '2px' }}>✏️ Você pode editar o Planejado das linhas de insumo (sem cor) — os subtotais recalculam automaticamente.</p>}
                 </div>
                 <select value={obraSel} onChange={e => { setObraSel(e.target.value); setSel(null) }} className="select-field" style={{ minWidth: '260px' }}>
                     {obras.map(o => <option key={o.codigo} value={o.codigo}>{o.nome}</option>)}
@@ -175,7 +226,24 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                                                 <td style={{ ...td, textAlign: 'left', paddingLeft: `${12 + NIVEL[r.tipo] * 16}px`, maxWidth: '360px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                     {clicavel && <span style={{ color: 'var(--accent-blue, #818cf8)', marginRight: '6px' }}>›</span>}{r.descricao}
                                                 </td>
-                                                <td style={td}>{fmt(r.planej)}</td>
+                                                <td style={td}>
+                                                    {r.tipo === 'insumo' && canEdit ? (
+                                                        <input
+                                                            key={`plan-${obraSel}-${i}`}
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            defaultValue={r.planej || ''}
+                                                            title="Editar valor planejado (só admin)"
+                                                            onClick={e => e.stopPropagation()}
+                                                            onWheel={e => e.currentTarget.blur()}
+                                                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                                                            onBlur={e => salvarPlanejado(r.item, r.descricao, e.target.value)}
+                                                            disabled={salvando === `${r.item}|${r.descricao.trim().toUpperCase()}`}
+                                                            style={{ width: '116px', textAlign: 'right', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'var(--text-primary)', padding: '4px 6px', fontSize: '13px', fontFamily: 'inherit' }}
+                                                        />
+                                                    ) : fmt(r.planej)}
+                                                </td>
                                                 <td style={td}>{fmt(r.aprov)}</td>
                                                 <td style={td}>{fmt(r.vinc)}</td>
                                                 <td style={td}>{fmt(saldo)}</td>
