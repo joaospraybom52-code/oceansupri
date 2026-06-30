@@ -14,12 +14,13 @@ interface PedidoModalProps {
     onUpdate?: (updated: PedidoCompra, allUpdated?: PedidoCompra[]) => void
     onDelete?: (id: string) => void
     isReadOnly?: boolean
+    canDelete?: boolean
 }
 
 const dedup = (arr: (string | null)[]) => Array.from(new Set(arr.filter(Boolean) as string[]))
 const menorData = (arr: (string | null)[]) => arr.filter(Boolean).sort()[0] as string | undefined
 
-export default function PedidoModal({ pedido, pedidosGroup, onClose, onDelete, isReadOnly = false }: PedidoModalProps) {
+export default function PedidoModal({ pedido, pedidosGroup, onClose, onDelete, isReadOnly = false, canDelete = false }: PedidoModalProps) {
     const [confirmingDelete, setConfirmingDelete] = useState(false)
     const [saving, setSaving] = useState(false)
     const supabase = createClient()
@@ -72,7 +73,7 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onDelete, i
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                        {!isReadOnly && (
+                        {canDelete && (
                             <button type="button" onClick={() => setConfirmingDelete(true)} title="Excluir" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red)' }}>
                                 <Trash2 size={20} />
                             </button>

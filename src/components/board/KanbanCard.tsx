@@ -17,9 +17,10 @@ interface KanbanCardProps {
     compradores?: { id: string, nome: string }[]
     isReadOnly?: boolean
     dragDisabled?: boolean
+    canDelete?: boolean
 }
 
-export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard, onDelete, onCompradorChange, compradores = [], isReadOnly = false, dragDisabled = false }: KanbanCardProps) {
+export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard, onDelete, onCompradorChange, compradores = [], isReadOnly = false, dragDisabled = false, canDelete = false }: KanbanCardProps) {
     // Arrastar fica desligado tanto para visualizadores quanto quando o board é
     // só-automático (dragDisabled). O clique para ver detalhes continua funcionando.
     const noDrag = isReadOnly || dragDisabled
@@ -171,7 +172,7 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
                             Urgente
                         </span>
                     )}
-                    {!isReadOnly && (
+                    {canDelete && (
                         <button
                             type="button"
                             onClick={handleDelete}

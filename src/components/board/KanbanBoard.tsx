@@ -14,9 +14,10 @@ interface KanbanBoardProps {
     initialPedidos: PedidoCompra[]
     isReadOnly?: boolean
     dragDisabled?: boolean
+    canDelete?: boolean
 }
 
-export default function KanbanBoard({ initialPedidos, isReadOnly = false, dragDisabled = false }: KanbanBoardProps) {
+export default function KanbanBoard({ initialPedidos, isReadOnly = false, dragDisabled = false, canDelete = false }: KanbanBoardProps) {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>(initialPedidos)
     const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null)
     const [draggedId, setDraggedId] = useState<string | null>(null)
@@ -209,6 +210,7 @@ export default function KanbanBoard({ initialPedidos, isReadOnly = false, dragDi
                                 compradores={compradores}
                                 isReadOnly={isReadOnly}
                                 dragDisabled={dragDisabled}
+                                canDelete={canDelete}
                             />
                         ))}
                     </KanbanColumn>
@@ -246,6 +248,7 @@ export default function KanbanBoard({ initialPedidos, isReadOnly = false, dragDi
                         setSelectedPedido(null)
                     }}
                     isReadOnly={isReadOnly}
+                    canDelete={canDelete}
                 />
             )}
 

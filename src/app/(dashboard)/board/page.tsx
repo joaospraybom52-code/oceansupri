@@ -19,12 +19,15 @@ export default function BoardPage() {
     const [loading, setLoading] = useState(true)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
     const [isVisualizador, setIsVisualizador] = useState(false)
+    const [canDelete, setCanDelete] = useState(false)
     const supabase = createClient()
 
     useEffect(() => {
         async function checkRole() {
             const { data: { user } } = await supabase.auth.getUser()
             if (user?.email) {
+                // Só este admin pode excluir cards (board é automático).
+                setCanDelete(user.email.toLowerCase() === 'engjoao@constrowins.eng.br')
                 const { data } = await supabase.from('visualizadores').select('id').eq('email', user.email).single()
                 if (data) setIsVisualizador(true)
             }
@@ -194,7 +197,7 @@ export default function BoardPage() {
                     <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                 </div>
             ) : view === 'kanban' ? (
-                <KanbanBoard initialPedidos={filteredPedidos} isReadOnly={isVisualizador} dragDisabled />
+                <KanbanBoard initialPedidos={filteredPedidos} isReadOnly={isVisualizador} dragDisabled canDelete={canDelete} />
             ) : (
                 <TimelineView pedidos={filteredPedidos} onSelectPedido={setSelectedPedido} />
             )}
@@ -203,6 +206,7 @@ export default function BoardPage() {
                 <PedidoModal
                     pedido={selectedPedido}
                     isReadOnly={isVisualizador}
+                    canDelete={canDelete}
                     onClose={() => setSelectedPedido(null)}
                     onUpdate={(updated) => {
                         setPedidos(prev => prev.map(p => p.id === updated.id ? updated : p))
