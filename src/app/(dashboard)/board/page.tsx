@@ -5,14 +5,12 @@ import { createClient } from '@/lib/supabase/client'
 import { PedidoCompra } from '@/lib/types/database'
 import KanbanBoard from '@/components/board/KanbanBoard'
 import TimelineView from '@/components/board/TimelineView'
-import NovoPedidoForm from '@/components/pedidos/NovoPedidoForm'
 import PedidoModal from '@/components/pedidos/PedidoModal'
-import { Plus, Kanban, CalendarRange, RefreshCw } from 'lucide-react'
+import { Kanban, CalendarRange, RefreshCw } from 'lucide-react'
 
 export default function BoardPage() {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
     const [view, setView] = useState<'kanban' | 'timeline'>('kanban')
-    const [showNewForm, setShowNewForm] = useState(false)
     const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null)
     const [obras, setObras] = useState<any[]>([])
     const [filterObraId, setFilterObraId] = useState<string>('all')
@@ -180,12 +178,6 @@ export default function BoardPage() {
                     <button onClick={loadPedidos} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px' }}>
                         <RefreshCw size={14} />
                     </button>
-
-                    {!isVisualizador && (
-                        <button onClick={() => setShowNewForm(true)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Plus size={16} /> Novo Pedido
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -202,16 +194,9 @@ export default function BoardPage() {
                     <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                 </div>
             ) : view === 'kanban' ? (
-                <KanbanBoard initialPedidos={filteredPedidos} isReadOnly={isVisualizador} />
+                <KanbanBoard initialPedidos={filteredPedidos} isReadOnly={isVisualizador} dragDisabled />
             ) : (
                 <TimelineView pedidos={filteredPedidos} onSelectPedido={setSelectedPedido} />
-            )}
-
-            {showNewForm && (
-                <NovoPedidoForm
-                    onClose={() => setShowNewForm(false)}
-                    onCreated={loadPedidos}
-                />
             )}
 
             {selectedPedido && (

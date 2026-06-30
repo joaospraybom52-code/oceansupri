@@ -16,9 +16,13 @@ interface KanbanCardProps {
     onCompradorChange?: (pedido: PedidoCompra, newCompradorId: string) => void
     compradores?: { id: string, nome: string }[]
     isReadOnly?: boolean
+    dragDisabled?: boolean
 }
 
-export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard, onDelete, onCompradorChange, compradores = [], isReadOnly = false }: KanbanCardProps) {
+export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard, onDelete, onCompradorChange, compradores = [], isReadOnly = false, dragDisabled = false }: KanbanCardProps) {
+    // Arrastar fica desligado tanto para visualizadores quanto quando o board é
+    // só-automático (dragDisabled). O clique para ver detalhes continua funcionando.
+    const noDrag = isReadOnly || dragDisabled
     const [deleting, setDeleting] = useState(false)
     const [dragOverCard, setDragOverCard] = useState(false)
     const [showInsumos, setShowInsumos] = useState(false)
@@ -74,10 +78,11 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
                 borderColor: dragOverCard ? 'var(--accent-blue)' : undefined,
                 boxShadow: dragOverCard ? '0 0 15px rgba(56, 189, 248, 0.3)' : undefined,
                 borderWidth: isGroup ? '2px' : undefined,
+                cursor: noDrag ? 'pointer' : 'grab',
             }}
-            draggable={!isReadOnly}
+            draggable={!noDrag}
             onDragStart={(e) => {
-                if (isReadOnly) return
+                if (noDrag) return
                 if (e.dataTransfer) {
                     e.dataTransfer.effectAllowed = 'copyMove'
                     e.dataTransfer.setData('text/plain', `${dragData}|${master.status_fsm}`)
@@ -85,25 +90,25 @@ export default function KanbanCard({ pedidos, onDragStart, onClick, onDropOnCard
                 onDragStart(dragData)
             }}
             onDragEnter={(e) => {
-                if (isReadOnly || !onDropOnCard) return;
+                if (noDrag || !onDropOnCard) return;
                 e.preventDefault();
                 setDragOverCard(true);
             }}
             onDragOver={(e) => {
-                if (isReadOnly || !onDropOnCard) return;
+                if (noDrag || !onDropOnCard) return;
                 e.preventDefault(); // Obrigatório no React para permitir o Drop
                 e.dataTransfer.dropEffect = 'move'
                 setDragOverCard(true);
             }}
             onDragLeave={(e) => {
-                if (isReadOnly) return
+                if (noDrag) return
                 e.preventDefault();
                 // Ensure we don't flash on child elements
                 if (e.currentTarget.contains(e.relatedTarget as Node)) return;
                 setDragOverCard(false);
             }}
             onDrop={(e) => {
-                if (isReadOnly || !onDropOnCard) return;
+                if (noDrag || !onDropOnCard) return;
 
                 const rawDragData = e.dataTransfer.getData('text/plain');
                 if (!rawDragData) return;
