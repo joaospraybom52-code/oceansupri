@@ -91,7 +91,8 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
     // (casando por item + insumo normalizado) ou insere uma nova. As somas das
     // linhas amarelas (serviço) e azuis (raiz/subtotal) recalculam sozinhas.
     async function salvarPlanejado(item: string, insumoNome: string, raw: string) {
-        const valor = parseFloat(String(raw).trim().replace(',', '.'))
+        // Aceita formato pt-BR: "167.392,50" -> 167392.50 (ponto = milhar, vírgula = decimal)
+        const valor = parseFloat(String(raw).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'))
         if (isNaN(valor) || valor < 0) return
         const insumoUpper = insumoNome.trim().toUpperCase()
         const chave = `${item}|${insumoUpper}`
@@ -120,6 +121,19 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
         } finally {
             setSalvando(null)
         }
+    }
+
+    // Modal de confirmação de alteração do planejado.
+    const [editando, setEditando] = useState<{ item: string; descricao: string; ins_cins: string; atual: number } | null>(null)
+    const [novoValor, setNovoValor] = useState('')
+    function abrirEdicao(r: DisplayRow) {
+        setEditando({ item: r.item, descricao: r.descricao, ins_cins: r.ins_cins, atual: r.planej })
+        setNovoValor(r.planej ? r.planej.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '')
+    }
+    async function confirmarEdicao() {
+        if (!editando) return
+        await salvarPlanejado(editando.item, editando.descricao, novoValor)
+        setEditando(null)
     }
 
     const materiaisSel = useMemo(() => {
@@ -228,20 +242,13 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                                                 </td>
                                                 <td style={td}>
                                                     {r.tipo === 'insumo' && canEdit ? (
-                                                        <input
-                                                            key={`plan-${obraSel}-${i}`}
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            defaultValue={r.planej || ''}
-                                                            title="Editar valor planejado (só admin)"
-                                                            onClick={e => e.stopPropagation()}
-                                                            onWheel={e => e.currentTarget.blur()}
-                                                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                                                            onBlur={e => salvarPlanejado(r.item, r.descricao, e.target.value)}
-                                                            disabled={salvando === `${r.item}|${r.descricao.trim().toUpperCase()}`}
-                                                            style={{ width: '116px', textAlign: 'right', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'var(--text-primary)', padding: '4px 6px', fontSize: '13px', fontFamily: 'inherit' }}
-                                                        />
+                                                        <span
+                                                            onClick={e => { e.stopPropagation(); abrirEdicao(r) }}
+                                                            title="Clique para alterar o planejado (admin)"
+                                                            style={{ cursor: 'pointer', borderBottom: '1px dashed rgba(129,140,248,0.7)', paddingBottom: '1px' }}
+                                                        >
+                                                            {fmt(r.planej)}
+                                                        </span>
                                                     ) : fmt(r.planej)}
                                                 </td>
                                                 <td style={td}>{fmt(r.aprov)}</td>
@@ -287,6 +294,36 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Modal de confirmação de alteração do planejado */}
+            {editando && (
+                <div onClick={() => setEditando(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                    <div onClick={e => e.stopPropagation()} className="glass-card" style={{ padding: '24px', width: '420px', maxWidth: '100%' }}>
+                        <h3 style={{ fontSize: '17px', fontWeight: 800, marginBottom: '6px' }}>Alterar valor planejado</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>{editando.item} · {editando.descricao}</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '14px' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Valor atual</span>
+                            <span style={{ fontWeight: 700 }}>{fmt(editando.atual)}</span>
+                        </div>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Novo valor (R$)</label>
+                        <input
+                            value={novoValor}
+                            autoFocus
+                            onChange={e => setNovoValor(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') confirmarEdicao(); if (e.key === 'Escape') setEditando(null) }}
+                            placeholder="0,00"
+                            style={{ width: '100%', textAlign: 'right', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)', borderRadius: '8px', color: 'var(--text-primary)', padding: '10px 12px', fontSize: '16px', fontWeight: 700, boxSizing: 'border-box' }}
+                        />
+                        <p style={{ fontSize: '14px', fontWeight: 700, color: '#f59e0b', margin: '18px 0 16px' }}>⚠️ Tem certeza da alteração?</p>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setEditando(null)} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }}>Cancelar</button>
+                            <button onClick={confirmarEdicao} disabled={!!salvando} className="btn-primary" style={{ padding: '8px 16px', fontSize: '13px', opacity: salvando ? 0.6 : 1 }}>
+                                {salvando ? 'Salvando…' : 'Confirmar alteração'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
