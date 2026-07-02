@@ -49,6 +49,9 @@ const ymLabel = (ym: string) => {
 }
 
 // estágio derivado de cada medição
+// Lê valor em pt-BR ("142.321,21" -> 142321.21).
+const parseBRL = (raw: string) => parseFloat(String(raw).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'))
+const fmtNum = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const isRecebida = (m: Medicao) => m.percentual_recebido != null
 // Valor líquido da nota = bruto menos ISS e INSS (impostos da nota de serviço)
 const valorLiquido = (m: Medicao) => Number(m.valor_medicao || 0) * (1 - ((Number(m.iss_percentual || 0) + Number(m.inss_percentual || 0)) / 100))
@@ -57,7 +60,7 @@ const valorRecebido = (m: Medicao) => valorLiquido(m) * (Number(m.percentual_rec
 // Valor que deixou de receber por antecipação = diferença entre 100% e o % recebido (sobre o líquido)
 const valorDesconto = (m: Medicao) => valorLiquido(m) * ((100 - Number(m.percentual_recebido || 0)) / 100)
 const statusInfo = (m: Medicao) => {
-    if (isRecebida(m)) return { label: `Recebida ${Number(m.percentual_recebido)}%`, color: '#10b981' }
+    if (isRecebida(m)) return { label: `Recebida ${Number(m.percentual_recebido).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`, color: '#10b981' }
     if (m.tipo === 'emitida') return { label: 'Emitida', color: '#f59e0b' }
     return { label: 'Previsão', color: '#6366f1' }
 }
@@ -95,7 +98,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
     // Modal recebimento
     const [showReceb, setShowReceb] = useState(false)
     const [recebMed, setRecebMed] = useState<Medicao | null>(null)
-    const [recebForm, setRecebForm] = useState({ percentual: '', mesReal: '' })
+    const [recebForm, setRecebForm] = useState({ valorRecebido: '', mesReal: '' })
 
     function abrirCadastro() {
         setEditId(null)
@@ -120,8 +123,13 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
 
     function abrirRecebimento(m: Medicao) {
         setRecebMed(m)
+        // Pré-preenche com o valor recebido (base = líquido). Novo recebimento
+        // parte de 100% = valor líquido cheio.
+        const base = valorLiquido(m)
+        const pct = m.percentual_recebido != null ? Number(m.percentual_recebido) : 100
+        const inicial = base * (pct / 100)
         setRecebForm({
-            percentual: m.percentual_recebido != null ? String(m.percentual_recebido) : '100',
+            valorRecebido: inicial ? fmtNum(inicial) : '',
             mesReal: toYm(m.mes_recebimento_real) || toYm(m.mes_recebimento),
         })
         setShowReceb(true)
@@ -171,9 +179,14 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
 
     async function handleConfirmarRecebimento(e: React.FormEvent) {
         e.preventDefault()
-        if (!recebMed || !recebForm.percentual || !recebForm.mesReal) { toast.error('Informe a porcentagem e o mês real.'); return }
+        if (!recebMed || !recebForm.valorRecebido || !recebForm.mesReal) { toast.error('Informe o valor recebido e o mês real.'); return }
+        const base = valorLiquido(recebMed)
+        const valor = parseBRL(recebForm.valorRecebido)
+        if (isNaN(valor) || valor < 0) { toast.error('Valor recebido inválido.'); return }
+        // Converte o valor recebido em % do líquido (é assim que o sistema guarda).
+        const percentual = base > 0 ? (valor / base) * 100 : 0
         setLoading(true)
-        const payload = { percentual_recebido: Number(recebForm.percentual), mes_recebimento_real: `${recebForm.mesReal}-01` }
+        const payload = { percentual_recebido: percentual, mes_recebimento_real: `${recebForm.mesReal}-01` }
         const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, created_at'
         const { data, error } = await supabase.from('controle_medicoes').update(payload).eq('id', recebMed.id).select(sel).single()
         if (error) toast.error('Erro: ' + error.message)
@@ -452,12 +465,12 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                         </p>
                         <form onSubmit={handleConfirmarRecebimento} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div><label style={lbl}>% recebido *</label><input type="number" step="0.01" min="0" max="100" value={recebForm.percentual} onChange={e => setRecebForm({ ...recebForm, percentual: e.target.value })} className="input-field" placeholder="100" required /></div>
+                                <div><label style={lbl}>Valor recebido (R$) *</label><input type="text" inputMode="decimal" value={recebForm.valorRecebido} onChange={e => setRecebForm({ ...recebForm, valorRecebido: e.target.value })} className="input-field" placeholder="0,00" required /></div>
                                 <div><label style={lbl}>Mês real *</label><input type="month" value={recebForm.mesReal} onChange={e => setRecebForm({ ...recebForm, mesReal: e.target.value })} className="input-field" required /></div>
                             </div>
-                            {recebForm.percentual && (
+                            {recebForm.valorRecebido && valorLiquido(recebMed) > 0 && (
                                 <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                                    Valor recebido: <strong style={{ color: 'var(--accent-green)' }}>{formatCurrency(Number(recebMed.valor_medicao) * (Number(recebForm.percentual) / 100))}</strong>
+                                    Equivale a <strong style={{ color: 'var(--accent-green)' }}>{(parseBRL(recebForm.valorRecebido) / valorLiquido(recebMed) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%</strong> de {formatCurrency(valorLiquido(recebMed))}{temImposto(recebMed) ? ' (líquido)' : ''}
                                 </p>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
