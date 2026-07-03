@@ -43,6 +43,8 @@ const OBRAS: { obra: string; ano: number }[] = [
     { obra: 'NES20', ano: 2026 },
     { obra: 'NES21', ano: 2025 },
     { obra: 'BF01', ano: 2026 },
+    { obra: 'NES22', ano: 2026 },
+    { obra: 'NES23', ano: 2026 },
 ]
 
 const PROD = '-3,1,2,3,4,5,6,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,2008,2010,4006,4009,4010,4031,4041,4043,4044,4045,4048,4065,4066,4067,4068,4069,4070,4071,4072,4073,4074,4076,4078,4080,4081,4082,4083,4084,4086,4087,4088,4091,4096,4097,4098,4100,4102,4103,4104,4105,4106,4108,4109,4111,4112,4113,4114,4115,4116,4117,4127,4128,4129,4130,4131,4132,4133,4134,4135,4136,4137,4138,4139,4140,4141,4142,4143,4144,4145,4146,4147,4148,4149,4150,4151,4152,4153,4154,4155,4156,4157,4158,4159,4160,4161,4162,4163,4164,4165,4166,4167,4168,4169,4170,4171,4172,4173,4174,4175,4176,4177,4178,4179,4180,4181,4182,4183,4294,4295,4382,4383,4384,4385,4386,4387,4388,4389,4390,4391,4392,4393,4394,4395,4396,5007,5008,5009,5010,5011,5012,5013,5014,5015,5016,5017,5018,8001,8002,8003,8004,8005,8006,8007,8008,8009,8010,8011,8012,8013,8014,8015,8016,8017,8018,8019,8020,8021,8022,8023,8024,8025,8026,8027,8028,8029,8030,8031,8032,8033,8034,8035,8036,8037,8038,8039,8040,8041,8042,8043,8044,8045,8046,8047,8048,8049,8050,8051,8052,8053,8054,8055,8056,8057,8058,8059,8060,8061,8062,8063,8064,8065,8066,8067,8068,8069,8070,9000,9001,9002,9003,9004,9005,9006,9007,9008,9009,9010,9011,9012,9013,9014,9015,9016,9017,9018,9019,9020,9021,9022,9023,10000'
@@ -118,14 +120,17 @@ async function cicloObra(obra: string, ano: number) {
 }
 
 async function ciclo() {
-    console.log(`[CUSTO] [${new Date().toISOString()}] Iniciando atualização das ${OBRAS.length} obras...`)
+    // CUSTO_OBRAS="NES22,NES23" roda só essas obras (útil pra popular uma nova).
+    const filtro = (process.env.CUSTO_OBRAS || '').split(',').map(s => s.trim()).filter(Boolean)
+    const alvo = filtro.length ? OBRAS.filter(o => filtro.includes(o.obra)) : OBRAS
+    console.log(`[CUSTO] [${new Date().toISOString()}] Iniciando atualização das ${alvo.length} obras...`)
     let ok = 0
-    for (const { obra, ano } of OBRAS) {
+    for (const { obra, ano } of alvo) {
         // até 2 tentativas por obra (UAU dá timeout intermitente)
         if (await cicloObra(obra, ano)) ok++
         else if (await cicloObra(obra, ano)) ok++
     }
-    console.log(`[CUSTO] Atualização concluída. ${ok}/${OBRAS.length} obras.`)
+    console.log(`[CUSTO] Atualização concluída. ${ok}/${alvo.length} obras.`)
 }
 
 process.on('unhandledRejection', (r) => console.log('[CUSTO] unhandledRejection:', r))
@@ -137,5 +142,10 @@ async function loop() {
     setTimeout(loop, INTERVALO_MS)
 }
 
-console.log('[CUSTO] Worker de atualização do Acompanhamento de Custo iniciado.')
-loop()
+if (process.env.SYNC_ONCE === '1') {
+    // Roda uma vez e encerra (uso manual no PC).
+    ciclo().then(() => process.exit(0)).catch(() => process.exit(1))
+} else {
+    console.log('[CUSTO] Worker de atualização do Acompanhamento de Custo iniciado.')
+    loop()
+}
