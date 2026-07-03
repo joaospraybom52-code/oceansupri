@@ -117,16 +117,14 @@ export default function AnalyticsPage() {
         }
     })
 
-    // Top 3 obras com pedidos urgentes: % de urgentes entre os pedidos das colunas
-    // "Pedido Confirmado" + grupo "Ordem Gerada" (inclui os urgentes já processados,
-    // senão eles somem do indicador ao virar OC). Só obras cadastradas na aba
-    // Obras do módulo Obras.
-    const STATUS_TOP_URGENTES = ['requisitado', 'aprovado', 'ordem_gerada', 'em_transito', 'aguardando_entrega', 'entregue']
+    // Top 3 obras com pedidos urgentes: % de urgentes sobre TODOS os pedidos da
+    // obra, em qualquer coluna. Cada pedido é 1 registro e conta UMA vez, desde
+    // que entra em Pedido Confirmado — mudar de coluna não duplica nem remove
+    // da conta. Só obras cadastradas na aba Obras do módulo Obras.
     const topUrgentes = (() => {
         const codigosValidos = new Set(obrasEng.map(o => (o.codigo_uau || '').trim().toUpperCase()).filter(Boolean))
         const porObra: Record<string, { codigo: string; nome: string; urgentes: number; total: number }> = {}
         for (const p of filteredPedidos) {
-            if (!STATUS_TOP_URGENTES.includes(p.status_fsm || '')) continue
             const cod = (p.codigo_uau || '').trim().toUpperCase()
             if (!cod || !codigosValidos.has(cod)) continue
             if (!porObra[cod]) {
@@ -418,7 +416,7 @@ export default function AnalyticsPage() {
                         Top 3 Obras — Pedidos Urgentes {mesFiltro ? `em ${mesFiltro.split('-').reverse().join('/')}` : '(Geral)'}
                     </h3>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '-10px', marginBottom: '16px' }}>
-                        % de urgentes nos pedidos em Pedido Confirmado + Ordem Gerada (urgentes ÷ total da obra)
+                        % de urgentes sobre todos os pedidos da obra — cada pedido conta uma vez, desde a entrada
                     </p>
                     {topUrgentes.length === 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', color: 'var(--text-muted)', fontSize: '13px' }}>
