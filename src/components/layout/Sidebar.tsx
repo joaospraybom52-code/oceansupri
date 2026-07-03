@@ -14,15 +14,20 @@ const navItems = [
     { href: '/fornecedores', label: 'Fornecedores', icon: Truck },
 ]
 
+// Visualizadores que também podem ver o Dashboard (além do Board)
+const VISUALIZADORES_COM_DASHBOARD = ['pedrohenrique@constrowins.eng.br']
+
 export default function Sidebar() {
     const pathname = usePathname()
     const [isVisualizador, setIsVisualizador] = useState<boolean>(false)
+    const [emailUser, setEmailUser] = useState<string>('')
     const supabase = createClient()
 
     useEffect(() => {
         async function checkRole() {
             const { data: { user } } = await supabase.auth.getUser()
             if (user?.email) {
+                setEmailUser(user.email.toLowerCase())
                 const { data } = await supabase.from('visualizadores').select('id').eq('email', user.email).single()
                 if (data) setIsVisualizador(true)
             }
@@ -30,8 +35,9 @@ export default function Sidebar() {
         checkRole()
     }, [])
 
-    const filteredNavItems = isVisualizador 
-        ? navItems.filter(item => item.href === '/board')
+    const podeDashboard = VISUALIZADORES_COM_DASHBOARD.includes(emailUser)
+    const filteredNavItems = isVisualizador
+        ? navItems.filter(item => item.href === '/board' || (podeDashboard && item.href === '/analytics'))
         : navItems
 
     return (
