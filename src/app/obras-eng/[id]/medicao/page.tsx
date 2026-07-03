@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Plus, Ruler } from 'lucide-react'
 import Link from 'next/link'
 import { getPapelObras, podeCriarMedProg } from '@/lib/utils/obras-access'
+import DeleteMedicaoButton from '@/components/obras-eng/DeleteMedicaoButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -93,10 +94,16 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
                                     <td style={{ padding: '16px', fontSize: '14px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-green)' }}>
                                         {fmt(totaisPorMedicao[med.id] || 0)}
                                     </td>
-                                    <td style={{ padding: '16px', textAlign: 'right' }}>
+                                    <td style={{ padding: '16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                         <Link href={`/obras-eng/${id}/medicao/${med.id}`} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none' }}>
                                             Ver Detalhes
                                         </Link>
+                                        {podeEditar && (
+                                            <DeleteMedicaoButton
+                                                medicaoId={med.id}
+                                                periodo={`${new Date(med.periodo_inicio).toLocaleDateString('pt-BR')} até ${new Date(med.periodo_fim).toLocaleDateString('pt-BR')}`}
+                                            />
+                                        )}
                                     </td>
                                 </tr>
                             ))}
