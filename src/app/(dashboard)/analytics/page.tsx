@@ -117,14 +117,16 @@ export default function AnalyticsPage() {
         }
     })
 
-    // Top 3 obras com pedidos urgentes: % de urgentes entre os pedidos na coluna
-    // "Pedido Confirmado" (status requisitado), por código, só das obras
-    // cadastradas na aba Obras do módulo Obras.
+    // Top 3 obras com pedidos urgentes: % de urgentes entre os pedidos das colunas
+    // "Pedido Confirmado" + grupo "Ordem Gerada" (inclui os urgentes já processados,
+    // senão eles somem do indicador ao virar OC). Só obras cadastradas na aba
+    // Obras do módulo Obras.
+    const STATUS_TOP_URGENTES = ['requisitado', 'aprovado', 'ordem_gerada', 'em_transito', 'aguardando_entrega', 'entregue']
     const topUrgentes = (() => {
         const codigosValidos = new Set(obrasEng.map(o => (o.codigo_uau || '').trim().toUpperCase()).filter(Boolean))
         const porObra: Record<string, { codigo: string; nome: string; urgentes: number; total: number }> = {}
         for (const p of filteredPedidos) {
-            if (p.status_fsm !== 'requisitado') continue
+            if (!STATUS_TOP_URGENTES.includes(p.status_fsm || '')) continue
             const cod = (p.codigo_uau || '').trim().toUpperCase()
             if (!cod || !codigosValidos.has(cod)) continue
             if (!porObra[cod]) {
@@ -416,7 +418,7 @@ export default function AnalyticsPage() {
                         Top 3 Obras — Pedidos Urgentes {mesFiltro ? `em ${mesFiltro.split('-').reverse().join('/')}` : '(Geral)'}
                     </h3>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '-10px', marginBottom: '16px' }}>
-                        % de pedidos urgentes na coluna Pedido Confirmado (urgentes ÷ total da obra)
+                        % de urgentes nos pedidos em Pedido Confirmado + Ordem Gerada (urgentes ÷ total da obra)
                     </p>
                     {topUrgentes.length === 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', color: 'var(--text-muted)', fontSize: '13px' }}>
