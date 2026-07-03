@@ -10,6 +10,7 @@ import { Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar, Bankno
 export default function AnalyticsPage() {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
     const [compradores, setCompradores] = useState<{ id: string; nome: string }[]>([])
+    const [obrasEng, setObrasEng] = useState<{ codigo_uau: string | null; nome: string }[]>([])
     const [loading, setLoading] = useState(true)
     const [mesFiltro, setMesFiltro] = useState('')
     const supabase = createClient()
@@ -28,6 +29,9 @@ export default function AnalyticsPage() {
             .eq('ativo', true)
             .order('nome')
         if (comps) setCompradores(comps as { id: string; nome: string }[])
+        // Obras cadastradas no módulo Obras (aba Obras) — base do ranking de urgentes
+        const { data: oe } = await supabase.from('obras_eng').select('codigo_uau, nome')
+        if (oe) setObrasEng(oe as { codigo_uau: string | null; nome: string }[])
         setLoading(false)
     }
 
@@ -112,6 +116,29 @@ export default function AnalyticsPage() {
             valorFechado: doComprador.reduce((s, p) => s + (p.valor_fechado || 0), 0),
         }
     })
+
+    // Top 3 obras com pedidos urgentes: % de urgentes entre os pedidos na coluna
+    // "Pedido Confirmado" (status requisitado), por código, só das obras
+    // cadastradas na aba Obras do módulo Obras.
+    const topUrgentes = (() => {
+        const codigosValidos = new Set(obrasEng.map(o => (o.codigo_uau || '').trim().toUpperCase()).filter(Boolean))
+        const porObra: Record<string, { codigo: string; nome: string; urgentes: number; total: number }> = {}
+        for (const p of filteredPedidos) {
+            if (p.status_fsm !== 'requisitado') continue
+            const cod = (p.codigo_uau || '').trim().toUpperCase()
+            if (!cod || !codigosValidos.has(cod)) continue
+            if (!porObra[cod]) {
+                const oe = obrasEng.find(o => (o.codigo_uau || '').trim().toUpperCase() === cod)
+                porObra[cod] = { codigo: cod, nome: oe?.nome || cod, urgentes: 0, total: 0 }
+            }
+            porObra[cod].total++
+            if (p.emergencial) porObra[cod].urgentes++
+        }
+        return Object.values(porObra)
+            .filter(o => o.urgentes > 0)
+            .sort((a, b) => (b.urgentes / b.total) - (a.urgentes / a.total) || b.urgentes - a.urgentes)
+            .slice(0, 3)
+    })()
 
     // Desconto mensal (sempre mostrar evolução total ou filtrar pelo mês selecionado - evolução geralmente não usa o filtro de 1 mês, mas manteremos coerente)
     const descontoMensal: Record<string, { mes: string; total: number; count: number }> = {}
@@ -380,6 +407,46 @@ export default function AnalyticsPage() {
                             </defs>
                         </BarChart>
                     </ResponsiveContainer>
+                </div>
+
+                {/* Top 3 Obras — Pedidos Urgentes */}
+                <div className="chart-container">
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AlertTriangle size={16} style={{ color: 'var(--accent-red)' }} />
+                        Top 3 Obras — Pedidos Urgentes {mesFiltro ? `em ${mesFiltro.split('-').reverse().join('/')}` : '(Geral)'}
+                    </h3>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '-10px', marginBottom: '16px' }}>
+                        % de pedidos urgentes na coluna Pedido Confirmado (urgentes ÷ total da obra)
+                    </p>
+                    {topUrgentes.length === 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                            Nenhum pedido urgente em Pedido Confirmado. 🎉
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                            {topUrgentes.map((o, i) => {
+                                const pct = (o.urgentes / o.total) * 100
+                                const medalha = ['🥇', '🥈', '🥉'][i]
+                                const cor = i === 0 ? '#ef4444' : i === 1 ? '#f59e0b' : '#6366f1'
+                                return (
+                                    <div key={o.codigo}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px', gap: '10px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {medalha} {o.nome} <span style={{ color: 'var(--accent-blue-light, #818cf8)', fontWeight: 700 }}>({o.codigo})</span>
+                                            </span>
+                                            <span style={{ fontSize: '14px', fontWeight: 800, color: cor, whiteSpace: 'nowrap' }}>
+                                                {pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%
+                                                <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '6px' }}>{o.urgentes} de {o.total}</span>
+                                            </span>
+                                        </div>
+                                        <div style={{ height: '8px', borderRadius: '5px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: cor, borderRadius: '5px' }} />
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 
