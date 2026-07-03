@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Wallet, X, Package } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import SearchSelect from '@/components/ui/SearchSelect'
 
 const ADMIN_EDIT_EMAIL = 'engjoao@constrowins.eng.br'
 
@@ -199,9 +200,13 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                     <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Orçado × realizado por item (origem: UAU){atualizado ? ` · atualizado em ${new Date(atualizado).toLocaleString('pt-BR')}` : ''}</p>
                     {canEdit && <p style={{ fontSize: '12px', color: 'var(--accent-green)', marginTop: '2px' }}>✏️ Você pode editar o Planejado das linhas de insumo (sem cor) — os subtotais recalculam automaticamente.</p>}
                 </div>
-                <select value={obraSel} onChange={e => { setObraSel(e.target.value); setSel(null) }} className="select-field" style={{ minWidth: '260px' }}>
-                    {obras.map(o => <option key={o.codigo} value={o.codigo}>{o.nome}</option>)}
-                </select>
+                <SearchSelect
+                    options={obras.map(o => ({ value: o.codigo, label: o.nome }))}
+                    value={obraSel}
+                    onChange={v => { setObraSel(v); setSel(null) }}
+                    placeholder="Selecionar obra..."
+                    minWidth={300}
+                />
             </div>
 
             {rows.length === 0 ? (
