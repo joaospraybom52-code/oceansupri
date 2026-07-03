@@ -117,14 +117,20 @@ export default function AnalyticsPage() {
         }
     })
 
-    // Top 3 obras com pedidos urgentes: % de urgentes sobre TODOS os pedidos da
-    // obra, em qualquer coluna. Cada pedido é 1 registro e conta UMA vez, desde
-    // que entra em Pedido Confirmado — mudar de coluna não duplica nem remove
-    // da conta. Só obras cadastradas na aba Obras do módulo Obras.
+    // Top 3 obras com pedidos urgentes: % de urgentes sobre os pedidos da obra,
+    // em qualquer coluna EXCETO "Compras Diretas" (grupo OC sem pedido+cotação+OC
+    // completos — mesma regra do board). Cada pedido é 1 registro e conta UMA vez,
+    // desde que entra em Pedido Confirmado — mudar de coluna não duplica nem
+    // remove da conta. Só obras cadastradas na aba Obras do módulo Obras.
     const topUrgentes = (() => {
         const codigosValidos = new Set(obrasEng.map(o => (o.codigo_uau || '').trim().toUpperCase()).filter(Boolean))
+        const tem = (v: string | null | undefined) => v != null && String(v).trim() !== ''
+        const ehCompraDireta = (p: PedidoCompra) =>
+            ['aprovado', 'ordem_gerada', 'em_transito', 'aguardando_entrega', 'entregue'].includes(p.status_fsm || '') &&
+            !(tem(p.numero_pedido) && tem(p.categoria_cap) && tem(p.numero_ordem_compra))
         const porObra: Record<string, { codigo: string; nome: string; urgentes: number; total: number }> = {}
         for (const p of filteredPedidos) {
+            if (ehCompraDireta(p)) continue
             const cod = (p.codigo_uau || '').trim().toUpperCase()
             if (!cod || !codigosValidos.has(cod)) continue
             if (!porObra[cod]) {
