@@ -115,8 +115,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
             mes: toYm(m.mes_recebimento),
             nota_fiscal: m.nota_fiscal ?? '',
             observacoes: m.observacoes ?? '',
-            iss: m.iss_percentual != null ? String(m.iss_percentual) : '',
-            inss: m.inss_percentual != null ? String(m.inss_percentual) : '',
+            iss: m.iss_percentual != null ? (Number(m.valor_medicao || 0) * Number(m.iss_percentual) / 100).toFixed(2) : '',
+            inss: m.inss_percentual != null ? (Number(m.valor_medicao || 0) * Number(m.inss_percentual) / 100).toFixed(2) : '',
         })
         setShowModal(true)
     }
@@ -153,8 +153,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
             tipo: form.tipo,
             nota_fiscal: form.tipo === 'emitida' ? (form.nota_fiscal || null) : null,
             observacoes: form.tipo === 'emitida' ? (form.observacoes || null) : null,
-            iss_percentual: form.tipo === 'emitida' && form.iss !== '' ? Number(form.iss) : null,
-            inss_percentual: form.tipo === 'emitida' && form.inss !== '' ? Number(form.inss) : null,
+            // ISS/INSS digitados em R$ -> convertidos para % do valor da medição (é como o banco guarda).
+            iss_percentual: form.tipo === 'emitida' && form.iss !== '' && Number(form.valor) > 0 ? (Number(form.iss) / Number(form.valor)) * 100 : null,
+            inss_percentual: form.tipo === 'emitida' && form.inss !== '' && Number(form.valor) > 0 ? (Number(form.inss) / Number(form.valor)) * 100 : null,
         }
         const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at'
         if (editId) {
@@ -360,7 +361,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                                                 <span style={{ color: st.color, fontWeight: 600 }}>{st.label}</span>
                                                 <span>· {m.obra?.codigo}{m.obra?.cidade ? ` · ${m.obra.cidade}` : ''} · {ymLabel(toYm(isRecebida(m) ? m.mes_recebimento_real : m.mes_recebimento))}</span>
                                                 {m.nota_fiscal && <span>· NF {m.nota_fiscal}</span>}
-                                                {temImposto(m) && aba !== 'descontos' && <span>· líq. de {formatCurrency(Number(m.valor_medicao))} (− ISS {Number(m.iss_percentual || 0)}% − INSS {Number(m.inss_percentual || 0)}%)</span>}
+                                                {temImposto(m) && aba !== 'descontos' && <span>· líq. de {formatCurrency(Number(m.valor_medicao))} (− ISS {formatCurrency(Number(m.valor_medicao) * Number(m.iss_percentual || 0) / 100)} − INSS {formatCurrency(Number(m.valor_medicao) * Number(m.inss_percentual || 0) / 100)})</span>}
                                                 {aba === 'descontos' && <span>· de {formatCurrency(Number(m.valor_medicao))}</span>}
                                             </div>
                                         </div>
@@ -429,14 +430,14 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                                 <>
                                     <div><label style={lbl}>Nota fiscal</label><input type="text" value={form.nota_fiscal} onChange={e => setForm({ ...form, nota_fiscal: e.target.value })} className="input-field" placeholder="Nº da NF" /></div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        <div><label style={lbl}>ISS (%)</label><input type="number" step="0.01" min="0" max="100" value={form.iss} onChange={e => setForm({ ...form, iss: e.target.value })} className="input-field" placeholder="Ex: 5" /></div>
-                                        <div><label style={lbl}>INSS (%)</label><input type="number" step="0.01" min="0" max="100" value={form.inss} onChange={e => setForm({ ...form, inss: e.target.value })} className="input-field" placeholder="Ex: 11" /></div>
+                                        <div><label style={lbl}>ISS (R$)</label><input type="number" step="0.01" min="0" value={form.iss} onChange={e => setForm({ ...form, iss: e.target.value })} className="input-field" placeholder="Ex: 500,00" /></div>
+                                        <div><label style={lbl}>INSS (R$)</label><input type="number" step="0.01" min="0" value={form.inss} onChange={e => setForm({ ...form, inss: e.target.value })} className="input-field" placeholder="Ex: 1.100,00" /></div>
                                     </div>
-                                    {(form.iss || form.inss) && form.valor && (
+                                    {(form.iss || form.inss) && form.valor && Number(form.valor) > 0 && (
                                         <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '-4px 0 0' }}>
-                                            ISS: <strong style={{ color: 'var(--text-secondary)' }}>{formatCurrency(Number(form.valor) * (Number(form.iss || 0) / 100))}</strong>
-                                            {' · '}INSS: <strong style={{ color: 'var(--text-secondary)' }}>{formatCurrency(Number(form.valor) * (Number(form.inss || 0) / 100))}</strong>
-                                            {' · '}Líquido: <strong style={{ color: 'var(--accent-green)' }}>{formatCurrency(Number(form.valor) * (1 - (Number(form.iss || 0) + Number(form.inss || 0)) / 100))}</strong>
+                                            ISS: <strong style={{ color: 'var(--text-secondary)' }}>{(Number(form.iss || 0) / Number(form.valor) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%</strong>
+                                            {' · '}INSS: <strong style={{ color: 'var(--text-secondary)' }}>{(Number(form.inss || 0) / Number(form.valor) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%</strong>
+                                            {' · '}Líquido: <strong style={{ color: 'var(--accent-green)' }}>{formatCurrency(Number(form.valor) - Number(form.iss || 0) - Number(form.inss || 0))}</strong>
                                         </p>
                                     )}
                                     <div><label style={lbl}>Observações</label><textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} className="input-field" rows={2} placeholder="Observações" /></div>
