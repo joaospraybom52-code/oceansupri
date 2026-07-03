@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { StatusFSM } from '@/lib/types/database'
+import type { BoardColumn } from '@/lib/utils/kpi-calculations'
 
 interface KanbanColumnProps {
-    status: StatusFSM
+    status: BoardColumn
     label: string
     color: string
     count: number

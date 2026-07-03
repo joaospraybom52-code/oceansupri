@@ -1,6 +1,10 @@
 import { StatusFSM } from '@/lib/types/database'
 
-export const STATUS_LABELS: Record<StatusFSM, string> = {
+// Coluna do board: os status reais + a coluna virtual "Compras Diretas"
+// (cards com pedido+OC mas sem cotação — split client-side da Ordem Gerada).
+export type BoardColumn = StatusFSM | 'compra_direta'
+
+export const STATUS_LABELS: Record<BoardColumn, string> = {
     requisitado: 'Pedido Confirmado',
     em_cotacao: 'Em Cotação',
     aguardando_aprovacao: 'Aguard. Aprovação',
@@ -9,9 +13,10 @@ export const STATUS_LABELS: Record<StatusFSM, string> = {
     em_transito: 'Em Trânsito',
     aguardando_entrega: 'Aguard. Entrega',
     entregue: 'Entregue',
+    compra_direta: 'Compras Diretas',
 }
 
-export const STATUS_COLORS: Record<StatusFSM, string> = {
+export const STATUS_COLORS: Record<BoardColumn, string> = {
     requisitado: '#6366f1',
     em_cotacao: '#f59e0b',
     aguardando_aprovacao: '#ef4444',
@@ -20,12 +25,14 @@ export const STATUS_COLORS: Record<StatusFSM, string> = {
     em_transito: '#f97316',
     aguardando_entrega: '#8b5cf6',
     entregue: '#059669',
+    compra_direta: '#14b8a6',
 }
 
-export const KANBAN_COLUMNS: StatusFSM[] = [
+export const KANBAN_COLUMNS: BoardColumn[] = [
     'requisitado',
     'em_cotacao',
     'ordem_gerada',
+    'compra_direta',
 ]
 
 export const STATUS_ORDER: StatusFSM[] = [

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PedidoCompra, StatusFSM } from '@/lib/types/database'
-import { KANBAN_COLUMNS, STATUS_LABELS, STATUS_COLORS, getNextStatus } from '@/lib/utils/kpi-calculations'
+import { KANBAN_COLUMNS, STATUS_LABELS, STATUS_COLORS, BoardColumn } from '@/lib/utils/kpi-calculations'
 import KanbanColumn from './KanbanColumn'
 import KanbanCard from './KanbanCard'
 import PedidoModal from '@/components/pedidos/PedidoModal'
@@ -38,7 +38,9 @@ export default function KanbanBoard({ initialPedidos, isReadOnly = false, dragDi
         loadCompradores()
     }, [])
 
-    async function handleDrop(targetStatus: StatusFSM, rawDragData: string) {
+    async function handleDrop(targetColumn: BoardColumn, rawDragData: string) {
+        // Coluna virtual mapeia para o status real correspondente
+        const targetStatus: StatusFSM = targetColumn === 'compra_direta' ? 'ordem_gerada' : targetColumn
         const [dragData] = rawDragData.split('|');
         const isGroup = dragData.startsWith('group:');
         const id = dragData.replace('group:', '').replace('pedido:', '');
@@ -153,17 +155,27 @@ export default function KanbanBoard({ initialPedidos, isReadOnly = false, dragDi
         setTransitionPedido(null)
     }
 
-    function getPedidosByStatus(status: StatusFSM): PedidoCompra[] {
+    function getPedidosByStatus(status: BoardColumn): PedidoCompra[] {
+        const tem = (v: string | null | undefined) => v != null && String(v).trim() !== ''
         if (status === 'em_cotacao') {
             return pedidos.filter(p => ['em_cotacao', 'aguardando_aprovacao'].includes(p.status_fsm || ''))
         }
+        // Grupo de status com OC gerada, dividido em duas colunas:
+        //  - Ordem Gerada: tem pedido + cotação + OC
+        //  - Compras Diretas: o restante (pedido + OC sem cotação; complemento
+        //    exato para nenhum card ficar invisível)
+        const isOc = (p: PedidoCompra) => ['aprovado', 'ordem_gerada', 'em_transito', 'aguardando_entrega', 'entregue'].includes(p.status_fsm || '')
+        const completo = (p: PedidoCompra) => tem(p.numero_pedido) && tem(p.categoria_cap) && tem(p.numero_ordem_compra)
         if (status === 'ordem_gerada') {
-            return pedidos.filter(p => ['aprovado', 'ordem_gerada', 'em_transito', 'aguardando_entrega', 'entregue'].includes(p.status_fsm || ''))
+            return pedidos.filter(p => isOc(p) && completo(p))
+        }
+        if (status === 'compra_direta') {
+            return pedidos.filter(p => isOc(p) && !completo(p))
         }
         return pedidos.filter(p => p.status_fsm === status)
     }
 
-    function getGroupedPedidosByStatus(status: StatusFSM): PedidoCompra[][] {
+    function getGroupedPedidosByStatus(status: BoardColumn): PedidoCompra[][] {
         const statusPedidos = getPedidosByStatus(status);
         const groups: Record<string, PedidoCompra[]> = {};
         const singles: PedidoCompra[][] = [];
