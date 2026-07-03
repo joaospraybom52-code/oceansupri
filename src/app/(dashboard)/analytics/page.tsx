@@ -94,20 +94,24 @@ export default function AnalyticsPage() {
     })
     const savingCompradorData = Object.values(savingPorComprador).sort((a, b) => b.saving - a.saving)
 
-    // Volume de ordens geradas por comprador: SÓ Juliana e Everaldo (pelo comprador
-    // do UAU que gerou a OC). Conta pedidos com data_ordem_gerada no período.
+    // Ordens geradas e valor fechado por comprador: SÓ Juliana e Everaldo (pelo
+    // comprador do UAU que gerou a OC). Base: pedidos com data_ordem_gerada no período.
     const ordemGeradaData = [
         { key: 'juliana', nome: 'Juliana' },
         { key: 'everaldo', nome: 'Everaldo' },
-    ].map(c => ({
-        nome: c.nome,
-        ordens: pedidos.filter(p => {
+    ].map(c => {
+        const doComprador = pedidos.filter(p => {
             if (!(p.comprador_uau || '').toLowerCase().includes(c.key)) return false
             if (!p.data_ordem_gerada) return false
             if (!mesFiltro) return true
             return p.data_ordem_gerada.startsWith(mesFiltro)
-        }).length,
-    }))
+        })
+        return {
+            nome: c.nome,
+            ordens: doComprador.length,
+            valorFechado: doComprador.reduce((s, p) => s + (p.valor_fechado || 0), 0),
+        }
+    })
 
     // Desconto mensal (sempre mostrar evolução total ou filtrar pelo mês selecionado - evolução geralmente não usa o filtro de 1 mês, mas manteremos coerente)
     const descontoMensal: Record<string, { mes: string; total: number; count: number }> = {}
@@ -343,6 +347,35 @@ export default function AnalyticsPage() {
                                 <linearGradient id="purpleGradient" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="0%" stopColor="#8b5cf6" />
                                     <stop offset="100%" stopColor="#6366f1" />
+                                </linearGradient>
+                            </defs>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* Valor Fechado por Comprador */}
+                <div className="chart-container">
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Banknote size={16} style={{ color: 'var(--accent-green)' }} />
+                        Valor Fechado por Comprador {mesFiltro ? `em ${mesFiltro.split('-').reverse().join('/')}` : '(Geral)'}
+                    </h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={ordemGeradaData} margin={{ top: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                            <XAxis dataKey="nome" stroke="var(--text-muted)" fontSize={10} />
+                            <YAxis stroke="var(--text-muted)" fontSize={10} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
+                            <Tooltip
+                                contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: '8px', fontSize: '12px' }}
+                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                formatter={(value) => [formatCurrency(value as number), 'Valor fechado']}
+                            />
+                            <Bar dataKey="valorFechado" fill="url(#greenGradientVF)" radius={[4, 4, 0, 0]}>
+                                <LabelList dataKey="valorFechado" position="top" fill="var(--accent-green)" fontSize={11} fontWeight={700} formatter={(v: any) => formatCurrency(Number(v))} />
+                            </Bar>
+                            <defs>
+                                <linearGradient id="greenGradientVF" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#10b981" />
+                                    <stop offset="100%" stopColor="#059669" />
                                 </linearGradient>
                             </defs>
                         </BarChart>
