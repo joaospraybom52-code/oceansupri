@@ -19,7 +19,7 @@ const toStr = (v: any) => v == null ? '' : String(v).replace('.', ',')
 const toNum = (v: string): number | null => v.trim() === '' ? null : Number(v.replace(',', '.'))
 const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''
 
-export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { obraId: string, initialSemanas: any[], podeEditar: boolean }) {
+export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeEditarLinhaBase = false }: { obraId: string, initialSemanas: any[], podeEditar: boolean, podeEditarLinhaBase?: boolean }) {
     const supabase = createClient()
     const router = useRouter()
     const [rows, setRows] = useState<Row[]>(
@@ -160,11 +160,16 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar }: { o
                                         <td style={td}>
                                             <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px' }} disabled={!podeEditar} />
                                         </td>
-                                        {(['lb1_pct', 'real_pct'] as const).map(campo => (
-                                            <td style={td} key={campo}>
-                                                <input type="text" inputMode="decimal" value={r[campo]} onChange={e => update(i, campo, e.target.value)} className="input-field" style={{ padding: '6px 8px', width: '90px' }} placeholder="-" disabled={!podeEditar} />
-                                            </td>
-                                        ))}
+                                        {(['lb1_pct', 'real_pct'] as const).map(campo => {
+                                            // Linha de Base: restrita aos editores autorizados (engjoao/planejamento)
+                                            const bloqueado = campo === 'lb1_pct' ? !podeEditarLinhaBase : !podeEditar
+                                            return (
+                                                <td style={td} key={campo}>
+                                                    <input type="text" inputMode="decimal" value={r[campo]} onChange={e => update(i, campo, e.target.value)} className="input-field" style={{ padding: '6px 8px', width: '90px', opacity: bloqueado ? 0.6 : 1 }} placeholder="-" disabled={bloqueado}
+                                                        title={campo === 'lb1_pct' && bloqueado ? 'Linha de Base: só engjoao e planejamento podem alterar' : undefined} />
+                                                </td>
+                                            )
+                                        })}
                                         <td style={{ ...td, fontWeight: 600, color: 'var(--accent-amber, #f59e0b)' }}>
                                             {tend == null ? '-' : `${tend.toFixed(1)}%`}
                                         </td>

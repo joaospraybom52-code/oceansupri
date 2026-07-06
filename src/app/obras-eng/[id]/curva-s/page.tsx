@@ -16,5 +16,10 @@ export default async function CurvaSPage({ params }: { params: Promise<{ id: str
 
     const podeEditar = podeCriarMedProg(await getPapelObras())
 
-    return <CurvaSClient obraId={id} initialSemanas={semanas || []} podeEditar={podeEditar} />
+    // Linha de Base: só estes usuários podem preencher/alterar
+    const EDITORES_LINHA_BASE = ['engjoao@constrowins.eng.br', 'planejamento@constrowins.eng.br']
+    const { data: { user } } = await supabase.auth.getUser()
+    const podeEditarLinhaBase = podeEditar && EDITORES_LINHA_BASE.includes((user?.email || '').toLowerCase())
+
+    return <CurvaSClient obraId={id} initialSemanas={semanas || []} podeEditar={podeEditar} podeEditarLinhaBase={podeEditarLinhaBase} />
 }
