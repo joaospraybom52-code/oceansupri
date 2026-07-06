@@ -7,6 +7,7 @@ import {
 import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import MultiSelect from '@/components/ui/MultiSelect'
 
 interface Obra {
     id: string
@@ -49,6 +50,22 @@ const ymLabel = (ym: string) => {
 }
 
 // estágio derivado de cada medição
+// Filtro Ano/Mês igual ao da aba KPI'S: vazio = tudo; funciona com 'YYYY-MM' e 'YYYY-MM-DD'.
+const matchPeriodo = (data: string | null, anos: string[], meses: string[]) => {
+    if (anos.length === 0 && meses.length === 0) return true
+    if (!data) return false
+    if (anos.length && !anos.includes(data.slice(0, 4))) return false
+    if (meses.length && !meses.includes(data.slice(5, 7))) return false
+    return true
+}
+
+const MESES_FILTRO = [
+    { v: '01', n: 'Janeiro' }, { v: '02', n: 'Fevereiro' }, { v: '03', n: 'Março' },
+    { v: '04', n: 'Abril' }, { v: '05', n: 'Maio' }, { v: '06', n: 'Junho' },
+    { v: '07', n: 'Julho' }, { v: '08', n: 'Agosto' }, { v: '09', n: 'Setembro' },
+    { v: '10', n: 'Outubro' }, { v: '11', n: 'Novembro' }, { v: '12', n: 'Dezembro' },
+]
+
 // Lê valor em pt-BR ("142.321,21" -> 142321.21).
 const parseBRL = (raw: string) => parseFloat(String(raw).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'))
 const fmtNum = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -84,8 +101,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
 
     // Filtros
     const [filtroCodigo, setFiltroCodigo] = useState('')
-    const [filtroDe, setFiltroDe] = useState('')
-    const [filtroAte, setFiltroAte] = useState('')
+    const [filtroAnos, setFiltroAnos] = useState<string[]>([])
+    const [filtroMeses, setFiltroMeses] = useState<string[]>([])
 
     // Aba do painel da direita: previsão / a receber / recebidas / descontos por antecipação
     const [aba, setAba] = useState<'previsao' | 'aReceber' | 'recebidas' | 'descontos'>('aReceber')
@@ -203,10 +220,19 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
     const medicoesFiltradas = useMemo(() => medicoes.filter(m => {
         if (filtroCodigo && m.obra?.codigo !== filtroCodigo) return false
         const refYm = isRecebida(m) ? toYm(m.mes_recebimento_real) : toYm(m.mes_recebimento)
-        if (filtroDe && refYm < filtroDe) return false
-        if (filtroAte && refYm > filtroAte) return false
-        return true
-    }), [medicoes, filtroCodigo, filtroDe, filtroAte])
+        return matchPeriodo(refYm, filtroAnos, filtroMeses)
+    }), [medicoes, filtroCodigo, filtroAnos, filtroMeses])
+
+    // Anos disponíveis (medições + comprometido)
+    const anoOptions = useMemo(() => {
+        const anos = new Set<string>()
+        for (const m of medicoes) {
+            const ym = isRecebida(m) ? toYm(m.mes_recebimento_real) : toYm(m.mes_recebimento)
+            if (ym) anos.add(ym.slice(0, 4))
+        }
+        for (const c of comprometido) if (c.ym) anos.add(c.ym.slice(0, 4))
+        return Array.from(anos).sort()
+    }, [medicoes, comprometido])
 
     // Gráfico: 4 séries por mês (previsto / emitida / recebido / comprometido)
     const chartData = useMemo(() => {
@@ -224,12 +250,11 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
         // Comprometido (UAU) respeita os mesmos filtros de obra e período
         for (const c of comprometido) {
             if (filtroCodigo && c.obra !== filtroCodigo) continue
-            if (filtroDe && c.ym < filtroDe) continue
-            if (filtroAte && c.ym > filtroAte) continue
+            if (!matchPeriodo(c.ym, filtroAnos, filtroMeses)) continue
             add(c.ym, 'comprometido', c.valor)
         }
         return Object.keys(map).sort().map(ym => ({ ym, label: ymLabel(ym), ...map[ym] }))
-    }, [medicoesFiltradas, comprometido, filtroCodigo, filtroDe, filtroAte])
+    }, [medicoesFiltradas, comprometido, filtroCodigo, filtroAnos, filtroMeses])
 
     // KPIs: "A receber" = só nota emitida ainda não recebida; "Já recebido" = o que foi recebido
     const totalAReceber = medicoesFiltradas.filter(m => m.tipo === 'emitida' && !isRecebida(m)).reduce((s, m) => s + valorLiquido(m), 0)
@@ -245,7 +270,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
     const totalAba = listaAba.reduce((s, m) => s + valorDaLinha(m), 0)
     const corAba = aba === 'descontos' ? 'var(--accent-red, #ef4444)' : aba === 'previsao' ? '#6366f1' : 'var(--accent-green)'
 
-    const limparFiltros = () => { setFiltroCodigo(''); setFiltroDe(''); setFiltroAte('') }
+    const limparFiltros = () => { setFiltroCodigo(''); setFiltroAnos([]); setFiltroMeses([]) }
 
     return (
         <div>
@@ -278,14 +303,26 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                     </select>
                 </div>
                 <div>
-                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>De (mês)</label>
-                    <input type="month" value={filtroDe} onChange={e => setFiltroDe(e.target.value)} className="input-field" />
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Ano</label>
+                    <MultiSelect
+                        selected={filtroAnos}
+                        onChange={setFiltroAnos}
+                        options={anoOptions.map(a => ({ value: a, label: a }))}
+                        placeholder="Todos os anos"
+                        minWidth={150}
+                    />
                 </div>
                 <div>
-                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Até (mês)</label>
-                    <input type="month" value={filtroAte} onChange={e => setFiltroAte(e.target.value)} className="input-field" />
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Mês</label>
+                    <MultiSelect
+                        selected={filtroMeses}
+                        onChange={setFiltroMeses}
+                        options={MESES_FILTRO.map(m => ({ value: m.v, label: m.n }))}
+                        placeholder="Todos os meses"
+                        minWidth={170}
+                    />
                 </div>
-                {(filtroCodigo || filtroDe || filtroAte) && <button onClick={limparFiltros} className="btn-secondary">Limpar filtros</button>}
+                {(filtroCodigo || filtroAnos.length > 0 || filtroMeses.length > 0) && <button onClick={limparFiltros} className="btn-secondary">Limpar filtros</button>}
             </div>
 
             {/* Gráfico + Tabela */}
