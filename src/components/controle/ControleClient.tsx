@@ -76,7 +76,9 @@ const iconBtnStyle: React.CSSProperties = {
     cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0,
 }
 
-export default function ControleClient({ obras, medicoesIniciais, podeEditar }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean }) {
+interface ComprometidoMes { obra: string; ym: string; valor: number }
+
+export default function ControleClient({ obras, medicoesIniciais, podeEditar, comprometido = [] }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean; comprometido?: ComprometidoMes[] }) {
     const supabase = createClient()
     const [medicoes, setMedicoes] = useState<Medicao[]>(medicoesIniciais)
 
@@ -206,10 +208,10 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
         return true
     }), [medicoes, filtroCodigo, filtroDe, filtroAte])
 
-    // Gráfico: 3 séries por mês (previsto / emitida / recebido)
+    // Gráfico: 4 séries por mês (previsto / emitida / recebido / comprometido)
     const chartData = useMemo(() => {
-        const map: Record<string, { previsto?: number; emitida?: number; recebido?: number }> = {}
-        const add = (ym: string, key: 'previsto' | 'emitida' | 'recebido', v: number) => {
+        const map: Record<string, { previsto?: number; emitida?: number; recebido?: number; comprometido?: number }> = {}
+        const add = (ym: string, key: 'previsto' | 'emitida' | 'recebido' | 'comprometido', v: number) => {
             if (!ym) return
             map[ym] = map[ym] || {}
             map[ym][key] = (map[ym][key] || 0) + v
@@ -219,8 +221,15 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
             else if (m.tipo === 'emitida') add(toYm(m.mes_recebimento), 'emitida', valorLiquido(m))
             else add(toYm(m.mes_recebimento), 'previsto', valorLiquido(m))
         }
+        // Comprometido (UAU) respeita os mesmos filtros de obra e período
+        for (const c of comprometido) {
+            if (filtroCodigo && c.obra !== filtroCodigo) continue
+            if (filtroDe && c.ym < filtroDe) continue
+            if (filtroAte && c.ym > filtroAte) continue
+            add(c.ym, 'comprometido', c.valor)
+        }
         return Object.keys(map).sort().map(ym => ({ ym, label: ymLabel(ym), ...map[ym] }))
-    }, [medicoesFiltradas])
+    }, [medicoesFiltradas, comprometido, filtroCodigo, filtroDe, filtroAte])
 
     // KPIs: "A receber" = só nota emitida ainda não recebida; "Já recebido" = o que foi recebido
     const totalAReceber = medicoesFiltradas.filter(m => m.tipo === 'emitida' && !isRecebida(m)).reduce((s, m) => s + valorLiquido(m), 0)
@@ -301,7 +310,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                                         cursor={{ stroke: 'rgba(255,255,255,0.1)' }} isAnimationActive={false}
                                         content={({ active, payload, label }) => {
                                             if (!active || !payload?.length) return null
-                                            const nomes: Record<string, string> = { previsto: 'Previsão', emitida: 'Emitida', recebido: 'Recebido' }
+                                            const nomes: Record<string, string> = { previsto: 'Previsão', emitida: 'Emitida', recebido: 'Recebido', comprometido: 'Comprometido' }
                                             return (
                                                 <div style={tooltipStyle}>
                                                     <p style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>{label}</p>
@@ -320,12 +329,15 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar }: 
                                         dot={{ r: 4, fill: '#111128', stroke: '#f59e0b', strokeWidth: 2 }} />
                                     <Line type="monotone" dataKey="recebido" stroke="#10b981" strokeWidth={3} connectNulls
                                         dot={{ r: 4, fill: '#111128', stroke: '#10b981', strokeWidth: 2 }} />
+                                    <Line type="monotone" dataKey="comprometido" stroke="#38bdf8" strokeWidth={3} connectNulls
+                                        dot={{ r: 4, fill: '#111128', stroke: '#38bdf8', strokeWidth: 2 }} />
                                 </RLineChart>
                             </ResponsiveContainer>
                             <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '16px', flexWrap: 'wrap' }}>
                                 <Legenda cor="#6366f1" texto="Previsão" tracejado />
                                 <Legenda cor="#f59e0b" texto="Emitida" />
                                 <Legenda cor="#10b981" texto="Recebido" />
+                                <Legenda cor="#38bdf8" texto="Comprometido" />
                             </div>
                         </>
                     )}
