@@ -311,6 +311,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                                         content={({ active, payload, label }) => {
                                             if (!active || !payload?.length) return null
                                             const nomes: Record<string, string> = { previsto: 'Previsão', emitida: 'Emitida', recebido: 'Recebido', comprometido: 'Comprometido' }
+                                            const ponto: any = payload[0]?.payload ?? {}
+                                            const temSaldo = ponto.comprometido != null
+                                            const saldoMes = Number(ponto.recebido || 0) - Number(ponto.comprometido || 0)
                                             return (
                                                 <div style={tooltipStyle}>
                                                     <p style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>{label}</p>
@@ -319,6 +322,11 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                                                             {nomes[p.dataKey] ?? p.dataKey}: <strong style={{ color: '#f1f5f9' }}>{formatCurrency(Number(p.value ?? 0))}</strong>
                                                         </p>
                                                     ))}
+                                                    {temSaldo && (
+                                                        <p style={{ margin: '6px 0 0', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: '#94a3b8' }}>
+                                                            Recebido − Comprometido: <strong style={{ color: saldoMes >= 0 ? '#10b981' : '#ef4444' }}>{formatCurrency(saldoMes)}</strong>
+                                                        </p>
+                                                    )}
                                                 </div>
                                             )
                                         }}
@@ -329,15 +337,15 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                                         dot={{ r: 4, fill: '#111128', stroke: '#f59e0b', strokeWidth: 2 }} />
                                     <Line type="monotone" dataKey="recebido" stroke="#10b981" strokeWidth={3} connectNulls
                                         dot={{ r: 4, fill: '#111128', stroke: '#10b981', strokeWidth: 2 }} />
-                                    <Line type="monotone" dataKey="comprometido" stroke="#38bdf8" strokeWidth={3} connectNulls
-                                        dot={{ r: 4, fill: '#111128', stroke: '#38bdf8', strokeWidth: 2 }} />
+                                    <Line type="monotone" dataKey="comprometido" stroke="#ef4444" strokeWidth={3} connectNulls
+                                        dot={{ r: 4, fill: '#111128', stroke: '#ef4444', strokeWidth: 2 }} />
                                 </RLineChart>
                             </ResponsiveContainer>
                             <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '16px', flexWrap: 'wrap' }}>
                                 <Legenda cor="#6366f1" texto="Previsão" tracejado />
                                 <Legenda cor="#f59e0b" texto="Emitida" />
                                 <Legenda cor="#10b981" texto="Recebido" />
-                                <Legenda cor="#38bdf8" texto="Comprometido" />
+                                <Legenda cor="#ef4444" texto="Comprometido" />
                             </div>
                         </>
                     )}
