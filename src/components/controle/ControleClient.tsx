@@ -101,7 +101,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
 
     // Filtros
     const [filtroCodigo, setFiltroCodigo] = useState('')
-    const [filtroAnos, setFiltroAnos] = useState<string[]>([])
+    const [filtroAnos, setFiltroAnos] = useState<string[]>(['2026']) // padrão: ano atual fixado
     const [filtroMeses, setFiltroMeses] = useState<string[]>([])
 
     // Aba do painel da direita: previsão / a receber / recebidas / descontos por antecipação
@@ -270,7 +270,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
     const totalAba = listaAba.reduce((s, m) => s + valorDaLinha(m), 0)
     const corAba = aba === 'descontos' ? 'var(--accent-red, #ef4444)' : aba === 'previsao' ? '#6366f1' : 'var(--accent-green)'
 
-    const limparFiltros = () => { setFiltroCodigo(''); setFiltroAnos([]); setFiltroMeses([]) }
+    const limparFiltros = () => { setFiltroCodigo(''); setFiltroAnos(['2026']); setFiltroMeses([]) }
 
     return (
         <div>
@@ -293,8 +293,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                 <KpiCard icon={CheckCircle2} color="#10b981" label="Já recebido (filtro)" value={formatCurrency(totalRecebido)} />
             </div>
 
-            {/* Filtros */}
-            <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
+            {/* Filtros (zIndex acima dos cards seguintes: o backdrop-filter do
+                glass-card cria stacking context e o menu ficava por trás do gráfico) */}
+            <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end', position: 'relative', zIndex: 10 }}>
                 <div>
                     <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Código da obra</label>
                     <select value={filtroCodigo} onChange={e => setFiltroCodigo(e.target.value)} className="select-field" style={{ minWidth: '200px' }}>
