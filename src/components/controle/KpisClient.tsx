@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useState, useRef, useEffect } from 'react'
-import { CheckCircle2, AlertCircle, ChevronDown, Search, X as XIcon } from 'lucide-react'
+import { CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react'
 import { LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import MultiSearchSelect from '@/components/ui/MultiSearchSelect'
 
 interface Obra {
     id: string
@@ -106,7 +107,8 @@ const MESES = [
 
 export default function KpisClient({ obras, recebido, pago, vendasrec, areceber, vgv, pagoIC, atualizadoEm }: { obras: Obra[]; recebido: RecebidoRow[]; pago: PagoRow[]; vendasrec: VendasRecRow[]; areceber: AReceberRow[]; vgv: VgvRow[]; pagoIC: PagoICRow[]; atualizadoEm: string | null }) {
     // Filtros (dimensões código da obra + ano + mês)
-    const [filtroCodigo, setFiltroCodigo] = useState('')
+    const [filtroObras, setFiltroObras] = useState<string[]>([])
+    const obraMatch = (cod: string | null | undefined) => filtroObras.length === 0 || filtroObras.includes(cod ?? '')
     const [filtroAnos, setFiltroAnos] = useState<string[]>([])
     const [filtroMeses, setFiltroMeses] = useState<string[]>([])
     // Cross-filter das tabelas drill-down: insumo selecionado filtra os clientes
@@ -140,8 +142,8 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
 
     // recebido filtrado por obra + período (dimensões)
     const recebidoFiltrado = useMemo(() => recebido.filter(r =>
-        (!filtroCodigo || r.obra_rec === filtroCodigo) && matchPeriodo(r.data_rec, filtroAnos, filtroMeses),
-    ), [recebido, filtroCodigo, filtroAnos, filtroMeses])
+        obraMatch(r.obra_rec) && matchPeriodo(r.data_rec, filtroAnos, filtroMeses),
+    ), [recebido, filtroObras, filtroAnos, filtroMeses])
 
     // Total Recebido Real = SUM(recebido[TotConf])
     const totalRecebidoReal = useMemo(() => recebidoFiltrado
@@ -169,8 +171,8 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // pago já filtrado por obra + período (dimensões); as medidas abaixo só
     // aplicam o filtro de TipoControle por cima.
     const pagoFiltrado = useMemo(() => pago.filter(p =>
-        (!filtroCodigo || p.obra === filtroCodigo) && matchPeriodo(p.data_movimento, filtroAnos, filtroMeses),
-    ), [pago, filtroCodigo, filtroAnos, filtroMeses])
+        obraMatch(p.obra) && matchPeriodo(p.data_movimento, filtroAnos, filtroMeses),
+    ), [pago, filtroObras, filtroAnos, filtroMeses])
 
     // Total Pago = SUM(VlrAtPago) onde TipoControle = "Despesas"
     const totalPago = useMemo(() => pagoFiltrado
@@ -192,8 +194,8 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
 
     // A_receber filtrado por obra + período (dimensões)
     const areceberFiltrado = useMemo(() => areceber.filter(a =>
-        (!filtroCodigo || a.obra === filtroCodigo) && matchPeriodo(a.data_ven, filtroAnos, filtroMeses),
-    ), [areceber, filtroCodigo, filtroAnos, filtroMeses])
+        obraMatch(a.obra) && matchPeriodo(a.data_ven, filtroAnos, filtroMeses),
+    ), [areceber, filtroObras, filtroAnos, filtroMeses])
 
     // Faturado a Receber = SUM(ValProvisaoCurto_Ven) + SUM(ValDescontoImposto_ven) onde NumParcGer_Prc = '1'
     const faturadoAReceber = useMemo(() => areceberFiltrado
@@ -210,9 +212,9 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // Valor de Venda (VGV) = SUM(VGV[VALOR DE VENDA]) — filtrado por obra e por ano (VGV[ano]).
     // O Mês não se aplica (VGV só tem ano).
     const valorVendaVGV = useMemo(() => vgv
-        .filter(v => (!filtroCodigo || v.codigo_obra === filtroCodigo) && (filtroAnos.length === 0 || filtroAnos.includes(String(v.ano ?? ''))))
+        .filter(v => obraMatch(v.codigo_obra) && (filtroAnos.length === 0 || filtroAnos.includes(String(v.ano ?? ''))))
         .reduce((s, v) => s + Number(v.valor_venda || 0), 0),
-        [vgv, filtroCodigo, filtroAnos])
+        [vgv, filtroObras, filtroAnos])
 
     // pagoIC filtrado pelo Ano/Mês (data_movimento) — o filtro de data agora vale nas tabelas
     const pagoICFiltrado = useMemo(() => pagoIC.filter(r => matchPeriodo(r.data_movimento, filtroAnos, filtroMeses)),
@@ -243,7 +245,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         return Array.from(m.values())
     }, [pagoICFiltrado, insumoSel])
 
-    const limparFiltros = () => { setFiltroCodigo(''); setFiltroAnos([]); setFiltroMeses([]) }
+    const limparFiltros = () => { setFiltroObras([]); setFiltroAnos([]); setFiltroMeses([]) }
 
     return (
         <div>
@@ -262,9 +264,9 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
             <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
                 <div>
                     <label style={lbl}>Código da obra</label>
-                    <SearchSelect
-                        value={filtroCodigo}
-                        onChange={setFiltroCodigo}
+                    <MultiSearchSelect
+                        selected={filtroObras}
+                        onChange={setFiltroObras}
                         options={obraOptions.map(o => ({ value: o.codigo, label: o.label }))}
                         placeholder="Todas as obras"
                         minWidth={280}
@@ -290,7 +292,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
                         minWidth={170}
                     />
                 </div>
-                {(filtroCodigo || filtroAnos.length > 0 || filtroMeses.length > 0) && <button onClick={limparFiltros} className="btn-secondary">Limpar filtros</button>}
+                {(filtroObras.length > 0 || filtroAnos.length > 0 || filtroMeses.length > 0) && <button onClick={limparFiltros} className="btn-secondary">Limpar filtros</button>}
             </div>
 
             {/* Cards de KPI */}
@@ -389,62 +391,6 @@ function MultiSelect({ options, selected, onChange, placeholder, minWidth }: {
     )
 }
 
-// Seleção única com busca por nome (Código da obra)
-function SearchSelect({ options, value, onChange, placeholder, minWidth }: {
-    options: Opcao[]; value: string; onChange: (v: string) => void; placeholder: string; minWidth?: number
-}) {
-    const [open, setOpen] = useState(false)
-    const [query, setQuery] = useState('')
-    const ref = useRef<HTMLDivElement>(null)
-    useEffect(() => {
-        if (!open) return
-        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQuery('') } }
-        document.addEventListener('mousedown', h)
-        return () => document.removeEventListener('mousedown', h)
-    }, [open])
-    const selLabel = options.find(o => o.value === value)?.label ?? ''
-    const q = query.trim().toLowerCase()
-    const filtered = q ? options.filter(o => o.label.toLowerCase().includes(q)) : options
-    const pick = (v: string) => { onChange(v); setOpen(false); setQuery('') }
-    return (
-        <div ref={ref} className="ss" style={{ minWidth }}>
-            <button type="button" className="ss-box" onClick={() => setOpen(o => !o)}>
-                <span className={value ? 'ss-val' : 'ss-ph'}>{value ? selLabel : placeholder}</span>
-                {value
-                    ? <XIcon size={15} style={{ flexShrink: 0, opacity: 0.7 }} onClick={(e) => { e.stopPropagation(); onChange('') }} />
-                    : <ChevronDown size={16} style={{ flexShrink: 0, opacity: 0.7 }} />}
-            </button>
-            {open && (
-                <div className="ss-menu">
-                    <div className="ss-search">
-                        <Search size={14} style={{ opacity: 0.6, flexShrink: 0 }} />
-                        <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por código ou nome..." />
-                    </div>
-                    <div className="ss-list">
-                        <button type="button" className={`ss-opt${!value ? ' sel' : ''}`} onClick={() => pick('')}>Todas as obras</button>
-                        {filtered.length === 0 ? <div className="ss-empty">Nada encontrado</div> : filtered.map(o => (
-                            <button type="button" key={o.value} className={`ss-opt${o.value === value ? ' sel' : ''}`} onClick={() => pick(o.value)}>{o.label}</button>
-                        ))}
-                    </div>
-                </div>
-            )}
-            <style jsx>{`
-                .ss { position: relative; }
-                .ss-box { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 9px 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-primary); cursor: pointer; font-family: inherit; font-size: 14px; }
-                .ss-val { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .ss-ph { color: var(--text-muted); }
-                .ss-menu { position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; min-width: 100%; background: #14142b; border: 1px solid var(--border-glass); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); padding: 6px; }
-                .ss-search { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border: 1px solid var(--border-glass); border-radius: 6px; margin-bottom: 6px; }
-                .ss-search input { flex: 1; background: none; border: none; outline: none; color: var(--text-primary); font-family: inherit; font-size: 13px; min-width: 0; }
-                .ss-list { max-height: 280px; overflow-y: auto; }
-                .ss-opt { display: block; width: 100%; text-align: left; padding: 8px 9px; border: none; background: none; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: inherit; }
-                .ss-opt:hover { background: rgba(255,255,255,0.06); }
-                .ss-opt.sel { background: rgba(99,102,241,0.18); color: var(--text-primary); }
-                .ss-empty { padding: 8px; color: var(--text-muted); font-size: 13px; }
-            `}</style>
-        </div>
-    )
-}
 
 // Card "Balanço da Obra" (medida Margem de Contribuição).
 // Saldo = Receita (Total Recebido Real) - Despesa (Total Pago + Controle Financeiro Saída).
