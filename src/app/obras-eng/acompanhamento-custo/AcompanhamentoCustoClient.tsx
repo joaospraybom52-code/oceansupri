@@ -156,14 +156,24 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
             return (it === p || it.startsWith(p + '.')) ? s + Number(o.valor_planejado || 0) : s
         }, 0)
 
-        // Custo e Vinculado (SQL/UAU) por serviço (item_plt) entre os insumos
-        const servTot: Record<string, { aprov: number; vinc: number; nome: string }> = {}
+        // Custo, Vinculado e Planejado por serviço. A chave é item_plt + serv_plt:
+        // um mesmo item pode ter VÁRIOS serviços (ex.: NES22 01.01.09 tem
+        // Impermeabilização, Estrutura de Concreto e Controle Tecnológico) — se
+        // agrupar só por item, os serviços fundem num cabeçalho só. Nesses itens
+        // o Planejado do serviço soma apenas os insumos DELE; com serviço único
+        // mantém a soma por prefixo do item (cobre insumo do orçamento sem
+        // linha no custo_uau).
+        const servTot: Record<string, { aprov: number; vinc: number; nome: string; planej: number }> = {}
+        const servsDoItem: Record<string, Set<string>> = {}
         for (const l of ls) {
             if (String(l.serv_plt) !== '-1') {
-                const k = l.item_plt || ''
-                servTot[k] = servTot[k] || { aprov: 0, vinc: 0, nome: l.servico || '' }
+                const item = l.item_plt || ''
+                const k = `${item}|${l.serv_plt || ''}`
+                servTot[k] = servTot[k] || { aprov: 0, vinc: 0, nome: l.servico || '', planej: 0 }
                 servTot[k].aprov += Number(l.valor_aprov || 0)
                 servTot[k].vinc += Number(l.saldo_vlr_vinc || 0)
+                servTot[k].planej += planejInsumo.get(`${item}|${(l.insumo || '').trim().toUpperCase()}`) ?? 0
+                ;(servsDoItem[item] = servsDoItem[item] || new Set()).add(String(l.serv_plt || ''))
             }
         }
         const out: DisplayRow[] = []
@@ -174,10 +184,12 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                 out.push({ tipo: dots(item) === 0 ? 'raiz' : 'subtotal', item, descricao: l.servico || '', ins_cins: '', planej: planejPrefixo(item), aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
                 lastServ = null
             } else {
-                if (item !== lastServ) {
-                    const t = servTot[item]
-                    out.push({ tipo: 'servico', item, descricao: t?.nome || l.servico || '', ins_cins: '', planej: planejPrefixo(item), aprov: t?.aprov || 0, vinc: t?.vinc || 0 })
-                    lastServ = item
+                const sk = `${item}|${l.serv_plt || ''}`
+                if (sk !== lastServ) {
+                    const t = servTot[sk]
+                    const multi = (servsDoItem[item]?.size ?? 1) > 1
+                    out.push({ tipo: 'servico', item, descricao: t?.nome || l.servico || '', ins_cins: '', planej: multi ? (t?.planej || 0) : planejPrefixo(item), aprov: t?.aprov || 0, vinc: t?.vinc || 0 })
+                    lastServ = sk
                 }
                 const planej = planejInsumo.get(`${item}|${(l.insumo || '').trim().toUpperCase()}`) ?? 0
                 out.push({ tipo: 'insumo', item, descricao: l.insumo || '', ins_cins: l.ins_cins || '', planej, aprov: Number(l.valor_aprov || 0), vinc: Number(l.saldo_vlr_vinc || 0) })
