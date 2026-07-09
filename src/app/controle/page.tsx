@@ -30,8 +30,9 @@ export default async function ControlePage() {
 
     // Comprometido por obra/mês (mesma medida da KPI'S: Despesas -> pago + a pagar;
     // DespSaida -> total_receita), agregado aqui pra não mandar a tabela inteira.
-    // "pago" = medida Total Pago da KPI'S (só vlr_at_pago das Despesas) — usado
-    // no gráfico de Fluxo de Caixa.
+    // "pago" = Total Pago (vlr_at_pago das Despesas) + Controle Financeiro Saída
+    // (total_receita das DespSaida) — mesma despesa do Balanço da Obra na KPI'S.
+    // Usado no gráfico de Fluxo de Caixa.
     const agg = new Map<string, { obra: string; ym: string; valor: number; pago: number }>()
     const PAGE = 1000
     for (let from = 0; ; from += PAGE) {
@@ -46,7 +47,8 @@ export default async function ControlePage() {
             const valor = r.tipo_controle === 'Despesas'
                 ? Number(r.vlr_at_pago || 0) + Number(r.vlr_at_pagar || 0)
                 : r.tipo_controle === 'DespSaida' ? Number(r.total_receita || 0) : 0
-            const pago = r.tipo_controle === 'Despesas' ? Number(r.vlr_at_pago || 0) : 0
+            const pago = r.tipo_controle === 'Despesas' ? Number(r.vlr_at_pago || 0)
+                : r.tipo_controle === 'DespSaida' ? Number(r.total_receita || 0) : 0
             if (!valor && !pago) continue
             const k = `${r.obra}|${ym}`
             const cur = agg.get(k) ?? { obra: r.obra, ym, valor: 0, pago: 0 }
