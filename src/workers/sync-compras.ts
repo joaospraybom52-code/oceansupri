@@ -40,8 +40,8 @@ const INTERVALO_MS = 2 * 60 * 1000 // 2 min
 // Cotação, O.C), só com o subselect de OC — bem mais leve no UAU.
 const queryCompras = `
 SELECT it.Obra_temp AS CodObra, it.NumPedido_temp AS Pedido, it.Cotacao_temp AS Cotacao,
-       it.Insumo_temp AS CodIns, ig.Descr_ins AS Insumo,
-       oci.OC, oci.Preco, oci.UsuarioCompra, oci.DataCompra,
+       it.Insumo_temp AS CodIns, ig.Descr_ins AS Insumo, it.Qtde_temp AS QtdPedido,
+       oci.OC, oci.Preco, oci.Qtd, oci.VlrTotal, oci.UsuarioCompra, oci.DataCompra,
        (SELECT MIN(s.DataConf_Smlc) FROM SimulacoesConf s
         WHERE s.Empresa_Smlc = it.Empresa_temp AND s.NumCot_Smlc = it.Cotacao_temp AND s.ObraCot_Smlc = it.Obra_temp) AS DataCotacao
 FROM ItensCot_temp it
@@ -50,6 +50,7 @@ INNER JOIN InsumosGeral ig ON it.Insumo_temp = ig.Cod_ins
 INNER JOIN Obras o ON it.Obra_temp = o.cod_obr AND it.Empresa_temp = o.Empresa_obr
 OUTER APPLY (
     SELECT MAX(ord.NumeroOC_Ocp) AS OC, MAX(ioc.Preco_ioc) AS Preco,
+           SUM(ioc.Qtde_Ioc) AS Qtd, SUM(ioc.Qtde_Ioc * ioc.Preco_ioc) AS VlrTotal,
            MIN(ord.Usuario_Ocp) AS UsuarioCompra, MIN(ord.DataGer_Ocp) AS DataCompra
     FROM OrdemCompra ord
     INNER JOIN ItensOrdemCompra ioc
@@ -85,7 +86,7 @@ async function ciclo() {
         // 2. Mapa de match: obra|pedido|insumo -> { cotacao, oc }. Em re-cotação,
         //    prefere a linha com OC e, depois, a maior cotação.
         const toISO = (d: any) => d ? new Date(d).toISOString() : null
-        const mapa = new Map<string, { cotacao: number; oc: number; preco: number; usuario: string | null; dataCompra: string | null; dataCotacao: string | null }>()
+        const mapa = new Map<string, { cotacao: number; oc: number; preco: number; qtd: number; total: number; qtdPedido: number; usuario: string | null; dataCompra: string | null; dataCotacao: string | null }>()
         for (const r of rows) {
             const key = `${norm(r.CodObra)}||${norm(r.Pedido)}||${norm(r.Insumo)}`
             const cotacao = r.Cotacao != null ? Number(r.Cotacao) : 0
@@ -95,6 +96,9 @@ async function ciclo() {
                 mapa.set(key, {
                     cotacao, oc,
                     preco: r.Preco != null ? Number(r.Preco) : 0,
+                    qtd: r.Qtd != null ? Number(r.Qtd) : 0,
+                    total: r.VlrTotal != null ? Number(r.VlrTotal) : 0,
+                    qtdPedido: r.QtdPedido != null ? Number(r.QtdPedido) : 0,
                     usuario: r.UsuarioCompra != null ? r.UsuarioCompra.toString().trim() : null,
                     dataCompra: toISO(r.DataCompra),
                     dataCotacao: toISO(r.DataCotacao),
@@ -105,7 +109,7 @@ async function ciclo() {
         // 3. Pedidos do app
         const { data: pedidos, error } = await supabase
             .from('pedidos_compra')
-            .select('id, codigo_uau, numero_pedido, descricao_insumo, status_fsm, categoria_cap, numero_ordem_compra, grupo_cotacao_id, valor_fechado, comprador_uau, data_em_cotacao, data_ordem_gerada')
+            .select('id, codigo_uau, numero_pedido, descricao_insumo, status_fsm, categoria_cap, numero_ordem_compra, grupo_cotacao_id, valor_fechado, qtd_pedido, preco_unitario, comprador_uau, data_em_cotacao, data_ordem_gerada')
         if (error) throw new Error('pedidos_compra select: ' + error.message)
 
         // 4. Match + alvo + avanço (só os campos que mudaram)
@@ -122,7 +126,11 @@ async function ciclo() {
                 if (m.cotacao > 0) patch.categoria_cap = String(m.cotacao)
                 patch.numero_ordem_compra = String(m.oc)
                 patch.grupo_cotacao_id = uuidDe(`OC|${obra}|${m.oc}`)
-                if (m.preco > 0) patch.valor_fechado = m.preco
+                // valor_fechado = TOTAL do item (qtd x preço unitário da OC)
+                if (m.preco > 0) patch.preco_unitario = m.preco
+                if (m.qtd > 0) patch.qtd_pedido = m.qtd
+                if (m.total > 0) patch.valor_fechado = m.total
+                else if (m.preco > 0) patch.valor_fechado = m.preco
                 if (m.usuario) patch.comprador_uau = m.usuario
                 if (m.dataCompra) patch.data_ordem_gerada = m.dataCompra
                 if (m.dataCotacao) patch.data_em_cotacao = m.dataCotacao
@@ -131,6 +139,7 @@ async function ciclo() {
                 patch.status_fsm = 'em_cotacao'
                 patch.categoria_cap = String(m.cotacao)
                 patch.grupo_cotacao_id = uuidDe(`COT|${obra}|${m.cotacao}`)
+                if (m.qtdPedido > 0) patch.qtd_pedido = m.qtdPedido
                 if (m.dataCotacao) patch.data_em_cotacao = m.dataCotacao
                 else if (!p.data_em_cotacao) patch.data_em_cotacao = new Date().toISOString()
             } else continue
@@ -143,7 +152,7 @@ async function ciclo() {
                 const cur = (p as any)[k]; const nxt = patch[k]
                 let igual: boolean
                 if (k === 'data_em_cotacao' || k === 'data_ordem_gerada') igual = (cur ? new Date(cur).getTime() : 0) === (nxt ? new Date(nxt).getTime() : 0)
-                else if (k === 'valor_fechado') igual = Number(cur || 0) === Number(nxt || 0)
+                else if (k === 'valor_fechado' || k === 'qtd_pedido' || k === 'preco_unitario') igual = Number(cur || 0) === Number(nxt || 0)
                 else igual = String(cur ?? '') === String(nxt ?? '')
                 if (!igual) diff[k] = nxt
             }
@@ -176,5 +185,10 @@ async function loop() {
     setTimeout(loop, INTERVALO_MS)
 }
 
-console.log('[COMPRAS] Worker do board Suprimentos iniciado (sync a cada 2 min).')
-loop()
+// Modo "rodar uma vez e sair" (pra rodar manualmente no PC): SYNC_ONCE=1
+if (process.env.SYNC_ONCE === '1') {
+    ciclo().then(() => { console.log('[COMPRAS] concluído (modo único).'); process.exit(0) })
+} else {
+    console.log('[COMPRAS] Worker do board Suprimentos iniciado (sync a cada 2 min).')
+    loop()
+}

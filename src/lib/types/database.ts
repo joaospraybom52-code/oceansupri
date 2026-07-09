@@ -235,6 +235,8 @@ export type Database = {
                     valor_fechado: number | null
                     valor_frete: number | null
                     valor_orcado: number | null
+                    qtd_pedido: number | null
+                    preco_unitario: number | null
                 }
                 Insert: {
                     categoria_cap?: string | null
@@ -264,6 +266,8 @@ export type Database = {
                     updated_at?: string | null
                     valor_fechado?: number | null
                     valor_orcado?: number | null
+                    qtd_pedido?: number | null
+                    preco_unitario?: number | null
                 }
                 Update: {
                     categoria_cap?: string | null
@@ -293,6 +297,8 @@ export type Database = {
                     updated_at?: string | null
                     valor_fechado?: number | null
                     valor_orcado?: number | null
+                    qtd_pedido?: number | null
+                    preco_unitario?: number | null
                 }
                 Relationships: []
             }
@@ -801,6 +807,7 @@ export type Database = {
             controle_pago_insumo_cliente: {
                 Row: {
                     id: string
+                    obra: string | null
                     descrinsumo: string | null
                     cliente: string | null
                     data_movimento: string | null
@@ -810,6 +817,7 @@ export type Database = {
                 }
                 Insert: {
                     id?: string
+                    obra?: string | null
                     descrinsumo?: string | null
                     cliente?: string | null
                     data_movimento?: string | null
@@ -819,6 +827,7 @@ export type Database = {
                 }
                 Update: {
                     id?: string
+                    obra?: string | null
                     descrinsumo?: string | null
                     cliente?: string | null
                     data_movimento?: string | null
@@ -1024,6 +1033,8 @@ export interface PedidoCompra {
     valor_orcado: number | null
     valor_fechado: number | null
     valor_frete: number | null
+    qtd_pedido: number | null
+    preco_unitario: number | null
     desconto_absoluto: number | null
     desconto_percentual: number | null
     solicitante_obra: string | null

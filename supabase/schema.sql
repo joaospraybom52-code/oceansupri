@@ -279,7 +279,9 @@ CREATE TABLE public.pedidos_compra (
   numero_pedido text,
   codigo_uau text,
   justificativa_fornecedor text,
-  data_saiu_entrega timestamp with time zone
+  data_saiu_entrega timestamp with time zone,
+  qtd_pedido numeric,
+  preco_unitario numeric
 );
 ALTER TABLE public.pedidos_compra ADD CONSTRAINT pedidos_compra_comprador_id_fkey FOREIGN KEY (comprador_id) REFERENCES compradores(id) ON DELETE SET NULL;
 ALTER TABLE public.pedidos_compra ADD CONSTRAINT pedidos_compra_fornecedor_1_id_fkey FOREIGN KEY (fornecedor_1_id) REFERENCES fornecedores(id);

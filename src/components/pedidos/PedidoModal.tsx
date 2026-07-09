@@ -136,11 +136,18 @@ export default function PedidoModal({ pedido, pedidosGroup, onClose, onDelete, i
                         </h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
                             {grupo.map(p => (
-                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', padding: '7px 10px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)', fontSize: '12px' }}>
+                                <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '7px 10px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)', fontSize: '12px' }}>
                                     <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.descricao_insumo}</span>
-                                    {p.valor_fechado != null && p.valor_fechado > 0 && (
-                                        <span style={{ color: 'var(--accent-green)', fontWeight: 600, flexShrink: 0 }}>{formatCurrency(p.valor_fechado)}</span>
-                                    )}
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                                        {p.qtd_pedido != null && p.qtd_pedido > 0 && p.preco_unitario != null && p.preco_unitario > 0 && (
+                                            <span style={{ color: 'var(--text-muted)' }}>
+                                                {Number(p.qtd_pedido).toLocaleString('pt-BR')} × {formatCurrency(p.preco_unitario)}
+                                            </span>
+                                        )}
+                                        {p.valor_fechado != null && p.valor_fechado > 0 && (
+                                            <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{formatCurrency(p.valor_fechado)}</span>
+                                        )}
+                                    </span>
                                 </div>
                             ))}
                         </div>
