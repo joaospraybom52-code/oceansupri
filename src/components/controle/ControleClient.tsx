@@ -258,17 +258,20 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
 
     // Fluxo de Caixa: entradas = notas recebidas (mês real) x saídas = Total Pago
     // (medida da KPI'S: vlr_at_pago das Despesas), com saldo do mês. Mesmos filtros.
+    // Só considera de jul/2026 em diante (início do controle no app).
+    const FLUXO_INICIO = '2026-07'
     const fluxoData = useMemo(() => {
         const map: Record<string, { recebido: number; pago: number }> = {}
         const ensure = (ym: string) => (map[ym] = map[ym] || { recebido: 0, pago: 0 })
         for (const m of medicoesFiltradas) {
             if (!isRecebida(m)) continue
             const ym = toYm(m.mes_recebimento_real)
-            if (!ym) continue
+            if (!ym || ym < FLUXO_INICIO) continue
             ensure(ym).recebido += valorRecebido(m)
         }
         for (const c of comprometido) {
             if (!c.pago) continue
+            if (c.ym < FLUXO_INICIO) continue
             if (filtroCodigo && c.obra !== filtroCodigo) continue
             if (!matchPeriodo(c.ym, filtroAnos, filtroMeses)) continue
             ensure(c.ym).pago += c.pago
