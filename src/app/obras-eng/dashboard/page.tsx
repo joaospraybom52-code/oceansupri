@@ -85,14 +85,21 @@ export default async function GlobalDashboardPage() {
             supabase.from('itens_orcamento').select('obra_id, valor_total_orcado').in('obra_id', obraIds),
             supabase.from('medicoes').select('id, obra_id').in('obra_id', obraIds),
             supabase.from('restricoes').select('obra_id, status').in('obra_id', obraIds),
-            supabase.from('programacoes_semanais').select('id, obra_id, status_envio').in('obra_id', obraIds),
+            supabase.from('programacoes_semanais').select('id, obra_id, status_envio, semana_referente_fim').in('obra_id', obraIds),
         ])
         : [empty, empty, empty, empty]
 
     const itens = (itensRes.data ?? []) as { obra_id: string; valor_total_orcado: number | null }[]
     const meds = (medsRes.data ?? []) as { id: string; obra_id: string }[]
     const restr = (restrRes.data ?? []) as { obra_id: string; status: string | null }[]
-    const progs = (progsRes.data ?? []) as { id: string; obra_id: string; status_envio: string | null }[]
+    const progs = (progsRes.data ?? []) as { id: string; obra_id: string; status_envio: string | null; semana_referente_fim: string | null }[]
+
+    // PPC só conta semanas ENCERRADAS: a programação da semana corrente fica
+    // fora do indicador e entra no cálculo a partir da semana seguinte.
+    const hoje = new Date()
+    const segunda = new Date(hoje)
+    segunda.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7)) // segunda-feira da semana atual
+    const inicioSemanaAtual = `${segunda.getFullYear()}-${String(segunda.getMonth() + 1).padStart(2, '0')}-${String(segunda.getDate()).padStart(2, '0')}`
 
     const medIds = meds.map((m) => m.id)
     const progIds = progs.map((p) => p.id)
@@ -123,6 +130,8 @@ export default async function GlobalDashboardPage() {
 
         const ppcs: number[] = []
         for (const p of progsObra) {
+            // semana ainda em andamento (ou sem data) não conta no PPC
+            if (!p.semana_referente_fim || p.semana_referente_fim >= inicioSemanaAtual) continue
             const ts = tfs.filter((t) => t.programacao_id === p.id)
             if (ts.length > 0) ppcs.push((ts.filter((t) => t.status === 'concluida').length / ts.length) * 100)
         }
