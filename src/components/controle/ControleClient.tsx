@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import {
-    LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    LineChart as RLineChart, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts'
-import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2 } from 'lucide-react'
+import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, ArrowLeftRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
@@ -93,7 +93,7 @@ const iconBtnStyle: React.CSSProperties = {
     cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0,
 }
 
-interface ComprometidoMes { obra: string; ym: string; valor: number }
+interface ComprometidoMes { obra: string; ym: string; valor: number; pago?: number }
 
 export default function ControleClient({ obras, medicoesIniciais, podeEditar, comprometido = [] }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean; comprometido?: ComprometidoMes[] }) {
     const supabase = createClient()
@@ -255,6 +255,37 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
         }
         return Object.keys(map).sort().map(ym => ({ ym, label: ymLabel(ym), ...map[ym] }))
     }, [medicoesFiltradas, comprometido, filtroCodigo, filtroAnos, filtroMeses])
+
+    // Fluxo de Caixa: entradas = notas recebidas (mês real) x saídas = Total Pago
+    // (medida da KPI'S: vlr_at_pago das Despesas), com saldo do mês. Mesmos filtros.
+    const fluxoData = useMemo(() => {
+        const map: Record<string, { recebido: number; pago: number }> = {}
+        const ensure = (ym: string) => (map[ym] = map[ym] || { recebido: 0, pago: 0 })
+        for (const m of medicoesFiltradas) {
+            if (!isRecebida(m)) continue
+            const ym = toYm(m.mes_recebimento_real)
+            if (!ym) continue
+            ensure(ym).recebido += valorRecebido(m)
+        }
+        for (const c of comprometido) {
+            if (!c.pago) continue
+            if (filtroCodigo && c.obra !== filtroCodigo) continue
+            if (!matchPeriodo(c.ym, filtroAnos, filtroMeses)) continue
+            ensure(c.ym).pago += c.pago
+        }
+        return Object.keys(map).sort().map(ym => ({
+            ym, label: ymLabel(ym),
+            recebido: map[ym].recebido,
+            pago: map[ym].pago,
+            saldo: map[ym].recebido - map[ym].pago,
+        }))
+    }, [medicoesFiltradas, comprometido, filtroCodigo, filtroAnos, filtroMeses])
+
+    const fluxoTotais = useMemo(() => {
+        const recebido = fluxoData.reduce((s, d) => s + d.recebido, 0)
+        const pago = fluxoData.reduce((s, d) => s + d.pago, 0)
+        return { recebido, pago, saldo: recebido - pago }
+    }, [fluxoData])
 
     // KPIs: "A receber" = só nota emitida ainda não recebida; "Já recebido" = o que foi recebido
     const totalAReceber = medicoesFiltradas.filter(m => m.tipo === 'emitida' && !isRecebida(m)).reduce((s, m) => s + valorLiquido(m), 0)
@@ -449,6 +480,64 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                 </div>
             </div>
 
+            {/* Fluxo de Caixa: notas recebidas (entradas) x Total Pago (saídas) */}
+            <div className="glass-card" style={{ padding: '24px', marginTop: '24px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <ArrowLeftRight size={18} color="#38bdf8" />
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Fluxo de Caixa</h3>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>notas recebidas × total pago no período</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
+                        <ResumoFluxo label="Recebido" valor={fluxoTotais.recebido} cor="#10b981" />
+                        <ResumoFluxo label="Pago" valor={fluxoTotais.pago} cor="#ef4444" />
+                        <ResumoFluxo label="Saldo" valor={fluxoTotais.saldo} cor={fluxoTotais.saldo >= 0 ? '#10b981' : '#ef4444'} />
+                    </div>
+                </div>
+                {fluxoData.length === 0 ? (
+                    <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
+                        Nenhum recebimento ou pagamento no filtro atual.
+                    </div>
+                ) : (
+                    <>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <ComposedChart data={fluxoData} margin={{ top: 10, right: 16, left: 0, bottom: 10 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <XAxis dataKey="label" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} axisLine={{ stroke: 'rgba(255,255,255,0.08)' }} tickLine={false} dy={8} />
+                                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrencyShort} width={70} />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.04)' }} isAnimationActive={false}
+                                    content={({ active, payload, label }) => {
+                                        if (!active || !payload?.length) return null
+                                        const p: any = payload[0]?.payload ?? {}
+                                        return (
+                                            <div style={tooltipStyle}>
+                                                <p style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>{label}</p>
+                                                <p style={{ margin: '2px 0', fontSize: '13px', color: '#10b981' }}>Notas recebidas: <strong style={{ color: '#f1f5f9' }}>{formatCurrency(Number(p.recebido || 0))}</strong></p>
+                                                <p style={{ margin: '2px 0', fontSize: '13px', color: '#ef4444' }}>Total pago: <strong style={{ color: '#f1f5f9' }}>{formatCurrency(Number(p.pago || 0))}</strong></p>
+                                                <p style={{ margin: '6px 0 0', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: '#94a3b8' }}>
+                                                    Saldo do mês: <strong style={{ color: Number(p.saldo || 0) >= 0 ? '#10b981' : '#ef4444' }}>{formatCurrency(Number(p.saldo || 0))}</strong>
+                                                </p>
+                                            </div>
+                                        )
+                                    }}
+                                />
+                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
+                                <Bar dataKey="recebido" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={34} />
+                                <Bar dataKey="pago" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={34} />
+                                <Line type="monotone" dataKey="saldo" stroke="#38bdf8" strokeWidth={3} connectNulls
+                                    dot={{ r: 4, fill: '#111128', stroke: '#38bdf8', strokeWidth: 2 }} />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '16px', flexWrap: 'wrap' }}>
+                            <LegendaQuadrado cor="#10b981" texto="Notas recebidas" />
+                            <LegendaQuadrado cor="#ef4444" texto="Total pago" />
+                            <Legenda cor="#38bdf8" texto="Saldo do mês" />
+                        </div>
+                    </>
+                )}
+            </div>
+
             {/* Modal Cadastro/Edição */}
             {showModal && (
                 <div className="modal-overlay">
@@ -570,6 +659,24 @@ function TipoBtn({ ativo, cor, label, onClick }: { ativo: boolean; cor: string; 
             border: `1px solid ${ativo ? cor : 'var(--border-glass)'}`,
             color: ativo ? cor : 'var(--text-secondary)',
         }}>{label}</button>
+    )
+}
+
+function ResumoFluxo({ label, valor, cor }: { label: string; valor: number; cor: string }) {
+    return (
+        <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{label}</div>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: cor, whiteSpace: 'nowrap' }}>{formatCurrency(valor)}</div>
+        </div>
+    )
+}
+
+function LegendaQuadrado({ cor, texto }: { cor: string; texto: string }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: 12, height: 12, borderRadius: 3, background: cor }} />
+            <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>{texto}</span>
+        </div>
     )
 }
 
