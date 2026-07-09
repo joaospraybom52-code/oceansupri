@@ -385,22 +385,23 @@ async function gravarPagoApagar(rows: any[]) {
     return payload.length
 }
 
-interface InsumoClienteAgg { descrinsumo: string | null; cliente: string | null; data_movimento: string | null; vlr_at_pagar: number; vlr_at_pago: number }
+interface InsumoClienteAgg { obra: string | null; descrinsumo: string | null; cliente: string | null; data_movimento: string | null; vlr_at_pagar: number; vlr_at_pago: number }
 
-// Agregação por (DescrInsumo, Cliente, mês) só das Despesas — para as tabelas
-// drill-down insumo x cliente (com o mês para o filtro de Ano/Mês).
+// Agregação por (Obra, DescrInsumo, Cliente, mês) só das Despesas — para as
+// tabelas drill-down insumo x cliente (com obra e mês para os filtros do topo).
 async function gravarInsumoCliente(rows: any[]) {
     const agg = new Map<string, InsumoClienteAgg>()
     for (const r of rows) {
         if (r.EmpresaResultado !== EMPRESA_CONSTROWINS || r.Obra == null || r.Obra === 'DP') continue
         if (r.TipoControle !== 'Despesas') continue
+        const obra = r.Obra?.toString().trim() ?? null
         const descrinsumo = r.DescrInsumo != null ? r.DescrInsumo.toString().trim() : null
         const cliente = r.Cliente != null ? r.Cliente.toString().trim() : null
         const dm = toISODate(r.DataMovimento)
         const ym = dm ? dm.slice(0, 7) : null
         const data_movimento = ym ? `${ym}-01` : null
-        const key = `${descrinsumo}|||${cliente}|||${ym}`
-        const cur = agg.get(key) ?? { descrinsumo, cliente, data_movimento, vlr_at_pagar: 0, vlr_at_pago: 0 }
+        const key = `${obra}|||${descrinsumo}|||${cliente}|||${ym}`
+        const cur = agg.get(key) ?? { obra, descrinsumo, cliente, data_movimento, vlr_at_pagar: 0, vlr_at_pago: 0 }
         cur.vlr_at_pagar += Number(r.VlrAtPagar || 0)
         cur.vlr_at_pago += Number(r.VlrAtPago || 0)
         agg.set(key, cur)

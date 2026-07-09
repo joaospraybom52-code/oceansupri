@@ -44,6 +44,7 @@ interface VgvRow {
 }
 
 interface PagoICRow {
+    obra: string | null
     descrinsumo: string | null
     cliente: string | null
     data_movimento: string | null // YYYY-MM-01
@@ -216,9 +217,10 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         .reduce((s, v) => s + Number(v.valor_venda || 0), 0),
         [vgv, filtroObras, filtroAnos])
 
-    // pagoIC filtrado pelo Ano/Mês (data_movimento) — o filtro de data agora vale nas tabelas
-    const pagoICFiltrado = useMemo(() => pagoIC.filter(r => matchPeriodo(r.data_movimento, filtroAnos, filtroMeses)),
-        [pagoIC, filtroAnos, filtroMeses])
+    // pagoIC filtrado por Obra + Ano/Mês (data_movimento) — os filtros do topo valem nas tabelas
+    const pagoICFiltrado = useMemo(() => pagoIC.filter(r =>
+        obraMatch(r.obra) && matchPeriodo(r.data_movimento, filtroAnos, filtroMeses),
+    ), [pagoIC, filtroObras, filtroAnos, filtroMeses])
 
     // Tabela 1: agrupado por Insumo (DescrInsumo)
     const linhasInsumo = useMemo(() => {

@@ -35,6 +35,7 @@ interface VgvRow {
 }
 
 interface PagoICRow {
+    obra: string | null
     descrinsumo: string | null
     cliente: string | null
     data_movimento: string | null
@@ -89,7 +90,7 @@ export default async function KpisPage() {
         fetchAll<VendasRecRow>(supabase, 'controle_vendasrecebidas', 'val_provisao_curto_vrec, val_desconto_imposto_vrec'),
         fetchAll<AReceberRow>(supabase, 'controle_a_receber', 'obra, data_prc, num_parc_ger, val_provisao_curto_ven, val_desconto_imposto_ven, valor_prc, data_fim_contrato_ven, hist_lanc_ven, data_ven'),
         fetchAll<VgvRow>(supabase, 'controle_vgv', 'codigo_obra, ano, valor_venda'),
-        fetchAll<PagoICRow>(supabase, 'controle_pago_insumo_cliente', 'descrinsumo, cliente, data_movimento, vlr_at_pagar, vlr_at_pago'),
+        fetchAll<PagoICRow>(supabase, 'controle_pago_insumo_cliente', 'obra, descrinsumo, cliente, data_movimento, vlr_at_pagar, vlr_at_pago'),
     ])
     const obras = obrasRes.data
 
