@@ -36,6 +36,12 @@ const sqlConfig: sql.config = {
 
 const EMPRESA_CONSTROWINS = '4 - CONSTROWINS SERVIÇOS DE ENGENHARIA LTDA'
 
+// Banco (Banco_Des) cujos valores NÃO entram em nenhuma medida (Total Pago,
+// A Pagar, Comprometido, tabelas Insumos x Clientes...). Vira o tipo_controle
+// 'ImpostoRetido', somado só no card "Imposto Retido" da KPI'S.
+const BANCO_IMPOSTO_RETIDO = '1010'
+const isImpostoRetido = (banco: any) => (banco ?? '').toString().trim() === BANCO_IMPOSTO_RETIDO
+
 // Query "PAGO_E_APAGAR" verbatim (a mesma do Power BI). O bloco IF 1=0 fica
 // inativo; o bloco ELSE é o que executa (data de conciliação/pagamento).
 export const queryPagoApagar = `
@@ -364,7 +370,8 @@ async function gravarPagoApagar(rows: any[]) {
         if (r.EmpresaResultado !== EMPRESA_CONSTROWINS || r.Obra == null || r.Obra === 'DP') continue
         const obra = r.Obra?.toString().trim() ?? null
         const data_movimento = toISODate(r.DataMovimento)
-        const tipo_controle = r.TipoControle ?? null
+        // Banco 1010 = imposto retido: sai das medidas normais
+        const tipo_controle = isImpostoRetido(r.Banco_Des) ? 'ImpostoRetido' : (r.TipoControle ?? null)
         const key = `${obra}|${data_movimento}|${tipo_controle}`
         const cur = agg.get(key) ?? { obra, data_movimento, tipo_controle, vlr_at_pago: 0, vlr_at_pagar: 0, vlr_comp: 0, total_receita: 0 }
         cur.vlr_at_pago += Number(r.VlrAtPago || 0)
@@ -394,6 +401,7 @@ async function gravarInsumoCliente(rows: any[]) {
     for (const r of rows) {
         if (r.EmpresaResultado !== EMPRESA_CONSTROWINS || r.Obra == null || r.Obra === 'DP') continue
         if (r.TipoControle !== 'Despesas') continue
+        if (isImpostoRetido(r.Banco_Des)) continue // fora das tabelas Insumos x Clientes
         const obra = r.Obra?.toString().trim() ?? null
         const descrinsumo = r.DescrInsumo != null ? r.DescrInsumo.toString().trim() : null
         const cliente = r.Cliente != null ? r.Cliente.toString().trim() : null

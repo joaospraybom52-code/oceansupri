@@ -193,6 +193,13 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // Total Comprometido Obra = Total Pago + Total A Pagar + Controle Financeiro Saída
     const totalComprometidoObra = totalPago + totalAPagar + controleFinanceiroSaida
 
+    // Imposto Retido = pago + a pagar das linhas com Banco_Des = 1010 no UAU
+    // (o worker marca essas linhas como tipo 'ImpostoRetido'; elas ficam FORA
+    // de todas as outras medidas).
+    const impostoRetido = useMemo(() => pagoFiltrado
+        .filter(p => p.tipo_controle === 'ImpostoRetido')
+        .reduce((s, p) => s + Number(p.vlr_at_pago || 0) + Number(p.vlr_at_pagar || 0), 0), [pagoFiltrado])
+
     // A_receber filtrado por obra + período (dimensões)
     const areceberFiltrado = useMemo(() => areceber.filter(a =>
         obraMatch(a.obra) && matchPeriodo(a.data_ven, filtroAnos, filtroMeses),
@@ -309,6 +316,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
                 <KpiCard label="Total A Pagar" value={formatCurrency(totalAPagar)} />
                 <KpiCard label="Controle Financeiro Saída" value={formatCurrency(controleFinanceiroSaida)} />
                 <KpiCard label="Total Comprometido Obra" value={formatCurrency(totalComprometidoObra)} />
+                <KpiCard label="Imposto Retido" value={formatCurrency(impostoRetido)} />
             </div>
 
             {/* Indicador Evolução + Balanço da Obra */}
