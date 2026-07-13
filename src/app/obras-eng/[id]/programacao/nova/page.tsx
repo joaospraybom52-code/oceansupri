@@ -50,8 +50,9 @@ function NovaProgramacaoForm() {
         setLoading(true)
 
         try {
-            // Determine initial status based on current date vs prazo
-            const isAtrasado = new Date() > new Date(prazo)
+            // Criar já é o envio: dentro do prazo -> no_prazo; depois do prazo -> atrasada.
+            const agora = new Date()
+            const isAtrasado = agora > new Date(prazo)
 
             const { data, error: insertError } = await supabase
                 .from('programacoes_semanais')
@@ -61,7 +62,8 @@ function NovaProgramacaoForm() {
                     semana_referente_fim: fim,
                     prazo_envio: new Date(prazo).toISOString(),
                     responsavel: responsavel,
-                    status_envio: isAtrasado ? 'atrasada' : 'pendente'
+                    status_envio: isAtrasado ? 'atrasada' : 'no_prazo',
+                    data_envio: agora.toISOString()
                 })
                 .select('id')
                 .single()

@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, HelpCircle, Save, Plus, X, Trash2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, HelpCircle, Plus, X, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
@@ -298,22 +298,6 @@ export default function ProgramacaoSemanalClient({
         }
     }
 
-    async function fecharProgramacao() {
-        const agora = new Date()
-        const prazo = programacao.prazo_envio ? new Date(programacao.prazo_envio) : null
-        const status_envio = prazo && agora > prazo ? 'atrasada' : 'no_prazo'
-        const { error } = await supabase.from('programacoes_semanais')
-            .update({ status_envio, data_envio: agora.toISOString() })
-            .eq('id', programacao.id)
-        
-        if (!error) {
-            toast.success('Programação fechada com sucesso!')
-            router.refresh()
-        } else {
-            toast.error('Erro ao fechar programação: ' + error.message)
-        }
-    }
-
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
@@ -328,9 +312,6 @@ export default function ProgramacaoSemanalClient({
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button onClick={() => setShowExcluir(true)} className="btn-secondary" title="Excluir programação" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}>
                             <Trash2 size={16} /> Excluir
-                        </button>
-                        <button onClick={fecharProgramacao} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Save size={16} /> Salvar e Enviar
                         </button>
                     </div>
                 )}
