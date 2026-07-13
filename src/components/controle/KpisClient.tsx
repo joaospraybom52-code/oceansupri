@@ -176,7 +176,8 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     ), [pago, filtroObras, filtroAnos, filtroMeses])
 
     // Imposto Retido (Banco_Des = 1010 no UAU; o worker marca como 'ImpostoRetido').
-    // O pago é SUBTRAÍDO do Total Pago e o a pagar do Total A Pagar.
+    // O worker JÁ tira essas linhas de "Despesas" — o desconto no Total Pago /
+    // Total A Pagar acontece uma única vez, pela exclusão (não subtrair de novo!).
     const impostoRetidoPago = useMemo(() => pagoFiltrado
         .filter(p => p.tipo_controle === 'ImpostoRetido')
         .reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0), [pagoFiltrado])
@@ -184,15 +185,15 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         .filter(p => p.tipo_controle === 'ImpostoRetido')
         .reduce((s, p) => s + Number(p.vlr_at_pagar || 0), 0), [pagoFiltrado])
 
-    // Total Pago = SUM(VlrAtPago) onde TipoControle = "Despesas" − Imposto Retido pago
+    // Total Pago = SUM(VlrAtPago) onde TipoControle = "Despesas" (já sem o imposto retido)
     const totalPago = useMemo(() => pagoFiltrado
         .filter(p => p.tipo_controle === 'Despesas')
-        .reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0) - impostoRetidoPago, [pagoFiltrado, impostoRetidoPago])
+        .reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0), [pagoFiltrado])
 
-    // Total A Pagar = SUM(VlrAtPagar) onde TipoControle = "Despesas" − Imposto Retido a pagar
+    // Total A Pagar = SUM(VlrAtPagar) onde TipoControle = "Despesas" (já sem o imposto retido)
     const totalAPagar = useMemo(() => pagoFiltrado
         .filter(p => p.tipo_controle === 'Despesas')
-        .reduce((s, p) => s + Number(p.vlr_at_pagar || 0), 0) - impostoRetidoAPagar, [pagoFiltrado, impostoRetidoAPagar])
+        .reduce((s, p) => s + Number(p.vlr_at_pagar || 0), 0), [pagoFiltrado])
 
     // Controle Financeiro Saída = SUM(TotalReceita) onde TipoControle = "DespSaida"
     const controleFinanceiroSaida = useMemo(() => pagoFiltrado
@@ -493,7 +494,6 @@ function GraficoEvolucao({ recebido, pago }: { recebido: RecebidoRow[]; pago: Pa
             const i = parseInt(p.data_movimento.slice(5, 7)) - 1
             if (p.tipo_controle === 'Despesas') meses[i].comprometido += Number(p.vlr_at_pago || 0) + Number(p.vlr_at_pagar || 0)
             else if (p.tipo_controle === 'DespSaida') meses[i].comprometido += Number(p.total_receita || 0)
-            else if (p.tipo_controle === 'ImpostoRetido') meses[i].comprometido -= Number(p.vlr_at_pago || 0) + Number(p.vlr_at_pagar || 0)
         }
         return meses.map(m => ({ ...m, diferenca: m.recebido - m.comprometido }))
     }, [recebido, pago, ano])
