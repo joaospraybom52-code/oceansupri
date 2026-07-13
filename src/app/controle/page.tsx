@@ -44,11 +44,14 @@ export default async function ControlePage() {
         for (const r of rows as any[]) {
             const ym = (r.data_movimento || '').slice(0, 7)
             if (!ym || !r.obra) continue
+            // ImpostoRetido (Banco_Des 1010) é SUBTRAÍDO das medidas de pago/comprometido
             const valor = r.tipo_controle === 'Despesas'
                 ? Number(r.vlr_at_pago || 0) + Number(r.vlr_at_pagar || 0)
-                : r.tipo_controle === 'DespSaida' ? Number(r.total_receita || 0) : 0
+                : r.tipo_controle === 'DespSaida' ? Number(r.total_receita || 0)
+                : r.tipo_controle === 'ImpostoRetido' ? -(Number(r.vlr_at_pago || 0) + Number(r.vlr_at_pagar || 0)) : 0
             const pago = r.tipo_controle === 'Despesas' ? Number(r.vlr_at_pago || 0)
-                : r.tipo_controle === 'DespSaida' ? Number(r.total_receita || 0) : 0
+                : r.tipo_controle === 'DespSaida' ? Number(r.total_receita || 0)
+                : r.tipo_controle === 'ImpostoRetido' ? -Number(r.vlr_at_pago || 0) : 0
             if (!valor && !pago) continue
             const k = `${r.obra}|${ym}`
             const cur = agg.get(k) ?? { obra: r.obra, ym, valor: 0, pago: 0 }

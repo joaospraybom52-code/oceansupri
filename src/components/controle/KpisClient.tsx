@@ -175,15 +175,24 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         obraMatch(p.obra) && matchPeriodo(p.data_movimento, filtroAnos, filtroMeses),
     ), [pago, filtroObras, filtroAnos, filtroMeses])
 
-    // Total Pago = SUM(VlrAtPago) onde TipoControle = "Despesas"
+    // Imposto Retido (Banco_Des = 1010 no UAU; o worker marca como 'ImpostoRetido').
+    // O pago é SUBTRAÍDO do Total Pago e o a pagar do Total A Pagar.
+    const impostoRetidoPago = useMemo(() => pagoFiltrado
+        .filter(p => p.tipo_controle === 'ImpostoRetido')
+        .reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0), [pagoFiltrado])
+    const impostoRetidoAPagar = useMemo(() => pagoFiltrado
+        .filter(p => p.tipo_controle === 'ImpostoRetido')
+        .reduce((s, p) => s + Number(p.vlr_at_pagar || 0), 0), [pagoFiltrado])
+
+    // Total Pago = SUM(VlrAtPago) onde TipoControle = "Despesas" − Imposto Retido pago
     const totalPago = useMemo(() => pagoFiltrado
         .filter(p => p.tipo_controle === 'Despesas')
-        .reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0), [pagoFiltrado])
+        .reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0) - impostoRetidoPago, [pagoFiltrado, impostoRetidoPago])
 
-    // Total A Pagar = SUM(VlrAtPagar) onde TipoControle = "Despesas"
+    // Total A Pagar = SUM(VlrAtPagar) onde TipoControle = "Despesas" − Imposto Retido a pagar
     const totalAPagar = useMemo(() => pagoFiltrado
         .filter(p => p.tipo_controle === 'Despesas')
-        .reduce((s, p) => s + Number(p.vlr_at_pagar || 0), 0), [pagoFiltrado])
+        .reduce((s, p) => s + Number(p.vlr_at_pagar || 0), 0) - impostoRetidoAPagar, [pagoFiltrado, impostoRetidoAPagar])
 
     // Controle Financeiro Saída = SUM(TotalReceita) onde TipoControle = "DespSaida"
     const controleFinanceiroSaida = useMemo(() => pagoFiltrado
@@ -193,12 +202,8 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // Total Comprometido Obra = Total Pago + Total A Pagar + Controle Financeiro Saída
     const totalComprometidoObra = totalPago + totalAPagar + controleFinanceiroSaida
 
-    // Imposto Retido = pago + a pagar das linhas com Banco_Des = 1010 no UAU
-    // (o worker marca essas linhas como tipo 'ImpostoRetido'; elas ficam FORA
-    // de todas as outras medidas).
-    const impostoRetido = useMemo(() => pagoFiltrado
-        .filter(p => p.tipo_controle === 'ImpostoRetido')
-        .reduce((s, p) => s + Number(p.vlr_at_pago || 0) + Number(p.vlr_at_pagar || 0), 0), [pagoFiltrado])
+    // Card Imposto Retido = pago + a pagar do banco 1010
+    const impostoRetido = impostoRetidoPago + impostoRetidoAPagar
 
     // A_receber filtrado por obra + período (dimensões)
     const areceberFiltrado = useMemo(() => areceber.filter(a =>
@@ -488,6 +493,7 @@ function GraficoEvolucao({ recebido, pago }: { recebido: RecebidoRow[]; pago: Pa
             const i = parseInt(p.data_movimento.slice(5, 7)) - 1
             if (p.tipo_controle === 'Despesas') meses[i].comprometido += Number(p.vlr_at_pago || 0) + Number(p.vlr_at_pagar || 0)
             else if (p.tipo_controle === 'DespSaida') meses[i].comprometido += Number(p.total_receita || 0)
+            else if (p.tipo_controle === 'ImpostoRetido') meses[i].comprometido -= Number(p.vlr_at_pago || 0) + Number(p.vlr_at_pagar || 0)
         }
         return meses.map(m => ({ ...m, diferenca: m.recebido - m.comprometido }))
     }, [recebido, pago, ano])
