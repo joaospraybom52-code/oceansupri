@@ -48,6 +48,11 @@ const ymLabel = (ym: string) => {
     const [y, m] = ym.split('-')
     return `${MESES[parseInt(m) - 1] ?? '?'}/${y.slice(2)}`
 }
+// "YYYY-MM-DD" -> "dd/mm/yy" (sem Date, pra não deslocar por fuso)
+const dmyLabel = (d: string | null) => {
+    const [y, m, dd] = (d || '').slice(0, 10).split('-')
+    return dd ? `${dd}/${m}/${y.slice(2)}` : '—'
+}
 
 // estágio derivado de cada medição
 // Filtro Ano/Mês igual ao da aba KPI'S: vazio = tudo; funciona com 'YYYY-MM' e 'YYYY-MM-DD'.
@@ -131,7 +136,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
             tipo: m.tipo || 'previsao',
             obra_id: m.obra_id ?? '',
             valor: String(m.valor_medicao ?? ''),
-            mes: toYm(m.mes_recebimento),
+            mes: (m.mes_recebimento || '').slice(0, 10),
             nota_fiscal: m.nota_fiscal ?? '',
             observacoes: m.observacoes ?? '',
             iss: m.iss_percentual != null ? (Number(m.valor_medicao || 0) * Number(m.iss_percentual) / 100).toFixed(2) : '',
@@ -168,7 +173,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
         const payload: any = {
             obra_id: form.obra_id,
             valor_medicao: Number(form.valor),
-            mes_recebimento: `${form.mes}-01`,
+            // form.mes agora é a DATA prevista completa (YYYY-MM-DD, com o dia)
+            mes_recebimento: form.mes,
             tipo: form.tipo,
             nota_fiscal: form.tipo === 'emitida' ? (form.nota_fiscal || null) : null,
             observacoes: form.tipo === 'emitida' ? (form.observacoes || null) : null,
@@ -451,7 +457,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                                             <div style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.obra?.nome ?? '—'}</div>
                                             <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                                 <span style={{ color: st.color, fontWeight: 600 }}>{st.label}</span>
-                                                <span>· {m.obra?.codigo}{m.obra?.cidade ? ` · ${m.obra.cidade}` : ''} · {ymLabel(toYm(isRecebida(m) ? m.mes_recebimento_real : m.mes_recebimento))}</span>
+                                                <span>· {m.obra?.codigo}{m.obra?.cidade ? ` · ${m.obra.cidade}` : ''} · {isRecebida(m) ? ymLabel(toYm(m.mes_recebimento_real)) : dmyLabel(m.mes_recebimento)}</span>
                                                 {m.nota_fiscal && <span>· NF {m.nota_fiscal}</span>}
                                                 {temImposto(m) && aba !== 'descontos' && <span>· líq. de {formatCurrency(Number(m.valor_medicao))} (− ISS {formatCurrency(Number(m.valor_medicao) * Number(m.iss_percentual || 0) / 100)} − INSS {formatCurrency(Number(m.valor_medicao) * Number(m.inss_percentual || 0) / 100)})</span>}
                                                 {aba === 'descontos' && <span>· de {formatCurrency(Number(m.valor_medicao))}</span>}
@@ -573,7 +579,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                 <div><label style={lbl}>Valor da medição *</label><input type="number" step="0.01" min="0" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} className="input-field" placeholder="0,00" required /></div>
-                                <div><label style={lbl}>Mês previsto *</label><input type="month" value={form.mes} onChange={e => setForm({ ...form, mes: e.target.value })} className="input-field" required /></div>
+                                <div><label style={lbl}>Data prevista *</label><input type="date" value={form.mes} onChange={e => setForm({ ...form, mes: e.target.value })} className="input-field" required /></div>
                             </div>
 
                             {form.tipo === 'emitida' && (
