@@ -81,7 +81,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
         const t = setTimeout(() => {
             window.print()
             setPrinting(false)
-        }, 450)
+        }, 600)
         return () => clearTimeout(t)
     }, [printing])
 
@@ -344,7 +344,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
             )}
 
             {/* ========== RELATÓRIO ========== */}
-            <div id="relatorio-print" style={printing ? { width: '1050px', margin: '0 auto' } : undefined}>
+            {/* key troca no print -> remonta os recharts já na largura de 1050px */}
+            <div id="relatorio-print" key={printing ? 'print' : 'tela'} style={printing ? { width: '1050px', margin: '0 auto' } : undefined}>
                 {/* Rodapé fixo (repete em todas as páginas na impressão) */}
                 <div className="print-footer">
                     <span>CONSTROWINS ENGENHARIA — Relatório de Acompanhamento de Obra (RG.089)</span>
@@ -437,13 +438,13 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                     <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} width={34} />
                                     <Tooltip cursor={false} formatter={(v: any) => v == null ? '-' : `${Number(v).toFixed(1)}%`} />
                                     <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                    <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls>
+                                    <Line type="monotone" dataKey="Linha de Base" stroke="#10b981" strokeWidth={2} dot={false} connectNulls isAnimationActive={false}>
                                         <LabelList dataKey="lbTxt" position="top" offset={10} fontSize={10} fontWeight={700} fill="#0f7a52" />
                                     </Line>
-                                    <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls>
+                                    <Line type="monotone" dataKey="Tendência" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls isAnimationActive={false}>
                                         <LabelList dataKey="tendTxt" position="bottom" offset={10} fontSize={10} fontWeight={700} fill="#b45309" />
                                     </Line>
-                                    <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 2 }} connectNulls>
+                                    <Line type="monotone" dataKey="Real" stroke="#ef4444" strokeWidth={3} dot={{ r: 2 }} connectNulls isAnimationActive={false}>
                                         <LabelList dataKey="realTxt" position="bottom" offset={10} fontSize={10} fontWeight={700} fill="#b91c1c" />
                                     </Line>
                                 </LineChart>
@@ -479,10 +480,10 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                     <YAxis tick={{ fontSize: 10, fill: '#555' }} />
                                     <Tooltip cursor={false} />
                                     <Legend wrapperStyle={{ fontSize: '11px' }} />
-                                    <Bar dataKey="Previsto" fill="#3b82f6">
+                                    <Bar dataKey="Previsto" fill="#3b82f6" isAnimationActive={false}>
                                         <LabelList dataKey="Previsto" position="center" formatter={(v: any) => v == null || v === 0 ? '' : `${v}`} fontSize={14} fontWeight={700} fill="#fff" />
                                     </Bar>
-                                    <Bar dataKey="Realizado" fill="#10b981">
+                                    <Bar dataKey="Realizado" fill="#10b981" isAnimationActive={false}>
                                         <LabelList dataKey="Realizado" position="center" formatter={(v: any) => v == null || v === 0 ? '' : `${v}`} fontSize={14} fontWeight={700} fill="#fff" />
                                     </Bar>
                                 </BarChart>
@@ -513,7 +514,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                                 <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#555' }} />
                                 <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#555' }} />
                                 <Tooltip cursor={false} formatter={(v: any) => `${v}%`} />
-                                <Bar dataKey="PPC" radius={[3, 3, 0, 0]}>
+                                <Bar dataKey="PPC" radius={[3, 3, 0, 0]} isAnimationActive={false}>
                                     <LabelList dataKey="PPC" position="center" formatter={(v: any) => `${Math.round(Number(v))}%`} fontSize={15} fontWeight={700} fill="#fff" />
                                     {ppcPorSemana.map((e: any, i: number) => <Cell key={i} fill={e.PPC >= 80 ? '#15803d' : e.PPC >= 50 ? '#f59e0b' : '#b91c1c'} />)}
                                 </Bar>
@@ -550,7 +551,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     {desviosPorCategoria.length === 0 ? <div style={{ fontSize: '12px', color: '#999' }}>Nenhuma restrição cadastrada nesta semana.</div> : (
                         <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
-                                <Pie data={desviosPorCategoria} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
+                                <Pie data={desviosPorCategoria} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} isAnimationActive={false}
                                     label={(e: any) => `${e.name}: ${e.value}`} labelLine={true} fontSize={11}>
                                     {desviosPorCategoria.map((_, i) => <Cell key={i} fill={PIE_CORES[i % PIE_CORES.length]} />)}
                                 </Pie>
