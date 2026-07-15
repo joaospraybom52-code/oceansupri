@@ -72,6 +72,19 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const [fotos, setFotos] = useState<{ url: string, name: string }[]>([])
     const [saving, setSaving] = useState(false)
 
+    // Exportar PDF: trava a largura do relatório na largura útil do A4 paisagem
+    // (~1050px) e espera os gráficos recharts se re-medirem antes de imprimir —
+    // senão o SVG fica com a largura da TELA e sai cortado no PDF.
+    const [printing, setPrinting] = useState(false)
+    useEffect(() => {
+        if (!printing) return
+        const t = setTimeout(() => {
+            window.print()
+            setPrinting(false)
+        }, 450)
+        return () => clearTimeout(t)
+    }, [printing])
+
     useEffect(() => {
         const r = relatorios.find((x: any) => x.semana_ref === semanaSel)
         setOcorrencias(((r?.ocorrencias as string[]) || []).join('\n'))
@@ -257,7 +270,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     body { background: #fff !important; }
                     body * { visibility: hidden !important; }
                     #relatorio-print, #relatorio-print * { visibility: visible !important; }
-                    #relatorio-print { position: absolute; left: 0; top: 0; width: 100%; }
+                    #relatorio-print { position: absolute; left: 0; top: 0; width: 1050px; }
                     .no-print { display: none !important; }
                     .rep-sec, .rep-avoid { break-inside: avoid; page-break-inside: avoid; }
                     #relatorio-print thead { display: table-header-group; }
@@ -291,8 +304,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                     <ImagePlus size={16} /> Anexar fotos
                     <input type="file" accept="image/*" multiple onChange={onFotos} style={{ display: 'none' }} />
                 </label>
-                <button onClick={() => window.print()} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <Printer size={16} /> Exportar PDF
+                <button onClick={() => setPrinting(true)} className="btn-primary" disabled={printing} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Printer size={16} /> {printing ? 'Preparando…' : 'Exportar PDF'}
                 </button>
             </div>
 
@@ -331,7 +344,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
             )}
 
             {/* ========== RELATÓRIO ========== */}
-            <div id="relatorio-print">
+            <div id="relatorio-print" style={printing ? { width: '1050px', margin: '0 auto' } : undefined}>
                 {/* Rodapé fixo (repete em todas as páginas na impressão) */}
                 <div className="print-footer">
                     <span>CONSTROWINS ENGENHARIA — Relatório de Acompanhamento de Obra (RG.089)</span>
