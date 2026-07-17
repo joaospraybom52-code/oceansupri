@@ -32,8 +32,9 @@ export default async function ControlePage() {
     // DespSaida -> total_receita), agregado aqui pra não mandar a tabela inteira.
     // "pago" = Total Pago (vlr_at_pago das Despesas) + Controle Financeiro Saída
     // (total_receita das DespSaida) — mesma despesa do Balanço da Obra na KPI'S.
-    // Usado no gráfico de Fluxo de Caixa.
+    // pagoDia = a MESMA medida "pago" por DIA (data_movimento) — Fluxo de Caixa Diário.
     const agg = new Map<string, { obra: string; ym: string; valor: number; pago: number }>()
+    const pagoDia = new Map<string, { obra: string; data: string; valor: number }>()
     const PAGE = 1000
     for (let from = 0; ; from += PAGE) {
         const { data: rows } = await supabase
@@ -42,7 +43,8 @@ export default async function ControlePage() {
             .range(from, from + PAGE - 1)
         if (!rows || rows.length === 0) break
         for (const r of rows as any[]) {
-            const ym = (r.data_movimento || '').slice(0, 7)
+            const dia = (r.data_movimento || '').slice(0, 10)
+            const ym = dia.slice(0, 7)
             if (!ym || !r.obra) continue
             // ImpostoRetido (Banco_Des 1010) fica de fora — a exclusão já é o desconto
             const valor = r.tipo_controle === 'Despesas'
@@ -56,19 +58,35 @@ export default async function ControlePage() {
             cur.valor += valor
             cur.pago += pago
             agg.set(k, cur)
+            if (pago) {
+                const kd = `${r.obra}|${dia}`
+                const cd = pagoDia.get(kd) ?? { obra: r.obra, data: dia, valor: 0 }
+                cd.valor += pago
+                pagoDia.set(kd, cd)
+            }
         }
         if (rows.length < PAGE) break
     }
 
-    // Fluxo de Caixa Diário (espelho do UAU via sync-fluxo-caixa)
-    const fluxoDiario: { obra: string | null; data: string | null; fornecedor: string | null; credito: number | null; debito: number | null }[] = []
+    // Recebido por obra/DIA (medida Total Recebido Real: SUM(tot_conf) de
+    // controle_recebido por data_rec) — Fluxo de Caixa Diário.
+    const recDia = new Map<string, { obra: string; data: string; valor: number }>()
     for (let from = 0; ; from += PAGE) {
         const { data: rows } = await supabase
-            .from('fluxo_caixa_diario' as any)
-            .select('obra, data, fornecedor, credito, debito')
+            .from('controle_recebido')
+            .select('obra_rec, data_rec, tot_conf')
             .range(from, from + PAGE - 1)
         if (!rows || rows.length === 0) break
-        fluxoDiario.push(...(rows as any[]))
+        for (const r of rows as any[]) {
+            const dia = (r.data_rec || '').slice(0, 10)
+            if (!dia || !r.obra_rec) continue
+            const valor = Number(r.tot_conf || 0)
+            if (!valor) continue
+            const k = `${r.obra_rec}|${dia}`
+            const cur = recDia.get(k) ?? { obra: r.obra_rec, data: dia, valor: 0 }
+            cur.valor += valor
+            recDia.set(k, cur)
+        }
         if (rows.length < PAGE) break
     }
 
@@ -78,7 +96,8 @@ export default async function ControlePage() {
             medicoesIniciais={(medicoes as any) ?? []}
             podeEditar={podeEditar}
             comprometido={Array.from(agg.values())}
-            fluxoDiario={fluxoDiario}
+            fluxoRecebido={Array.from(recDia.values())}
+            fluxoPago={Array.from(pagoDia.values())}
         />
     )
 }

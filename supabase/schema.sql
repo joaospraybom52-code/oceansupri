@@ -468,13 +468,3 @@ $function$
 -- ============ TRIGGERS ============
 CREATE TRIGGER trg_concluir_5w2h AFTER UPDATE OF status ON public.restricoes
   FOR EACH ROW EXECUTE FUNCTION public.concluir_5w2h_ao_remover_restricao();
-
-CREATE TABLE public.fluxo_caixa_diario (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  obra text,
-  data date,
-  fornecedor text,
-  credito numeric DEFAULT 0,
-  debito numeric DEFAULT 0,
-  atualizado_em timestamptz DEFAULT now()
-);

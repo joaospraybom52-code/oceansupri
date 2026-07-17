@@ -837,36 +837,6 @@ export type Database = {
                 }
                 Relationships: []
             }
-            fluxo_caixa_diario: {
-                Row: {
-                    id: string
-                    obra: string | null
-                    data: string | null
-                    fornecedor: string | null
-                    credito: number | null
-                    debito: number | null
-                    atualizado_em: string | null
-                }
-                Insert: {
-                    id?: string
-                    obra?: string | null
-                    data?: string | null
-                    fornecedor?: string | null
-                    credito?: number | null
-                    debito?: number | null
-                    atualizado_em?: string | null
-                }
-                Update: {
-                    id?: string
-                    obra?: string | null
-                    data?: string | null
-                    fornecedor?: string | null
-                    credito?: number | null
-                    debito?: number | null
-                    atualizado_em?: string | null
-                }
-                Relationships: []
-            }
             controle_vendasrecebidas: {
                 Row: {
                     id: string

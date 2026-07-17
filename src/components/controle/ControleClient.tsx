@@ -101,9 +101,12 @@ const iconBtnStyle: React.CSSProperties = {
 
 interface ComprometidoMes { obra: string; ym: string; valor: number; pago?: number }
 
-interface FluxoDiarioRow { obra: string | null; data: string | null; fornecedor: string | null; credito: number | null; debito: number | null }
+// Fluxo de Caixa Diário: valores por obra+dia já agregados no servidor a partir
+// das fontes da KPI'S (recebido = tot_conf por data_rec; pago = Total Pago +
+// Controle Financeiro Saída por data_movimento).
+interface FluxoDia { obra: string | null; data: string | null; valor: number }
 
-export default function ControleClient({ obras, medicoesIniciais, podeEditar, comprometido = [], fluxoDiario = [] }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean; comprometido?: ComprometidoMes[]; fluxoDiario?: FluxoDiarioRow[] }) {
+export default function ControleClient({ obras, medicoesIniciais, podeEditar, comprometido = [], fluxoRecebido = [], fluxoPago = [] }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean; comprometido?: ComprometidoMes[]; fluxoRecebido?: FluxoDia[]; fluxoPago?: FluxoDia[] }) {
     const supabase = createClient()
     const [medicoes, setMedicoes] = useState<Medicao[]>(medicoesIniciais)
 
@@ -552,8 +555,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                 )}
             </div>
 
-            {/* Fluxo de Caixa Diário: crédito x débito por dia (fonte UAU) */}
-            <FluxoCaixaDiario rows={fluxoDiario} obras={obras} />
+            {/* Fluxo de Caixa Diário: recebido x pago por dia (medidas da KPI'S) */}
+            <FluxoCaixaDiario recebidos={fluxoRecebido} pagos={fluxoPago} obras={obras} />
 
             {/* Modal Cadastro/Edição */}
             {showModal && (
@@ -653,10 +656,11 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
 const lbl: React.CSSProperties = { fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }
 
 // ===== Fluxo de Caixa Diário =====
-// Barras de Recebido (crédito) x Pago (débito) por dia do mês selecionado.
+// Barras de Recebido x Pago por dia do mês, usando as MESMAS medidas da KPI'S:
+//   Recebido = Total Recebido Real (tot_conf por data_rec);
+//   Pago     = Total Pago + Controle Financeiro Saída (por data_movimento).
 // Filtros próprios: Mês/Ano (padrão = mês/ano atual) e Obra (com busca).
-// Tooltip lista os fornecedores/clientes do dia com seus valores.
-function FluxoCaixaDiario({ rows, obras }: { rows: FluxoDiarioRow[]; obras: Obra[] }) {
+function FluxoCaixaDiario({ recebidos, pagos, obras }: { recebidos: FluxoDia[]; pagos: FluxoDia[]; obras: Obra[] }) {
     const agora = new Date()
     const [mes, setMes] = useState(String(agora.getMonth() + 1).padStart(2, '0'))
     const [ano, setAno] = useState(String(agora.getFullYear()))
@@ -665,68 +669,44 @@ function FluxoCaixaDiario({ rows, obras }: { rows: FluxoDiarioRow[]; obras: Obra
     // Anos disponíveis nos dados (sempre inclui o atual)
     const anos = useMemo(() => {
         const s = new Set<string>([String(agora.getFullYear())])
-        rows.forEach(r => { if (r.data) s.add(r.data.slice(0, 4)) })
+        recebidos.forEach(r => { if (r.data) s.add(r.data.slice(0, 4)) })
+        pagos.forEach(r => { if (r.data) s.add(r.data.slice(0, 4)) })
         return Array.from(s).sort()
-    }, [rows])
+    }, [recebidos, pagos])
 
-    // Opções de obra a partir dos códigos presentes nos dados (nome da tabela obras)
+    // Opções de obra a partir dos códigos presentes nas duas fontes
     const obraOptions = useMemo(() => {
         const nomePorCodigo = new Map(obras.filter(o => o.codigo).map(o => [o.codigo as string, o.nome]))
-        const codigos = Array.from(new Set(rows.map(r => r.obra).filter(Boolean) as string[])).sort()
-        return [{ value: '', label: 'Todas as obras' }, ...codigos.map(c => ({ value: c, label: nomePorCodigo.has(c) ? `${c} - ${nomePorCodigo.get(c)}` : c }))]
-    }, [rows, obras])
+        const codigos = new Set<string>()
+        recebidos.forEach(r => { if (r.obra) codigos.add(r.obra) })
+        pagos.forEach(r => { if (r.obra) codigos.add(r.obra) })
+        return [{ value: '', label: 'Todas as obras' }, ...Array.from(codigos).sort().map(c => ({ value: c, label: nomePorCodigo.has(c) ? `${c} - ${nomePorCodigo.get(c)}` : c }))]
+    }, [recebidos, pagos, obras])
 
-    // Dias do mês + somas + fornecedores por dia (para o tooltip)
+    // Dias do mês selecionado com as somas de recebido/pago
     const { chartData, totalCred, totalDeb } = useMemo(() => {
         const ym = `${ano}-${mes}`
         const nDias = new Date(Number(ano), Number(mes), 0).getDate()
         const dias = Array.from({ length: nDias }, (_, i) => ({
             dia: String(i + 1).padStart(2, '0'),
             Recebido: 0, Pago: 0,
-            creditos: [] as { forn: string; valor: number }[],
-            debitos: [] as { forn: string; valor: number }[],
         }))
-        for (const r of rows) {
-            if (!r.data || r.data.slice(0, 7) !== ym) continue
-            if (obraSel && r.obra !== obraSel) continue
-            const d = dias[Number(r.data.slice(8, 10)) - 1]
-            if (!d) continue
-            const forn = r.fornecedor || '—'
-            const cred = Number(r.credito || 0); const deb = Number(r.debito || 0)
-            if (cred) { d.Recebido += cred; d.creditos.push({ forn, valor: cred }) }
-            if (deb) { d.Pago += deb; d.debitos.push({ forn, valor: deb }) }
+        const soma = (rows: FluxoDia[], campo: 'Recebido' | 'Pago') => {
+            for (const r of rows) {
+                if (!r.data || r.data.slice(0, 7) !== ym) continue
+                if (obraSel && r.obra !== obraSel) continue
+                const d = dias[Number(r.data.slice(8, 10)) - 1]
+                if (d) d[campo] += Number(r.valor || 0)
+            }
         }
-        for (const d of dias) {
-            d.creditos.sort((a, b) => b.valor - a.valor)
-            d.debitos.sort((a, b) => b.valor - a.valor)
-        }
+        soma(recebidos, 'Recebido')
+        soma(pagos, 'Pago')
         return {
             chartData: dias,
             totalCred: dias.reduce((s, d) => s + d.Recebido, 0),
             totalDeb: dias.reduce((s, d) => s + d.Pago, 0),
         }
-    }, [rows, mes, ano, obraSel])
-
-    const MAX_TOOLTIP = 8
-    const listaTooltip = (itens: { forn: string; valor: number }[], cor: string) => {
-        const top = itens.slice(0, MAX_TOOLTIP)
-        const resto = itens.slice(MAX_TOOLTIP)
-        return (
-            <>
-                {top.map((f, i) => (
-                    <p key={i} style={{ margin: '1px 0', fontSize: '11.5px', color: '#cbd5e1', display: 'flex', justifyContent: 'space-between', gap: '14px' }}>
-                        <span style={{ maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.forn}</span>
-                        <strong style={{ color: cor, flexShrink: 0 }}>{formatCurrency(f.valor)}</strong>
-                    </p>
-                ))}
-                {resto.length > 0 && (
-                    <p style={{ margin: '1px 0', fontSize: '11px', color: '#64748b' }}>
-                        +{resto.length} outros ({formatCurrency(resto.reduce((s, f) => s + f.valor, 0))})
-                    </p>
-                )}
-            </>
-        )
-    }
+    }, [recebidos, pagos, mes, ano, obraSel])
 
     const temDados = totalCred > 0 || totalDeb > 0
 
@@ -789,21 +769,15 @@ function FluxoCaixaDiario({ rows, obras }: { rows: FluxoDiarioRow[]; obras: Obra
                                     if (!active || !payload?.length) return null
                                     const d: any = payload[0]?.payload
                                     if (!d || (d.Recebido === 0 && d.Pago === 0)) return null
+                                    const saldo = d.Recebido - d.Pago
                                     return (
-                                        <div style={{ ...tooltipStyle, maxWidth: '360px' }}>
+                                        <div style={tooltipStyle}>
                                             <p style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Dia {d.dia}/{mes}/{ano}</p>
-                                            {d.Recebido > 0 && (
-                                                <div style={{ marginBottom: d.Pago > 0 ? '8px' : 0 }}>
-                                                    <p style={{ margin: '0 0 3px', fontSize: '12px', fontWeight: 700, color: '#10b981' }}>Recebido: {formatCurrency(d.Recebido)}</p>
-                                                    {listaTooltip(d.creditos, '#10b981')}
-                                                </div>
-                                            )}
-                                            {d.Pago > 0 && (
-                                                <div>
-                                                    <p style={{ margin: '0 0 3px', fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>Pago: {formatCurrency(d.Pago)}</p>
-                                                    {listaTooltip(d.debitos, '#ef4444')}
-                                                </div>
-                                            )}
+                                            <p style={{ margin: '2px 0', fontSize: '13px', color: '#10b981' }}>Recebido: <strong style={{ color: '#f1f5f9' }}>{formatCurrency(d.Recebido)}</strong></p>
+                                            <p style={{ margin: '2px 0', fontSize: '13px', color: '#ef4444' }}>Pago: <strong style={{ color: '#f1f5f9' }}>{formatCurrency(d.Pago)}</strong></p>
+                                            <p style={{ margin: '6px 0 0', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: '#94a3b8' }}>
+                                                Saldo do dia: <strong style={{ color: saldo >= 0 ? '#10b981' : '#ef4444' }}>{formatCurrency(saldo)}</strong>
+                                            </p>
                                         </div>
                                     )
                                 }}

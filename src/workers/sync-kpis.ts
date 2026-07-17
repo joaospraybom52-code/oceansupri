@@ -4,7 +4,7 @@
 import { spawnSync } from 'child_process'
 import path from 'path'
 
-const workers = ['sync-recebido', 'sync-pago-apagar', 'sync-vendasrecebidas', 'sync-a-receber', 'sync-fluxo-caixa']
+const workers = ['sync-recebido', 'sync-pago-apagar', 'sync-vendasrecebidas', 'sync-a-receber']
 
 console.log('=== Atualizando consultas da KPI\'S (roda uma vez e encerra) ===\n')
 let falhas = 0
