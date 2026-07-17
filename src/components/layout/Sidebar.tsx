@@ -2,14 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Kanban, BarChart3, Package, Building2, Users, Settings, Truck, ArrowLeftRight } from 'lucide-react'
+import { LayoutDashboard, Kanban, BarChart3, Building2, Users, Settings, Truck, ArrowLeftRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
     { href: '/board', label: 'Board', icon: Kanban },
     { href: '/analytics', label: 'Dashboard', icon: BarChart3 },
-    { href: '/pedidos', label: 'Pedidos', icon: Package },
     { href: '/obras', label: 'Obras', icon: Building2 },
     { href: '/fornecedores', label: 'Fornecedores', icon: Truck },
 ]
