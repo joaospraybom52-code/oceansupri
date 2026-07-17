@@ -213,7 +213,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
         const percentual = base > 0 ? (valor / base) * 100 : 0
         setLoading(true)
         const payload = { percentual_recebido: percentual, mes_recebimento_real: `${recebForm.mesReal}-01` }
-        const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, created_at'
+        // iss/inss precisam voltar no select: sem eles o estado perde os impostos
+        // e a tela passa a calcular o recebido sobre o BRUTO (valor "salta").
+        const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at'
         const { data, error } = await supabase.from('controle_medicoes').update(payload).eq('id', recebMed.id).select(sel).single()
         if (error) toast.error('Erro: ' + error.message)
         else {
