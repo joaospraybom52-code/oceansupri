@@ -60,12 +60,25 @@ export default async function ControlePage() {
         if (rows.length < PAGE) break
     }
 
+    // Fluxo de Caixa Diário (espelho do UAU via sync-fluxo-caixa)
+    const fluxoDiario: { obra: string | null; data: string | null; fornecedor: string | null; credito: number | null; debito: number | null }[] = []
+    for (let from = 0; ; from += PAGE) {
+        const { data: rows } = await supabase
+            .from('fluxo_caixa_diario' as any)
+            .select('obra, data, fornecedor, credito, debito')
+            .range(from, from + PAGE - 1)
+        if (!rows || rows.length === 0) break
+        fluxoDiario.push(...(rows as any[]))
+        if (rows.length < PAGE) break
+    }
+
     return (
         <ControleClient
             obras={obras ?? []}
             medicoesIniciais={(medicoes as any) ?? []}
             podeEditar={podeEditar}
             comprometido={Array.from(agg.values())}
+            fluxoDiario={fluxoDiario}
         />
     )
 }

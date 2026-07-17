@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import {
-    LineChart as RLineChart, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
+    LineChart as RLineChart, ComposedChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts'
-import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, ArrowLeftRight } from 'lucide-react'
+import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, ArrowLeftRight, CalendarDays } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
+import SearchSelect from '@/components/ui/SearchSelect'
 
 interface Obra {
     id: string
@@ -100,7 +101,9 @@ const iconBtnStyle: React.CSSProperties = {
 
 interface ComprometidoMes { obra: string; ym: string; valor: number; pago?: number }
 
-export default function ControleClient({ obras, medicoesIniciais, podeEditar, comprometido = [] }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean; comprometido?: ComprometidoMes[] }) {
+interface FluxoDiarioRow { obra: string | null; data: string | null; fornecedor: string | null; credito: number | null; debito: number | null }
+
+export default function ControleClient({ obras, medicoesIniciais, podeEditar, comprometido = [], fluxoDiario = [] }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean; comprometido?: ComprometidoMes[]; fluxoDiario?: FluxoDiarioRow[] }) {
     const supabase = createClient()
     const [medicoes, setMedicoes] = useState<Medicao[]>(medicoesIniciais)
 
@@ -549,6 +552,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                 )}
             </div>
 
+            {/* Fluxo de Caixa Diário: crédito x débito por dia (fonte UAU) */}
+            <FluxoCaixaDiario rows={fluxoDiario} obras={obras} />
+
             {/* Modal Cadastro/Edição */}
             {showModal && (
                 <div className="modal-overlay">
@@ -645,6 +651,176 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
 }
 
 const lbl: React.CSSProperties = { fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }
+
+// ===== Fluxo de Caixa Diário =====
+// Barras de Recebido (crédito) x Pago (débito) por dia do mês selecionado.
+// Filtros próprios: Mês/Ano (padrão = mês/ano atual) e Obra (com busca).
+// Tooltip lista os fornecedores/clientes do dia com seus valores.
+function FluxoCaixaDiario({ rows, obras }: { rows: FluxoDiarioRow[]; obras: Obra[] }) {
+    const agora = new Date()
+    const [mes, setMes] = useState(String(agora.getMonth() + 1).padStart(2, '0'))
+    const [ano, setAno] = useState(String(agora.getFullYear()))
+    const [obraSel, setObraSel] = useState('')
+
+    // Anos disponíveis nos dados (sempre inclui o atual)
+    const anos = useMemo(() => {
+        const s = new Set<string>([String(agora.getFullYear())])
+        rows.forEach(r => { if (r.data) s.add(r.data.slice(0, 4)) })
+        return Array.from(s).sort()
+    }, [rows])
+
+    // Opções de obra a partir dos códigos presentes nos dados (nome da tabela obras)
+    const obraOptions = useMemo(() => {
+        const nomePorCodigo = new Map(obras.filter(o => o.codigo).map(o => [o.codigo as string, o.nome]))
+        const codigos = Array.from(new Set(rows.map(r => r.obra).filter(Boolean) as string[])).sort()
+        return [{ value: '', label: 'Todas as obras' }, ...codigos.map(c => ({ value: c, label: nomePorCodigo.has(c) ? `${c} - ${nomePorCodigo.get(c)}` : c }))]
+    }, [rows, obras])
+
+    // Dias do mês + somas + fornecedores por dia (para o tooltip)
+    const { chartData, totalCred, totalDeb } = useMemo(() => {
+        const ym = `${ano}-${mes}`
+        const nDias = new Date(Number(ano), Number(mes), 0).getDate()
+        const dias = Array.from({ length: nDias }, (_, i) => ({
+            dia: String(i + 1).padStart(2, '0'),
+            Recebido: 0, Pago: 0,
+            creditos: [] as { forn: string; valor: number }[],
+            debitos: [] as { forn: string; valor: number }[],
+        }))
+        for (const r of rows) {
+            if (!r.data || r.data.slice(0, 7) !== ym) continue
+            if (obraSel && r.obra !== obraSel) continue
+            const d = dias[Number(r.data.slice(8, 10)) - 1]
+            if (!d) continue
+            const forn = r.fornecedor || '—'
+            const cred = Number(r.credito || 0); const deb = Number(r.debito || 0)
+            if (cred) { d.Recebido += cred; d.creditos.push({ forn, valor: cred }) }
+            if (deb) { d.Pago += deb; d.debitos.push({ forn, valor: deb }) }
+        }
+        for (const d of dias) {
+            d.creditos.sort((a, b) => b.valor - a.valor)
+            d.debitos.sort((a, b) => b.valor - a.valor)
+        }
+        return {
+            chartData: dias,
+            totalCred: dias.reduce((s, d) => s + d.Recebido, 0),
+            totalDeb: dias.reduce((s, d) => s + d.Pago, 0),
+        }
+    }, [rows, mes, ano, obraSel])
+
+    const MAX_TOOLTIP = 8
+    const listaTooltip = (itens: { forn: string; valor: number }[], cor: string) => {
+        const top = itens.slice(0, MAX_TOOLTIP)
+        const resto = itens.slice(MAX_TOOLTIP)
+        return (
+            <>
+                {top.map((f, i) => (
+                    <p key={i} style={{ margin: '1px 0', fontSize: '11.5px', color: '#cbd5e1', display: 'flex', justifyContent: 'space-between', gap: '14px' }}>
+                        <span style={{ maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.forn}</span>
+                        <strong style={{ color: cor, flexShrink: 0 }}>{formatCurrency(f.valor)}</strong>
+                    </p>
+                ))}
+                {resto.length > 0 && (
+                    <p style={{ margin: '1px 0', fontSize: '11px', color: '#64748b' }}>
+                        +{resto.length} outros ({formatCurrency(resto.reduce((s, f) => s + f.valor, 0))})
+                    </p>
+                )}
+            </>
+        )
+    }
+
+    const temDados = totalCred > 0 || totalDeb > 0
+
+    return (
+        <div className="glass-card" style={{ padding: '24px', marginTop: '24px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <CalendarDays size={18} color="#22d3ee" />
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Fluxo de Caixa Diário</h3>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>recebido × pago por dia</span>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <div>
+                        <label style={lbl}>Obra</label>
+                        <SearchSelect options={obraOptions} value={obraSel} onChange={setObraSel} placeholder="Todas as obras" minWidth={260} />
+                    </div>
+                    <div>
+                        <label style={lbl}>Mês</label>
+                        <select value={mes} onChange={e => setMes(e.target.value)} className="select-field" style={{ minWidth: '140px' }}>
+                            {MESES_FILTRO.map(m => <option key={m.v} value={m.v}>{m.n}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label style={lbl}>Ano</label>
+                        <select value={ano} onChange={e => setAno(e.target.value)} className="select-field" style={{ minWidth: '100px' }}>
+                            {anos.map(a => <option key={a} value={a}>{a}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: '18px', paddingBottom: '4px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Recebido</div>
+                            <div style={{ fontSize: '15px', fontWeight: 800, color: '#10b981', whiteSpace: 'nowrap' }}>{formatCurrency(totalCred)}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Pago</div>
+                            <div style={{ fontSize: '15px', fontWeight: 800, color: '#ef4444', whiteSpace: 'nowrap' }}>{formatCurrency(totalDeb)}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Saldo</div>
+                            <div style={{ fontSize: '15px', fontWeight: 800, color: totalCred - totalDeb >= 0 ? '#10b981' : '#ef4444', whiteSpace: 'nowrap' }}>{formatCurrency(totalCred - totalDeb)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {!temDados ? (
+                <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
+                    Nenhum recebimento ou pagamento em {MESES_FILTRO.find(m => m.v === mes)?.n}/{ano}{obraSel ? ' para esta obra' : ''}.
+                </div>
+            ) : (
+                <>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 10 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                            <XAxis dataKey="dia" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={{ stroke: 'rgba(255,255,255,0.08)' }} tickLine={false} dy={6} interval={0} />
+                            <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrencyShort} width={70} />
+                            <Tooltip
+                                cursor={{ fill: 'rgba(255,255,255,0.04)' }} isAnimationActive={false}
+                                content={({ active, payload }) => {
+                                    if (!active || !payload?.length) return null
+                                    const d: any = payload[0]?.payload
+                                    if (!d || (d.Recebido === 0 && d.Pago === 0)) return null
+                                    return (
+                                        <div style={{ ...tooltipStyle, maxWidth: '360px' }}>
+                                            <p style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Dia {d.dia}/{mes}/{ano}</p>
+                                            {d.Recebido > 0 && (
+                                                <div style={{ marginBottom: d.Pago > 0 ? '8px' : 0 }}>
+                                                    <p style={{ margin: '0 0 3px', fontSize: '12px', fontWeight: 700, color: '#10b981' }}>Recebido: {formatCurrency(d.Recebido)}</p>
+                                                    {listaTooltip(d.creditos, '#10b981')}
+                                                </div>
+                                            )}
+                                            {d.Pago > 0 && (
+                                                <div>
+                                                    <p style={{ margin: '0 0 3px', fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>Pago: {formatCurrency(d.Pago)}</p>
+                                                    {listaTooltip(d.debitos, '#ef4444')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                }}
+                            />
+                            <Bar dataKey="Recebido" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+                            <Bar dataKey="Pago" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '14px' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: '#94a3b8' }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#10b981' }} /> Recebido</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: '#94a3b8' }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#ef4444' }} /> Pago</span>
+                    </div>
+                </>
+            )}
+        </div>
+    )
+}
 
 function AbaBtn({ ativa, cor, label, qtd, onClick }: { ativa: boolean; cor: string; label: string; qtd: number; onClick: () => void }) {
     return (
