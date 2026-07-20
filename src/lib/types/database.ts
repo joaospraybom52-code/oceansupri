@@ -837,6 +837,27 @@ export type Database = {
                 }
                 Relationships: []
             }
+            dre_sede_classificacao: {
+                Row: {
+                    id: string
+                    insumo: string
+                    tipo: string
+                    atualizado_em: string | null
+                }
+                Insert: {
+                    id?: string
+                    insumo: string
+                    tipo: string
+                    atualizado_em?: string | null
+                }
+                Update: {
+                    id?: string
+                    insumo?: string
+                    tipo?: string
+                    atualizado_em?: string | null
+                }
+                Relationships: []
+            }
             controle_vendasrecebidas: {
                 Row: {
                     id: string

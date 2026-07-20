@@ -468,3 +468,11 @@ $function$
 -- ============ TRIGGERS ============
 CREATE TRIGGER trg_concluir_5w2h AFTER UPDATE OF status ON public.restricoes
   FOR EACH ROW EXECUTE FUNCTION public.concluir_5w2h_ao_remover_restricao();
+
+CREATE TABLE public.dre_sede_classificacao (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  insumo text NOT NULL UNIQUE,
+  tipo text NOT NULL CHECK (tipo IN ('fixo','variavel','ignorado')),
+  atualizado_em timestamptz DEFAULT now()
+);
+ALTER TABLE public.dre_sede_classificacao ENABLE ROW LEVEL SECURITY;

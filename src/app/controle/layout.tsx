@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { LineChart, ArrowLeftRight, LogOut, BarChart3, Receipt } from 'lucide-react'
+import { LineChart, ArrowLeftRight, LogOut, BarChart3, Receipt, Landmark } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Toaster } from 'sonner'
 
@@ -59,6 +59,14 @@ export default function ControleLayout({ children }: { children: React.ReactNode
                     >
                         <BarChart3 size={18} />
                         KPI&apos;S
+                    </button>
+                    <button
+                        onClick={() => router.push('/controle/dre')}
+                        className={`sidebar-link${pathname?.startsWith('/controle/dre') ? ' active' : ''}`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'Inter, sans-serif', fontSize: '14px', textAlign: 'left' }}
+                    >
+                        <Landmark size={18} />
+                        DRE Sede
                     </button>
                     <button
                         onClick={() => router.push('/controle/cadastro-venda')}
