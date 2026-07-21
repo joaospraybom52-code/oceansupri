@@ -72,7 +72,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
                     valor_medido: i.atual_valor,
                     percentual_medido: i.atual_percentual
                 }
-                if (i.atual_id) row.id = i.atual_id // Se já existe, atualiza
+                row.id = i.atual_id || crypto.randomUUID() // id existente = update; novo = insert. Nunca null (upsert misto quebrava a trava NOT NULL)
                 return row
             })
 
