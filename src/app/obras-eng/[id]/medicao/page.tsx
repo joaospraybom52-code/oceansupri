@@ -73,10 +73,17 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
                             </tr>
                         </thead>
                         <tbody>
-                            {medicoes.map((med) => (
+                            {medicoes.map((med) => {
+                                const ehSinal = med.tipo === 'sinal'
+                                return (
                                 <tr key={med.id} style={{ borderBottom: '1px solid var(--border-glass)' }}>
                                     <td style={{ padding: '16px', fontSize: '14px', fontWeight: 500 }}>
-                                        {new Date(med.periodo_inicio).toLocaleDateString('pt-BR')} até {new Date(med.periodo_fim).toLocaleDateString('pt-BR')}
+                                        {ehSinal && (
+                                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '3px 8px', borderRadius: '10px', marginRight: '8px', verticalAlign: 'middle' }}>SINAL</span>
+                                        )}
+                                        {ehSinal
+                                            ? new Date(med.periodo_inicio).toLocaleDateString('pt-BR')
+                                            : `${new Date(med.periodo_inicio).toLocaleDateString('pt-BR')} até ${new Date(med.periodo_fim).toLocaleDateString('pt-BR')}`}
                                     </td>
                                     <td style={{ padding: '16px' }}>
                                         <span style={{
@@ -92,21 +99,26 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
                                         {new Date(med.created_at || '').toLocaleDateString('pt-BR')}
                                     </td>
                                     <td style={{ padding: '16px', fontSize: '14px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-green)' }}>
-                                        {fmt(totaisPorMedicao[med.id] || 0)}
+                                        {fmt(ehSinal ? Number(med.valor_sinal || 0) : (totaisPorMedicao[med.id] || 0))}
                                     </td>
                                     <td style={{ padding: '16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                        <Link href={`/obras-eng/${id}/medicao/${med.id}`} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none' }}>
-                                            Ver Detalhes
-                                        </Link>
+                                        {!ehSinal && (
+                                            <Link href={`/obras-eng/${id}/medicao/${med.id}`} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none' }}>
+                                                Ver Detalhes
+                                            </Link>
+                                        )}
                                         {podeEditar && (
                                             <DeleteMedicaoButton
                                                 medicaoId={med.id}
-                                                periodo={`${new Date(med.periodo_inicio).toLocaleDateString('pt-BR')} até ${new Date(med.periodo_fim).toLocaleDateString('pt-BR')}`}
+                                                periodo={ehSinal
+                                                    ? `Sinal de ${new Date(med.periodo_inicio).toLocaleDateString('pt-BR')}`
+                                                    : `${new Date(med.periodo_inicio).toLocaleDateString('pt-BR')} até ${new Date(med.periodo_fim).toLocaleDateString('pt-BR')}`}
                                             />
                                         )}
                                     </td>
                                 </tr>
-                            ))}
+                                )
+                            })}
                         </tbody>
                     </table>
                 </div>

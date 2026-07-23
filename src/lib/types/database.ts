@@ -390,6 +390,8 @@ export type Database = {
                     periodo_inicio: string
                     periodo_fim: string
                     status: string
+                    tipo: string
+                    valor_sinal: number | null
                     created_at: string | null
                 }
                 Insert: {
@@ -398,6 +400,8 @@ export type Database = {
                     periodo_inicio: string
                     periodo_fim: string
                     status?: string
+                    tipo?: string
+                    valor_sinal?: number | null
                     created_at?: string | null
                 }
                 Update: {
@@ -406,6 +410,8 @@ export type Database = {
                     periodo_inicio?: string
                     periodo_fim?: string
                     status?: string
+                    tipo?: string
+                    valor_sinal?: number | null
                     created_at?: string | null
                 }
                 Relationships: []

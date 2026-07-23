@@ -120,6 +120,8 @@ CREATE TABLE public.medicoes (
   periodo_inicio date NOT NULL,
   periodo_fim date NOT NULL,
   status text DEFAULT 'Rascunho'::text NOT NULL,
+  tipo text DEFAULT 'medicao'::text NOT NULL,
+  valor_sinal numeric,
   created_at timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public.medicoes ADD CONSTRAINT medicoes_obra_id_fkey FOREIGN KEY (obra_id) REFERENCES obras_eng(id) ON DELETE CASCADE;
