@@ -5,6 +5,7 @@ import { Landmark, ChevronDown, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
+import DreSedeRelatorio, { type ItemCusto, type MesSerie, type TipoCusto } from './DreSedeRelatorio'
 
 interface RecebidoObraMes { obra: string; ym: string; valor: number }
 interface CustoRow { descrinsumo: string | null; cliente: string | null; data_movimento: string | null; vlr_at_pago: number | null }
@@ -105,6 +106,70 @@ export default function DreSedeClient({ recebido, custos, classificacao, obras, 
     const custosTotais = custoVariavel + custoFixo + naoClassificado
     const pctEquilibrio = recebidoTotal > 0 ? (custosTotais / recebidoTotal) * 100 : 0
     const sedeSePagou = resultado >= 0
+
+    // ===== Base do relatório gerencial: ranking ABC por insumo + fornecedores =====
+    // (ignorados ficam de fora — não são custo da sede)
+    const { rankingItens, rankingFornecedores } = useMemo(() => {
+        const porInsumo = new Map<string, { insumo: string; tipo: TipoCusto; valor: number }>()
+        const porFornecedor = new Map<string, number>()
+        const tipos: TipoCusto[] = ['fixo', 'variavel', 'nao_classificado']
+        for (const tipo of tipos) {
+            for (const it of buckets[tipo].itens.values()) {
+                const k = it.insumo.toUpperCase()
+                const cur = porInsumo.get(k) ?? { insumo: it.insumo, tipo, valor: 0 }
+                cur.valor += it.valor
+                porInsumo.set(k, cur)
+                porFornecedor.set(it.cliente, (porFornecedor.get(it.cliente) || 0) + it.valor)
+            }
+        }
+        const total = Array.from(porInsumo.values()).reduce((s, i) => s + i.valor, 0)
+        const ordenados = Array.from(porInsumo.values()).sort((a, b) => b.valor - a.valor)
+        const ranking: ItemCusto[] = []
+        let acum = 0
+        for (const i of ordenados) {
+            // a classe olha o acumulado ANTES do item: quem cruza os 80% ainda é A
+            const antes = total > 0 ? acum / total : 0
+            acum += i.valor
+            const classe: ItemCusto['classe'] = antes < 0.8 ? 'A' : antes < 0.95 ? 'B' : 'C'
+            ranking.push({
+                ...i,
+                pct: total > 0 ? i.valor / total : 0,
+                pctAcum: total > 0 ? acum / total : 0,
+                classe,
+            })
+        }
+        const fornecedores = Array.from(porFornecedor.entries())
+            .map(([cliente, valor]) => ({ cliente, valor }))
+            .sort((a, b) => b.valor - a.valor)
+        return { rankingItens: ranking, rankingFornecedores: fornecedores }
+    }, [buckets])
+
+    // ===== Série mensal: margem das obras x custo da sede =====
+    const serieMensal = useMemo(() => {
+        const m = new Map<string, MesSerie>()
+        const get = (ym: string) => {
+            const cur = m.get(ym) ?? { ym, mc: 0, fixo: 0, variavel: 0, naoClass: 0 }
+            m.set(ym, cur)
+            return cur
+        }
+        for (const r of recebido) {
+            if (!matchPeriodo(r.ym, filtroAnos, filtroMeses)) continue
+            get(r.ym).mc += r.valor * 0.06
+        }
+        for (const c of custos) {
+            const ym = (c.data_movimento || '').slice(0, 7)
+            if (!matchPeriodo(ym, filtroAnos, filtroMeses)) continue
+            const valor = Number(c.vlr_at_pago || 0)
+            if (!valor) continue
+            const tipo = classMap.get((c.descrinsumo || '—').trim().toUpperCase()) ?? 'nao_classificado'
+            if (tipo === 'ignorado') continue
+            const linha = get(ym)
+            if (tipo === 'fixo') linha.fixo += valor
+            else if (tipo === 'variavel') linha.variavel += valor
+            else linha.naoClass += valor
+        }
+        return Array.from(m.values()).sort((a, b) => a.ym.localeCompare(b.ym))
+    }, [recebido, custos, filtroAnos, filtroMeses, classMap])
 
     async function mudarClassificacao(insumo: string, tipo: Classif['tipo']) {
         const upper = insumo.trim().toUpperCase()
@@ -300,6 +365,20 @@ export default function DreSedeClient({ recebido, custos, classificacao, obras, 
                     />
                 )}
             </div>
+
+            {/* Relatório gerencial */}
+            <DreSedeRelatorio
+                itens={rankingItens}
+                fornecedores={rankingFornecedores}
+                serie={serieMensal}
+                custoFixo={custoFixo}
+                custoVariavel={custoVariavel}
+                naoClassificado={naoClassificado}
+                custosTotais={custosTotais}
+                resultado={resultado}
+                recebidoTotal={recebidoTotal}
+                pctEquilibrio={pctEquilibrio}
+            />
         </div>
     )
 }
