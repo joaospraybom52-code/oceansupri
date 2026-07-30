@@ -33,6 +33,161 @@ const matchPeriodo = (ym: string, anos: string[], meses: string[]) => {
 
 const TIPO_LABEL: Record<string, string> = { fixo: 'Fixo', variavel: 'Variável', ignorado: 'Ignorado' }
 
+// Busca sem acento e sem caixa ("alimentacao" acha "Alimentação")
+const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+// Aceita "1.234,56", "1234.56" ou "1234"
+const parseNum = (s: string) => {
+    const limpo = s.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')
+    const n = parseFloat(limpo)
+    return isNaN(n) ? null : n
+}
+
+/* ────────────────────────── estilos compartilhados ────────────────────────── */
+
+const linhaBase: React.CSSProperties = {
+    display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: '12px',
+    padding: '16px 20px', cursor: 'pointer', borderBottom: '1px solid var(--border-glass)',
+}
+const drillWrap: React.CSSProperties = { maxHeight: '340px', overflowY: 'auto', background: 'rgba(0,0,0,0.18)' }
+const th: React.CSSProperties = { textAlign: 'left', padding: '8px 20px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }
+const thFiltro: React.CSSProperties = { padding: '0 20px 8px', background: '#131328', position: 'sticky', top: '29px', zIndex: 2 }
+const td: React.CSSProperties = { padding: '7px 20px', fontSize: '13px', borderBottom: '1px solid rgba(255,255,255,0.04)' }
+const inputFiltro: React.CSSProperties = {
+    width: '100%', padding: '5px 9px', fontSize: '12px', fontFamily: 'inherit',
+    background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)',
+    borderRadius: '6px', color: 'inherit', outline: 'none',
+}
+
+/* ────────────────────────── Linha do DRE ────────────────────────── */
+
+function Linha({ aberto, onToggle, titulo, subtitulo, valor, cor, drill, negativo }: {
+    aberto: boolean; onToggle: () => void
+    titulo: string; subtitulo?: string; valor: number; cor: string
+    drill: React.ReactNode; negativo?: boolean
+}) {
+    return (
+        <div>
+            <div style={linhaBase} onClick={onToggle}>
+                <span style={{ color: 'var(--text-muted)' }}>{aberto ? <ChevronDown size={17} /> : <ChevronRight size={17} />}</span>
+                <div>
+                    <div style={{ fontSize: '14.5px', fontWeight: 700 }}>{titulo}</div>
+                    {subtitulo && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{subtitulo}</div>}
+                </div>
+                <div style={{ fontSize: '17px', fontWeight: 800, color: cor, whiteSpace: 'nowrap' }}>
+                    {negativo ? '− ' : ''}{formatCurrency(valor)}
+                </div>
+            </div>
+            {aberto && drill}
+        </div>
+    )
+}
+
+/* ────────────────────────── Drill de custos (com filtro por coluna) ────────────────────────── */
+
+interface ItemDrill { insumo: string; cliente: string; valor: number }
+
+function DrillCustos({ itens, podeEditar, classMap, onClassificar }: {
+    itens: ItemDrill[]
+    podeEditar: boolean
+    classMap: Map<string, Classif['tipo']>
+    onClassificar: (insumo: string, tipo: Classif['tipo']) => void
+}) {
+    const [fInsumo, setFInsumo] = useState('')
+    const [fCliente, setFCliente] = useState('')
+    const [fValor, setFValor] = useState('')
+
+    const valorMin = parseNum(fValor)
+    const filtrados = useMemo(() => itens.filter(it =>
+        (!fInsumo || norm(it.insumo).includes(norm(fInsumo)))
+        && (!fCliente || norm(it.cliente).includes(norm(fCliente)))
+        && (valorMin === null || it.valor >= valorMin),
+    ), [itens, fInsumo, fCliente, valorMin])
+
+    const temFiltro = !!(fInsumo || fCliente || fValor)
+    const totalFiltrado = filtrados.reduce((s, i) => s + i.valor, 0)
+
+    if (itens.length === 0) {
+        return <div style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-muted)' }}>Sem lançamentos no período.</div>
+    }
+
+    const limpar = () => { setFInsumo(''); setFCliente(''); setFValor('') }
+
+    return (
+        <div>
+            <div style={drillWrap}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                        <tr>
+                            <th style={th}>Insumo</th>
+                            <th style={th}>Cliente</th>
+                            <th style={{ ...th, textAlign: 'right' }}>Valor pago</th>
+                            {podeEditar && <th style={{ ...th, textAlign: 'center' }}>Classificação</th>}
+                        </tr>
+                        <tr>
+                            <th style={thFiltro}>
+                                <input value={fInsumo} onChange={e => setFInsumo(e.target.value)} placeholder="Buscar insumo…" style={inputFiltro} />
+                            </th>
+                            <th style={thFiltro}>
+                                <input value={fCliente} onChange={e => setFCliente(e.target.value)} placeholder="Buscar cliente…" style={inputFiltro} />
+                            </th>
+                            <th style={thFiltro}>
+                                <input value={fValor} onChange={e => setFValor(e.target.value)} placeholder="Valor mínimo" inputMode="decimal" style={{ ...inputFiltro, textAlign: 'right' }} />
+                            </th>
+                            {podeEditar && <th style={thFiltro} />}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filtrados.length === 0 ? (
+                            <tr>
+                                <td colSpan={podeEditar ? 4 : 3} style={{ ...td, color: 'var(--text-muted)', textAlign: 'center', padding: '18px' }}>
+                                    Nenhum lançamento com esses filtros.
+                                </td>
+                            </tr>
+                        ) : filtrados.map((it, i) => (
+                            <tr key={i}>
+                                <td style={{ ...td, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={it.insumo}>{it.insumo}</td>
+                                <td style={{ ...td, maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }} title={it.cliente}>{it.cliente}</td>
+                                <td style={{ ...td, textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(it.valor)}</td>
+                                {podeEditar && (
+                                    <td style={{ ...td, textAlign: 'center' }}>
+                                        <select
+                                            value={classMap.get(it.insumo.toUpperCase()) ?? ''}
+                                            onChange={e => onClassificar(it.insumo, e.target.value as Classif['tipo'])}
+                                            onClick={e => e.stopPropagation()}
+                                            className="select-field"
+                                            style={{ padding: '3px 8px', fontSize: '12px', minWidth: '110px' }}
+                                        >
+                                            <option value="" disabled>A classificar</option>
+                                            <option value="fixo">Fixo</option>
+                                            <option value="variavel">Variável</option>
+                                            <option value="ignorado">Ignorado</option>
+                                        </select>
+                                    </td>
+                                )}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {temFiltro && (
+                <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
+                    padding: '9px 20px', fontSize: '12px', color: 'var(--text-secondary)',
+                    background: 'rgba(0,0,0,0.28)', borderTop: '1px solid var(--border-glass)',
+                }}>
+                    <span>{filtrados.length} de {itens.length} lançamentos</span>
+                    <span>
+                        Total filtrado: <strong style={{ color: '#f59e0b' }}>{formatCurrency(totalFiltrado)}</strong>
+                        <button onClick={limpar} className="btn-secondary" style={{ marginLeft: '12px', padding: '3px 10px', fontSize: '11px' }}>
+                            Limpar
+                        </button>
+                    </span>
+                </div>
+            )}
+        </div>
+    )
+}
+
 export default function DreSedeClient({ recebido, custos, classificacao, obras, podeEditar }: {
     recebido: RecebidoObraMes[]
     custos: CustoRow[]
@@ -191,74 +346,15 @@ export default function DreSedeClient({ recebido, custos, classificacao, obras, 
     }
 
     const toggle = (k: string) => setAberta(prev => prev === k ? null : k)
-
-    // ===== estilos =====
-    const linhaBase: React.CSSProperties = {
-        display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: '12px',
-        padding: '16px 20px', cursor: 'pointer', borderBottom: '1px solid var(--border-glass)',
-    }
-    const drillWrap: React.CSSProperties = { maxHeight: '340px', overflowY: 'auto', background: 'rgba(0,0,0,0.18)' }
-    const th: React.CSSProperties = { textAlign: 'left', padding: '8px 20px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', position: 'sticky', top: 0, background: '#131328' }
-    const td: React.CSSProperties = { padding: '7px 20px', fontSize: '13px', borderBottom: '1px solid rgba(255,255,255,0.04)' }
-
-    function DrillCustos({ tipo }: { tipo: Tipo }) {
-        const itens = Array.from(buckets[tipo].itens.values()).sort((a, b) => b.valor - a.valor)
-        if (itens.length === 0) return <div style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-muted)' }}>Sem lançamentos no período.</div>
-        return (
-            <div style={drillWrap}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr><th style={th}>Insumo</th><th style={th}>Cliente</th><th style={{ ...th, textAlign: 'right' }}>Valor pago</th>{podeEditar && <th style={{ ...th, textAlign: 'center' }}>Classificação</th>}</tr></thead>
-                    <tbody>
-                        {itens.map((it, i) => (
-                            <tr key={i}>
-                                <td style={{ ...td, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={it.insumo}>{it.insumo}</td>
-                                <td style={{ ...td, maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }} title={it.cliente}>{it.cliente}</td>
-                                <td style={{ ...td, textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(it.valor)}</td>
-                                {podeEditar && (
-                                    <td style={{ ...td, textAlign: 'center' }}>
-                                        <select
-                                            value={classMap.get(it.insumo.toUpperCase()) ?? ''}
-                                            onChange={e => mudarClassificacao(it.insumo, e.target.value as Classif['tipo'])}
-                                            onClick={e => e.stopPropagation()}
-                                            className="select-field"
-                                            style={{ padding: '3px 8px', fontSize: '12px', minWidth: '110px' }}
-                                        >
-                                            <option value="" disabled>A classificar</option>
-                                            <option value="fixo">Fixo</option>
-                                            <option value="variavel">Variável</option>
-                                            <option value="ignorado">Ignorado</option>
-                                        </select>
-                                    </td>
-                                )}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        )
-    }
-
-    function Linha({ id, titulo, subtitulo, valor, cor, drill, negativo }: {
-        id: string; titulo: string; subtitulo?: string; valor: number; cor: string
-        drill: React.ReactNode; negativo?: boolean
-    }) {
-        const aberto = aberta === id
-        return (
-            <div>
-                <div style={linhaBase} onClick={() => toggle(id)}>
-                    <span style={{ color: 'var(--text-muted)' }}>{aberto ? <ChevronDown size={17} /> : <ChevronRight size={17} />}</span>
-                    <div>
-                        <div style={{ fontSize: '14.5px', fontWeight: 700 }}>{titulo}</div>
-                        {subtitulo && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{subtitulo}</div>}
-                    </div>
-                    <div style={{ fontSize: '17px', fontWeight: 800, color: cor, whiteSpace: 'nowrap' }}>
-                        {negativo ? '− ' : ''}{formatCurrency(valor)}
-                    </div>
-                </div>
-                {aberto && drill}
-            </div>
-        )
-    }
+    const propsLinha = (id: string) => ({ aberto: aberta === id, onToggle: () => toggle(id) })
+    const drillDe = (tipo: Tipo) => (
+        <DrillCustos
+            itens={Array.from(buckets[tipo].itens.values()).sort((a, b) => b.valor - a.valor)}
+            podeEditar={podeEditar}
+            classMap={classMap}
+            onClassificar={mudarClassificacao}
+        />
+    )
 
     const labelPeriodo = `${filtroMeses.length ? filtroMeses.map(m => MESES_FILTRO.find(x => x.v === m)?.n).join(', ') : 'Todos os meses'} · ${filtroAnos.length ? filtroAnos.join(', ') : 'Todos os anos'}`
 
@@ -290,7 +386,7 @@ export default function DreSedeClient({ recebido, custos, classificacao, obras, 
             {/* DRE */}
             <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
                 <Linha
-                    id="mc" cor="#10b981"
+                    {...propsLinha('mc')} cor="#10b981"
                     titulo="1 · Margem de Contribuição Obras"
                     subtitulo={`Total Recebido Real ${formatCurrency(recebidoTotal)} × 6%`}
                     valor={mcTotal}
@@ -312,30 +408,30 @@ export default function DreSedeClient({ recebido, custos, classificacao, obras, 
                     }
                 />
                 <Linha
-                    id="variaveis" cor="#f59e0b" negativo
+                    {...propsLinha('variaveis')} cor="#f59e0b" negativo
                     titulo="2 · Custos Variáveis"
                     subtitulo="Pagos da ADMCO classificados como variáveis"
                     valor={custoVariavel}
-                    drill={<DrillCustos tipo="variavel" />}
+                    drill={drillDe('variavel')}
                 />
                 <Linha
-                    id="fixos" cor="#f59e0b" negativo
+                    {...propsLinha('fixos')} cor="#f59e0b" negativo
                     titulo="3 · Custos Fixos"
                     subtitulo="Pagos da ADMCO classificados como fixos"
                     valor={custoFixo}
-                    drill={<DrillCustos tipo="fixo" />}
+                    drill={drillDe('fixo')}
                 />
                 {naoClassificado > 0 && (
                     <Linha
-                        id="nao_classificado" cor="#fb923c" negativo
+                        {...propsLinha('nao_classificado')} cor="#fb923c" negativo
                         titulo="⚠ A classificar"
                         subtitulo="Insumos novos sem classificação — abatem do resultado; classifique-os abaixo"
                         valor={naoClassificado}
-                        drill={<DrillCustos tipo="nao_classificado" />}
+                        drill={drillDe('nao_classificado')}
                     />
                 )}
                 <Linha
-                    id="resultado" cor={sedeSePagou ? '#10b981' : '#ef4444'}
+                    {...propsLinha('resultado')} cor={sedeSePagou ? '#10b981' : '#ef4444'}
                     titulo="4 · Resultado (a sede se pagou?)"
                     subtitulo={sedeSePagou
                         ? `✅ A sede se pagou no período — os 6% cobrem os custos (custos = ${pctEquilibrio.toFixed(2)}% do Recebido Real)`
@@ -357,11 +453,11 @@ export default function DreSedeClient({ recebido, custos, classificacao, obras, 
                 {/* Ignorados (transparência): não entram no resultado */}
                 {buckets.ignorado.total > 0 && (
                     <Linha
-                        id="ignorados" cor="var(--text-muted)"
+                        {...propsLinha('ignorados')} cor="var(--text-muted)"
                         titulo="Ignorados (empréstimos e juros)"
                         subtitulo="Fora do DRE — empréstimos pagam custos das obras, só transitam pela ADMCO"
                         valor={buckets.ignorado.total}
-                        drill={<DrillCustos tipo="ignorado" />}
+                        drill={drillDe('ignorado')}
                     />
                 )}
             </div>
