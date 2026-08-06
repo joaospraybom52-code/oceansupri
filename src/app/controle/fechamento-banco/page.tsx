@@ -49,7 +49,7 @@ export default async function FechamentoBancoPage({
     const de = sp.de || padrao
     const ate = sp.ate || de
 
-    const [movimentos, anteriores, basesRes, detalhe, obrasRes, obrasEngRes] = await Promise.all([
+    const [movimentos, anteriores, basesRes, detalhe, obrasRes, obrasEngRes, vgvRes, custoUau] = await Promise.all([
         // Movimentos do período escolhido
         buscarTudo<MovRow>(supabase, 'banco_extrato',
             'banco, conta, nome_banco, data, historico, lanct, cheque, credito, debito, tipo_lanc',
@@ -67,6 +67,9 @@ export default async function FechamentoBancoPage({
         (supabase as any).from('obras').select('codigo, nome'),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase as any).from('obras_eng').select('codigo_uau, nome'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('controle_vgv').select('codigo_obra, nome_obra'),
+        buscarTudo<{ obra_plt: string; obra: string | null }>(supabase, 'custo_uau', 'obra_plt, obra'),
     ])
 
     const bases = (basesRes.data ?? []) as { banco: number; conta: string; nome_banco: string | null; data_base: string; saldo: number }[]
@@ -92,13 +95,24 @@ export default async function FechamentoBancoPage({
 
     const dataBase = bases[0]?.data_base ?? null
 
-    // ── Nome das obras (código → nome), das tabelas que já temos
+    // ── Nome das obras (código → nome). Quatro fontes, da menos para a mais
+    //    confiável — a última a escrever vence. custo_uau e controle_vgv vêm
+    //    do UAU e cobrem obras antigas que não estão cadastradas no app.
     const nomeObra = new Map<string, string>()
+    const registrar = (cod: string | null | undefined, nome: string | null | undefined) => {
+        const c = cod?.trim().toUpperCase()
+        const n = nome?.trim()
+        if (c && n) nomeObra.set(c, n)
+    }
+    for (const u of custoUau) registrar(u.obra_plt, u.obra)
+    for (const v of ((vgvRes.data ?? []) as { codigo_obra: string | null; nome_obra: string | null }[])) {
+        registrar(v.codigo_obra, v.nome_obra)
+    }
     for (const o of ((obrasEngRes.data ?? []) as { codigo_uau: string | null; nome: string }[])) {
-        if (o.codigo_uau) nomeObra.set(o.codigo_uau.trim().toUpperCase(), o.nome)
+        registrar(o.codigo_uau, o.nome)
     }
     for (const o of ((obrasRes.data ?? []) as { codigo: string | null; nome: string }[])) {
-        if (o.codigo) nomeObra.set(o.codigo.trim().toUpperCase(), o.nome)
+        registrar(o.codigo, o.nome)
     }
 
     // ── Cruzamento com o extrato detalhado: conta + data + crédito + débito.
