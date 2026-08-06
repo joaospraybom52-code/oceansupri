@@ -13,8 +13,11 @@ interface Mov {
 
 const brl = (v: number) =>
     new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0)
-/** Negativo entre parênteses, como nos relatórios do UAU. */
-const brlP = (v: number) => (v < 0 ? `(${brl(Math.abs(v))})` : brl(v))
+/** Negativo com sinal de menos (o Intl já põe o "-"), destacado em vermelho. */
+const brlP = (v: number) => brl(v)
+/** Estilo do valor negativo. `escuro` = linha de fundo escuro (totais). */
+const corNeg = (v: number, escuro = false): React.CSSProperties | undefined =>
+    v < 0 ? { color: escuro ? '#F87171' : '#DC2626', fontWeight: 700 } : undefined
 const dmy = (iso: string) => iso ? iso.split('-').reverse().join('/') : ''
 /** Arredonda só na exibição/total — o UAU soma os valores crus e arredonda no
  *  fim; arredondar lançamento a lançamento fecha 1 centavo acima. */
@@ -192,7 +195,7 @@ export default function FechamentoBancoClient({
                         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Período: {periodoLabel}</div>
                         {aba === 'conciliacao' && (
                             <div style={{ fontSize: '11px', color: '#555' }}>
-                                Saldo real inicial: <strong>{brlP(conciliacao.inicial)}</strong> · Moeda: R$ REAL
+                                Saldo real inicial: <strong style={corNeg(conciliacao.inicial)}>{brlP(conciliacao.inicial)}</strong> · Moeda: R$ REAL
                             </div>
                         )}
                     </div>
@@ -221,14 +224,14 @@ export default function FechamentoBancoClient({
                                     <tr key={`${c.banco}|${c.conta}`}>
                                         <td style={{ ...td, textAlign: 'left' }}>{c.banco} - {c.nomeBanco || `BANCO ${c.banco}`}</td>
                                         <td style={{ ...td, textAlign: 'left' }}>{c.conta}</td>
-                                        <td style={td}>{brlP(c.saldoAnterior)}</td>
+                                        <td style={{ ...td, ...corNeg(c.saldoAnterior) }}>{brlP(c.saldoAnterior)}</td>
                                     </tr>
                                 ))}
                             </tbody>
                             <tfoot>
                                 <tr style={{ background: '#eef0f2', fontWeight: 800 }}>
                                     <td style={{ ...td, textAlign: 'right' }} colSpan={2}>Total:</td>
-                                    <td style={td}>{brlP(conciliacao.inicial)}</td>
+                                    <td style={{ ...td, ...corNeg(conciliacao.inicial) }}>{brlP(conciliacao.inicial)}</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -262,9 +265,9 @@ export default function FechamentoBancoClient({
                                         <td style={{ ...td, textAlign: 'left' }}>{l.lanct || l.cheque || '—'}</td>
                                         <td style={{ ...td, textAlign: 'left' }}>{l.banco} / {l.conta}</td>
                                         <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.historico || '—'}</td>
-                                        <td style={{ ...td, color: l.despesa < 0 ? '#B91C1C' : undefined }}>{l.despesa < 0 ? brlP(l.despesa) : '0,00'}</td>
+                                        <td style={{ ...td, ...corNeg(l.despesa) }}>{l.despesa < 0 ? brlP(l.despesa) : '0,00'}</td>
                                         <td style={{ ...td, color: l.receita > 0 ? '#047857' : undefined }}>{brl(l.receita)}</td>
-                                        <td style={{ ...td, fontWeight: 700 }}>{brlP(l.saldo)}</td>
+                                        <td style={{ ...td, fontWeight: 700, ...corNeg(l.saldo) }}>{brlP(l.saldo)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -273,9 +276,9 @@ export default function FechamentoBancoClient({
                                     <td style={{ ...td, textAlign: 'left' }} colSpan={5}>
                                         TOTAL DO PERÍODO ({conciliacao.linhas.length} lançamentos)
                                     </td>
-                                    <td style={td}>{brlP(-posicao.total.deb)}</td>
+                                    <td style={{ ...td, ...corNeg(-posicao.total.deb, true) }}>{brlP(-posicao.total.deb)}</td>
                                     <td style={td}>{brl(posicao.total.cred)}</td>
-                                    <td style={td}>{brlP(conciliacao.final)}</td>
+                                    <td style={{ ...td, ...corNeg(conciliacao.final, true) }}>{brlP(conciliacao.final)}</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -297,20 +300,20 @@ export default function FechamentoBancoClient({
                                 <tr key={i}>
                                     <td style={{ ...td, textAlign: 'left' }}>{l.banco} - {nomeConta.get(`${l.banco}|${l.conta}`) || l.nomeBanco}</td>
                                     <td style={{ ...td, textAlign: 'left' }}>{l.conta}</td>
-                                    <td style={td}>{brlP(l.ant)}</td>
+                                    <td style={{ ...td, ...corNeg(l.ant) }}>{brlP(l.ant)}</td>
                                     <td style={{ ...td, color: l.cred ? '#047857' : undefined }}>{brl(l.cred)}</td>
                                     <td style={{ ...td, color: l.deb ? '#B91C1C' : undefined }}>{brl(l.deb)}</td>
-                                    <td style={{ ...td, fontWeight: 700 }}>{brlP(l.atual)}</td>
+                                    <td style={{ ...td, fontWeight: 700, ...corNeg(l.atual) }}>{brlP(l.atual)}</td>
                                 </tr>
                             ))}
                         </tbody>
                         <tfoot>
                             <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
                                 <td style={{ ...td, textAlign: 'left' }} colSpan={2}>TOTAL</td>
-                                <td style={td}>{brlP(posicao.total.ant)}</td>
+                                <td style={{ ...td, ...corNeg(posicao.total.ant, true) }}>{brlP(posicao.total.ant)}</td>
                                 <td style={td}>{brl(posicao.total.cred)}</td>
                                 <td style={td}>{brl(posicao.total.deb)}</td>
-                                <td style={td}>{brlP(posicao.total.atual)}</td>
+                                <td style={{ ...td, ...corNeg(posicao.total.atual, true) }}>{brlP(posicao.total.atual)}</td>
                             </tr>
                         </tfoot>
                     </table>
