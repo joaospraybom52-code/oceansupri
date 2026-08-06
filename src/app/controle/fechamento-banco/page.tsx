@@ -49,7 +49,7 @@ export default async function FechamentoBancoPage({
     const de = sp.de || padrao
     const ate = sp.ate || de
 
-    const [movimentos, anteriores, basesRes] = await Promise.all([
+    const [movimentos, anteriores, basesRes, detalhe, obrasRes, obrasEngRes] = await Promise.all([
         // Movimentos do período escolhido
         buscarTudo<MovRow>(supabase, 'banco_extrato',
             'banco, conta, nome_banco, data, historico, lanct, cheque, credito, debito, tipo_lanc',
@@ -59,6 +59,14 @@ export default async function FechamentoBancoPage({
             supabase, 'banco_extrato', 'banco, conta, credito, debito', q => q.lt('data', de)),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase as any).from('banco_saldo_base').select('banco, conta, nome_banco, data_base, saldo'),
+        // Extrato detalhado do período: preenche o histórico vazio e traz a obra
+        buscarTudo<{ banco: number; conta: string; data: string; hist: string | null; obra: string | null; credito: number | null; debito: number | null }>(
+            supabase, 'banco_extrato_detalhe', 'banco, conta, data, hist, obra, credito, debito',
+            q => q.gte('data', de).lte('data', ate)),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('obras').select('codigo, nome'),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('obras_eng').select('codigo_uau, nome'),
     ])
 
     const bases = (basesRes.data ?? []) as { banco: number; conta: string; nome_banco: string | null; data_base: string; saldo: number }[]
@@ -84,6 +92,44 @@ export default async function FechamentoBancoPage({
 
     const dataBase = bases[0]?.data_base ?? null
 
+    // ── Nome das obras (código → nome), das tabelas que já temos
+    const nomeObra = new Map<string, string>()
+    for (const o of ((obrasEngRes.data ?? []) as { codigo_uau: string | null; nome: string }[])) {
+        if (o.codigo_uau) nomeObra.set(o.codigo_uau.trim().toUpperCase(), o.nome)
+    }
+    for (const o of ((obrasRes.data ?? []) as { codigo: string | null; nome: string }[])) {
+        if (o.codigo) nomeObra.set(o.codigo.trim().toUpperCase(), o.nome)
+    }
+
+    // ── Cruzamento com o extrato detalhado: conta + data + crédito + débito.
+    //    A data entra na chave de propósito: só conta + valores casaria
+    //    pagamentos de mesmo valor em dias diferentes e traria a obra errada.
+    const chave = (banco: number, conta: string, data: string, credito: number, debito: number) =>
+        `${banco}|${conta}|${data}|${Number(credito || 0).toFixed(2)}|${Number(debito || 0).toFixed(2)}`
+
+    const mapaDetalhe = new Map<string, { hist: string | null; obra: string | null }>()
+    for (const d of detalhe) {
+        const k = chave(d.banco, d.conta, d.data, Number(d.credito || 0), Number(d.debito || 0))
+        const atual = mapaDetalhe.get(k)
+        // Se houver mais de um candidato, fica o que tem obra preenchida.
+        if (!atual || (!atual.obra && d.obra)) mapaDetalhe.set(k, { hist: d.hist, obra: d.obra })
+    }
+
+    const movimentosEnriquecidos = movimentos.map(m => {
+        const det = mapaDetalhe.get(chave(m.banco, m.conta, m.data, Number(m.credito || 0), Number(m.debito || 0)))
+        const cod = det?.obra?.trim().toUpperCase() || null
+        const nome = cod ? nomeObra.get(cod) : undefined
+        return {
+            banco: m.banco, conta: m.conta, nomeBanco: m.nome_banco, data: m.data,
+            // histórico vazio herda a descrição do extrato detalhado
+            historico: (m.historico && m.historico.trim()) ? m.historico : (det?.hist ?? null),
+            lanct: m.lanct, cheque: m.cheque,
+            credito: Number(m.credito || 0), debito: Number(m.debito || 0),
+            tipoLanc: m.tipo_lanc,
+            obra: cod ? (nome ? `${cod} — ${nome}` : cod) : null,
+        }
+    })
+
     return (
         <FechamentoBancoClient
             de={de}
@@ -91,12 +137,7 @@ export default async function FechamentoBancoPage({
             padrao={padrao}
             dataBase={dataBase}
             contas={contas}
-            movimentos={movimentos.map(m => ({
-                banco: m.banco, conta: m.conta, nomeBanco: m.nome_banco, data: m.data,
-                historico: m.historico, lanct: m.lanct, cheque: m.cheque,
-                credito: Number(m.credito || 0), debito: Number(m.debito || 0),
-                tipoLanc: m.tipo_lanc,
-            }))}
+            movimentos={movimentosEnriquecidos}
         />
     )
 }

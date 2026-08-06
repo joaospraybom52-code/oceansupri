@@ -231,6 +231,26 @@ CREATE INDEX banco_extrato_data_idx ON public.banco_extrato USING btree (data);
 CREATE INDEX banco_extrato_conta_idx ON public.banco_extrato USING btree (banco, conta);
 ALTER TABLE public.banco_extrato ENABLE ROW LEVEL SECURITY;
 
+-- Extrato detalhado: enriquece a conciliação (histórico vazio e obra do
+-- lançamento). Cruzamento por banco + conta + data + crédito + débito.
+CREATE TABLE public.banco_extrato_detalhe (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  empresa integer,
+  banco integer NOT NULL,
+  conta text NOT NULL,
+  data date NOT NULL,
+  hist text,
+  numdoc text,
+  credito numeric DEFAULT 0 NOT NULL,
+  debito numeric DEFAULT 0 NOT NULL,
+  obra text,
+  origem integer,
+  atualizado_em timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.banco_extrato_detalhe ADD CONSTRAINT banco_extrato_detalhe_pkey PRIMARY KEY (id);
+CREATE INDEX banco_extrato_detalhe_match_idx ON public.banco_extrato_detalhe USING btree (banco, conta, data);
+ALTER TABLE public.banco_extrato_detalhe ENABLE ROW LEVEL SECURITY;
+
 CREATE TABLE public.banco_saldo_base (
   banco integer NOT NULL,
   conta text NOT NULL,

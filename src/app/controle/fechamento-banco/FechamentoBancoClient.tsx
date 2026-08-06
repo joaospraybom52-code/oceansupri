@@ -9,6 +9,7 @@ interface Mov {
     banco: number; conta: string; nomeBanco: string | null; data: string
     historico: string | null; lanct: string | null; cheque: string | null
     credito: number; debito: number; tipoLanc: number | null
+    obra: string | null
 }
 
 const brl = (v: number) =>
@@ -252,6 +253,7 @@ export default function FechamentoBancoClient({
                                     <th style={{ ...th, textAlign: 'left', width: '74px' }}>Doc.</th>
                                     <th style={{ ...th, textAlign: 'left', width: '150px' }}>Conta</th>
                                     <th style={{ ...th, textAlign: 'left' }}>Histórico</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '180px' }}>Obra</th>
                                     <th style={{ ...th, width: '104px' }}>Vlr. despesa</th>
                                     <th style={{ ...th, width: '104px' }}>Vlr. receita</th>
                                     <th style={{ ...th, width: '116px' }}>Saldo</th>
@@ -265,6 +267,7 @@ export default function FechamentoBancoClient({
                                         <td style={{ ...td, textAlign: 'left' }}>{l.lanct || l.cheque || '—'}</td>
                                         <td style={{ ...td, textAlign: 'left' }}>{l.banco} / {l.conta}</td>
                                         <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.historico || '—'}</td>
+                                        <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obra ? undefined : '#999' }}>{l.obra || '—'}</td>
                                         <td style={{ ...td, ...corNeg(l.despesa) }}>{l.despesa < 0 ? brlP(l.despesa) : '0,00'}</td>
                                         <td style={{ ...td, color: l.receita > 0 ? '#047857' : undefined }}>{brl(l.receita)}</td>
                                         <td style={{ ...td, fontWeight: 700, ...corNeg(l.saldo) }}>{brlP(l.saldo)}</td>
@@ -273,7 +276,7 @@ export default function FechamentoBancoClient({
                             </tbody>
                             <tfoot>
                                 <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
-                                    <td style={{ ...td, textAlign: 'left' }} colSpan={5}>
+                                    <td style={{ ...td, textAlign: 'left' }} colSpan={6}>
                                         TOTAL DO PERÍODO ({conciliacao.linhas.length} lançamentos)
                                     </td>
                                     <td style={{ ...td, ...corNeg(-posicao.total.deb, true) }}>{brlP(-posicao.total.deb)}</td>

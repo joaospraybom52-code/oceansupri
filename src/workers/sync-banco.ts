@@ -52,20 +52,62 @@ const DATA_FIM = '20991231'
 // lançamento fazia o saldo de algumas contas fechar 1 centavo acima do
 // relatório oficial (ex.: conta 99718-4, 56,44 contra 56,43).
 
-function carregarQuery(): string {
-    // A query fica em arquivo ao lado do worker para não poluir o .ts.
+function carregarQuery(arquivo: string): string {
+    // As queries ficam em arquivo ao lado do worker para não poluir o .ts.
     const candidatos = [
-        path.resolve(__dirname, 'query-banco.sql'),                    // repo (npm run sync:banco)
-        path.resolve(process.cwd(), 'src', 'workers', 'query-banco.sql'),
-        path.resolve(process.cwd(), 'query-banco.sql'),                // VM (arquivos soltos no ~)
+        path.resolve(__dirname, arquivo),                    // repo (npm run sync:banco)
+        path.resolve(process.cwd(), 'src', 'workers', arquivo),
+        path.resolve(process.cwd(), arquivo),                // VM (arquivos soltos no ~)
     ]
     for (const p of candidatos) if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8')
-    throw new Error('query-banco.sql não encontrado em: ' + candidatos.join(' | '))
+    throw new Error(`${arquivo} não encontrado em: ` + candidatos.join(' | '))
+}
+
+/**
+ * Extrato detalhado: só enriquece a conciliação — preenche o histórico dos
+ * lançamentos que vêm sem descrição e traz a obra. O cruzamento com
+ * banco_extrato é por conta + data + crédito + débito.
+ */
+async function sincronizarDetalhe(pool: sql.ConnectionPool) {
+    const query = carregarQuery('query-banco-detalhe.sql')
+        .split("'01/01/2026'").join(`'${DATA_BASE}'`)
+    const r = await pool.request().query(query)
+    // TipoDet = 1 são as linhas de "insumo comprado" (valor zerado): não são
+    // lançamentos, só detalhe do processo — ficam de fora do cruzamento.
+    const linhas = (r.recordset as any[])
+        .filter(x => Number(x.TipoDet ?? 0) === 0)
+        .map(x => ({
+            empresa: x.Empresa_Es == null ? null : Number(x.Empresa_Es),
+            banco: Number(x.Banco),
+            conta: String(x.Conta || '').trim(),
+            data: new Date(x.Data).toISOString().slice(0, 10),
+            hist: x.Hist ? String(x.Hist).trim() : null,
+            numdoc: x.NumDoc ? String(x.NumDoc).trim() : null,
+            credito: Number(x.Credito || 0),
+            debito: Number(x.Debito || 0),
+            obra: x.Obra ? String(x.Obra).trim() : null,
+            origem: x.Origem == null ? null : Number(x.Origem),
+        }))
+
+    console.log(`[sync-banco] detalhe: ${r.recordset.length} linhas → ${linhas.length} após filtrar TipoDet=1`)
+    if (linhas.length === 0) {
+        console.warn('[sync-banco] detalhe vazio — mantendo o espelho atual')
+        return
+    }
+
+    const { error: errDel } = await supabase.from('banco_extrato_detalhe' as any).delete().gte('data', '1900-01-01')
+    if (errDel) throw new Error('delete banco_extrato_detalhe: ' + errDel.message)
+    const LOTE = 500
+    for (let i = 0; i < linhas.length; i += LOTE) {
+        const { error } = await supabase.from('banco_extrato_detalhe' as any).insert(linhas.slice(i, i + LOTE) as any)
+        if (error) throw new Error(`insert banco_extrato_detalhe (lote ${i}): ${error.message}`)
+    }
+    console.log(`[sync-banco] detalhe OK — ${linhas.length} linhas`)
 }
 
 export async function sincronizarBanco() {
     const inicio = Date.now()
-    const query = carregarQuery()
+    const query = carregarQuery('query-banco.sql')
         .split("'07/01/2026'").join(`'${DATA_BASE}'`)
         .split("'01/01/2070'").join(`'${DATA_FIM}'`)
 
@@ -74,6 +116,7 @@ export async function sincronizarBanco() {
     try {
         const r = await pool.request().query(query)
         rows = r.recordset
+        await sincronizarDetalhe(pool)
     } finally {
         await pool.close()
     }
