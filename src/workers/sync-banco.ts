@@ -55,8 +55,9 @@ const DATA_FIM = '20991231'
 function carregarQuery(): string {
     // A query fica em arquivo ao lado do worker para não poluir o .ts.
     const candidatos = [
-        path.resolve(process.cwd(), 'query-banco.sql'),
-        path.resolve(__dirname, 'query-banco.sql'),
+        path.resolve(__dirname, 'query-banco.sql'),                    // repo (npm run sync:banco)
+        path.resolve(process.cwd(), 'src', 'workers', 'query-banco.sql'),
+        path.resolve(process.cwd(), 'query-banco.sql'),                // VM (arquivos soltos no ~)
     ]
     for (const p of candidatos) if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8')
     throw new Error('query-banco.sql não encontrado em: ' + candidatos.join(' | '))

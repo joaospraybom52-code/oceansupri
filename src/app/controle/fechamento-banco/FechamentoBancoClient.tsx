@@ -202,6 +202,39 @@ export default function FechamentoBancoClient({
                     </div>
                 </div>
 
+                {/* Detalhamento do saldo inicial: como cada conta entrou no período */}
+                {aba === 'conciliacao' && (
+                    <div style={{ marginBottom: '14px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#2B2E34', marginBottom: '5px' }}>
+                            Detalhamento de saldo inicial:
+                        </div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #d5d8dc' }}>
+                            <thead>
+                                <tr>
+                                    <th style={{ ...th, textAlign: 'left' }}>Banco</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '260px' }}>Conta</th>
+                                    <th style={{ ...th, width: '150px' }}>Saldo inicial</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {contas.map(c => (
+                                    <tr key={`${c.banco}|${c.conta}`}>
+                                        <td style={{ ...td, textAlign: 'left' }}>{c.banco} - {c.nomeBanco || `BANCO ${c.banco}`}</td>
+                                        <td style={{ ...td, textAlign: 'left' }}>{c.conta}</td>
+                                        <td style={td}>{brlP(c.saldoAnterior)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr style={{ background: '#eef0f2', fontWeight: 800 }}>
+                                    <td style={{ ...td, textAlign: 'right' }} colSpan={2}>Total:</td>
+                                    <td style={td}>{brlP(conciliacao.inicial)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                )}
+
                 {aba === 'conciliacao' ? (
                     conciliacao.linhas.length === 0 ? (
                         <div style={{ padding: '26px', textAlign: 'center', color: '#777', fontSize: '13px' }}>

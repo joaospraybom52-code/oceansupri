@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Roda os 4 syncs da aba KPI'S UMA vez e encerra — pra atualizar manualmente
-// no PC (ex.: npm run sync:kpis). Cada worker roda em SYNC_ONCE=1.
+// Roda os syncs do módulo Controle UMA vez e encerra — pra atualizar
+// manualmente no PC (ex.: npm run sync:kpis). Cada worker roda em SYNC_ONCE=1.
+// Inclui o sync-banco (aba Fechamento Banco); ele é o mais demorado porque a
+// consulta de conciliação do UAU varre desde a data-base.
 import { spawnSync } from 'child_process'
 import path from 'path'
 
-const workers = ['sync-recebido', 'sync-pago-apagar', 'sync-vendasrecebidas', 'sync-a-receber']
+const workers = ['sync-recebido', 'sync-pago-apagar', 'sync-vendasrecebidas', 'sync-a-receber', 'sync-banco']
 
-console.log('=== Atualizando consultas da KPI\'S (roda uma vez e encerra) ===\n')
+console.log('=== Atualizando consultas do Controle (roda uma vez e encerra) ===\n')
 let falhas = 0
 for (const w of workers) {
     console.log(`\n----- ${w} -----`)
@@ -19,6 +21,6 @@ for (const w of workers) {
 }
 
 console.log(falhas === 0
-    ? '\n✅ KPI\'S atualizada com sucesso.'
+    ? '\n✅ KPI\'S e Fechamento Banco atualizados com sucesso.'
     : `\n⚠️  Concluído com ${falhas} falha(s) — confira os logs acima.`)
 process.exit(falhas === 0 ? 0 : 1)
