@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "sync:uau": "tsx src/workers/sync-uau.ts",
+    "sync:banco": "tsx src/workers/sync-banco.ts",
     "sync:uau:reconcile": "tsx src/workers/sync-uau-reconcile.ts",
     "sync:custo": "tsx src/workers/sync-custo.ts",
     "sync:recebido": "tsx src/workers/sync-recebido.ts",

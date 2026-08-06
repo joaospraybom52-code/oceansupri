@@ -209,6 +209,39 @@ CREATE TABLE public.custo_orcamento (
 ALTER TABLE public.custo_orcamento ADD CONSTRAINT custo_orcamento_pkey PRIMARY KEY (id);
 ALTER TABLE public.custo_orcamento ADD CONSTRAINT custo_orcamento_obra_item_insumo_key UNIQUE (obra_plt, item_plt, insumo);
 
+-- Fechamento Banco: espelho da conciliação bancária do UAU (só movimentos;
+-- cheques não compensados são descartados pelo worker).
+CREATE TABLE public.banco_extrato (
+  id uuid DEFAULT gen_random_uuid() NOT NULL,
+  empresa integer NOT NULL,
+  banco integer NOT NULL,
+  conta text NOT NULL,
+  nome_banco text,
+  data date NOT NULL,
+  historico text,
+  lanct text,
+  cheque text,
+  credito numeric DEFAULT 0 NOT NULL,
+  debito numeric DEFAULT 0 NOT NULL,
+  tipo_lanc integer,
+  atualizado_em timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.banco_extrato ADD CONSTRAINT banco_extrato_pkey PRIMARY KEY (id);
+CREATE INDEX banco_extrato_data_idx ON public.banco_extrato USING btree (data);
+CREATE INDEX banco_extrato_conta_idx ON public.banco_extrato USING btree (banco, conta);
+ALTER TABLE public.banco_extrato ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.banco_saldo_base (
+  banco integer NOT NULL,
+  conta text NOT NULL,
+  nome_banco text,
+  data_base date NOT NULL,
+  saldo numeric DEFAULT 0 NOT NULL,
+  atualizado_em timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.banco_saldo_base ADD CONSTRAINT banco_saldo_base_pkey PRIMARY KEY (banco, conta);
+ALTER TABLE public.banco_saldo_base ENABLE ROW LEVEL SECURITY;
+
 CREATE TABLE public.permissao_modulocontrole (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   email text NOT NULL,

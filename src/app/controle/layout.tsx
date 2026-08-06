@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
-import { LineChart, ArrowLeftRight, LogOut, BarChart3, Receipt, Landmark } from 'lucide-react'
+import { LineChart, ArrowLeftRight, LogOut, BarChart3, Receipt, Landmark, Banknote } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Toaster } from 'sonner'
 
@@ -67,6 +67,14 @@ export default function ControleLayout({ children }: { children: React.ReactNode
                     >
                         <Landmark size={18} />
                         DRE Sede
+                    </button>
+                    <button
+                        onClick={() => router.push('/controle/fechamento-banco')}
+                        className={`sidebar-link${pathname?.startsWith('/controle/fechamento-banco') ? ' active' : ''}`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'Inter, sans-serif', fontSize: '14px', textAlign: 'left' }}
+                    >
+                        <Banknote size={18} />
+                        Fechamento Banco
                     </button>
                     <button
                         onClick={() => router.push('/controle/cadastro-venda')}
