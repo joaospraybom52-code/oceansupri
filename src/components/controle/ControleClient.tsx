@@ -106,7 +106,7 @@ interface ComprometidoMes { obra: string; ym: string; valor: number; pago?: numb
 // Controle Financeiro Saída por data_movimento).
 interface FluxoDia { obra: string | null; data: string | null; valor: number }
 
-export default function ControleClient({ obras, medicoesIniciais, podeEditar, comprometido = [], fluxoRecebido = [], fluxoPago = [] }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean; comprometido?: ComprometidoMes[]; fluxoRecebido?: FluxoDia[]; fluxoPago?: FluxoDia[] }) {
+export default function ControleClient({ obras, medicoesIniciais, podeEditar, comprometido = [], fluxoRecebido = [], fluxoPago = [], fluxoAPagar = [] }: { obras: Obra[]; medicoesIniciais: Medicao[]; podeEditar: boolean; comprometido?: ComprometidoMes[]; fluxoRecebido?: FluxoDia[]; fluxoPago?: FluxoDia[]; fluxoAPagar?: FluxoDia[] }) {
     const supabase = createClient()
     const [medicoes, setMedicoes] = useState<Medicao[]>(medicoesIniciais)
 
@@ -556,7 +556,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
             </div>
 
             {/* Fluxo de Caixa Diário: recebido x pago por dia (medidas da KPI'S) */}
-            <FluxoCaixaDiario recebidos={fluxoRecebido} pagos={fluxoPago} obras={obras} />
+            <FluxoCaixaDiario recebidos={fluxoRecebido} pagos={fluxoPago} aPagar={fluxoAPagar} obras={obras} />
 
             {/* Modal Cadastro/Edição */}
             {showModal && (
@@ -658,9 +658,10 @@ const lbl: React.CSSProperties = { fontSize: '12px', color: 'var(--text-secondar
 // ===== Fluxo de Caixa Diário =====
 // Barras de Recebido x Pago por dia do mês, usando as MESMAS medidas da KPI'S:
 //   Recebido = Total Recebido Real (tot_conf por data_rec);
-//   Pago     = Total Pago + Controle Financeiro Saída (por data_movimento).
+//   Pago     = Total Pago + Controle Financeiro Saída (por data_movimento);
+//   A pagar  = parcelas em aberto liberadas (Conf_Proc='DVQ') por DtPagParc_Proc.
 // Filtros próprios: Mês/Ano (padrão = mês/ano atual) e Obra (com busca).
-function FluxoCaixaDiario({ recebidos, pagos, obras }: { recebidos: FluxoDia[]; pagos: FluxoDia[]; obras: Obra[] }) {
+function FluxoCaixaDiario({ recebidos, pagos, aPagar = [], obras }: { recebidos: FluxoDia[]; pagos: FluxoDia[]; aPagar?: FluxoDia[]; obras: Obra[] }) {
     const agora = new Date()
     const [mes, setMes] = useState(String(agora.getMonth() + 1).padStart(2, '0'))
     const [ano, setAno] = useState(String(agora.getFullYear()))
@@ -671,8 +672,9 @@ function FluxoCaixaDiario({ recebidos, pagos, obras }: { recebidos: FluxoDia[]; 
         const s = new Set<string>([String(agora.getFullYear())])
         recebidos.forEach(r => { if (r.data) s.add(r.data.slice(0, 4)) })
         pagos.forEach(r => { if (r.data) s.add(r.data.slice(0, 4)) })
+        aPagar.forEach(r => { if (r.data) s.add(r.data.slice(0, 4)) })
         return Array.from(s).sort()
-    }, [recebidos, pagos])
+    }, [recebidos, pagos, aPagar])
 
     // Opções de obra a partir dos códigos presentes nas duas fontes
     const obraOptions = useMemo(() => {
@@ -680,18 +682,19 @@ function FluxoCaixaDiario({ recebidos, pagos, obras }: { recebidos: FluxoDia[]; 
         const codigos = new Set<string>()
         recebidos.forEach(r => { if (r.obra) codigos.add(r.obra) })
         pagos.forEach(r => { if (r.obra) codigos.add(r.obra) })
+        aPagar.forEach(r => { if (r.obra) codigos.add(r.obra) })
         return [{ value: '', label: 'Todas as obras' }, ...Array.from(codigos).sort().map(c => ({ value: c, label: nomePorCodigo.has(c) ? `${c} - ${nomePorCodigo.get(c)}` : c }))]
-    }, [recebidos, pagos, obras])
+    }, [recebidos, pagos, aPagar, obras])
 
     // Dias do mês selecionado com as somas de recebido/pago
-    const { chartData, totalCred, totalDeb } = useMemo(() => {
+    const { chartData, totalCred, totalDeb, totalAPagar } = useMemo(() => {
         const ym = `${ano}-${mes}`
         const nDias = new Date(Number(ano), Number(mes), 0).getDate()
         const dias = Array.from({ length: nDias }, (_, i) => ({
             dia: String(i + 1).padStart(2, '0'),
-            Recebido: 0, Pago: 0,
+            Recebido: 0, Pago: 0, 'A pagar': 0,
         }))
-        const soma = (rows: FluxoDia[], campo: 'Recebido' | 'Pago') => {
+        const soma = (rows: FluxoDia[], campo: 'Recebido' | 'Pago' | 'A pagar') => {
             for (const r of rows) {
                 if (!r.data || r.data.slice(0, 7) !== ym) continue
                 if (obraSel && r.obra !== obraSel) continue
@@ -701,14 +704,16 @@ function FluxoCaixaDiario({ recebidos, pagos, obras }: { recebidos: FluxoDia[]; 
         }
         soma(recebidos, 'Recebido')
         soma(pagos, 'Pago')
+        soma(aPagar, 'A pagar')
         return {
             chartData: dias,
             totalCred: dias.reduce((s, d) => s + d.Recebido, 0),
             totalDeb: dias.reduce((s, d) => s + d.Pago, 0),
+            totalAPagar: dias.reduce((s, d) => s + d['A pagar'], 0),
         }
-    }, [recebidos, pagos, mes, ano, obraSel])
+    }, [recebidos, pagos, aPagar, mes, ano, obraSel])
 
-    const temDados = totalCred > 0 || totalDeb > 0
+    const temDados = totalCred > 0 || totalDeb > 0 || totalAPagar > 0
 
     return (
         <div className="glass-card" style={{ padding: '24px', marginTop: '24px' }}>
@@ -716,7 +721,7 @@ function FluxoCaixaDiario({ recebidos, pagos, obras }: { recebidos: FluxoDia[]; 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <CalendarDays size={18} color="#22d3ee" />
                     <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>Fluxo de Caixa Diário</h3>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>recebido × pago por dia</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>recebido × pago × a pagar por dia</span>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                     <div>
@@ -745,8 +750,16 @@ function FluxoCaixaDiario({ recebidos, pagos, obras }: { recebidos: FluxoDia[]; 
                             <div style={{ fontSize: '15px', fontWeight: 800, color: '#ef4444', whiteSpace: 'nowrap' }}>{formatCurrency(totalDeb)}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>A pagar</div>
+                            <div style={{ fontSize: '15px', fontWeight: 800, color: '#f59e0b', whiteSpace: 'nowrap' }}>{formatCurrency(totalAPagar)}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Saldo</div>
                             <div style={{ fontSize: '15px', fontWeight: 800, color: totalCred - totalDeb >= 0 ? '#10b981' : '#ef4444', whiteSpace: 'nowrap' }}>{formatCurrency(totalCred - totalDeb)}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Saldo previsto</div>
+                            <div style={{ fontSize: '15px', fontWeight: 800, color: totalCred - totalDeb - totalAPagar >= 0 ? '#10b981' : '#ef4444', whiteSpace: 'nowrap' }}>{formatCurrency(totalCred - totalDeb - totalAPagar)}</div>
                         </div>
                     </div>
                 </div>
@@ -768,13 +781,14 @@ function FluxoCaixaDiario({ recebidos, pagos, obras }: { recebidos: FluxoDia[]; 
                                 content={({ active, payload }) => {
                                     if (!active || !payload?.length) return null
                                     const d: any = payload[0]?.payload
-                                    if (!d || (d.Recebido === 0 && d.Pago === 0)) return null
+                                    if (!d || (d.Recebido === 0 && d.Pago === 0 && d['A pagar'] === 0)) return null
                                     const saldo = d.Recebido - d.Pago
                                     return (
                                         <div style={tooltipStyle}>
                                             <p style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Dia {d.dia}/{mes}/{ano}</p>
                                             <p style={{ margin: '2px 0', fontSize: '13px', color: '#10b981' }}>Recebido: <strong style={{ color: '#f1f5f9' }}>{formatCurrency(d.Recebido)}</strong></p>
                                             <p style={{ margin: '2px 0', fontSize: '13px', color: '#ef4444' }}>Pago: <strong style={{ color: '#f1f5f9' }}>{formatCurrency(d.Pago)}</strong></p>
+                                            <p style={{ margin: '2px 0', fontSize: '13px', color: '#f59e0b' }}>A pagar: <strong style={{ color: '#f1f5f9' }}>{formatCurrency(d['A pagar'])}</strong></p>
                                             <p style={{ margin: '6px 0 0', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: '13px', color: '#94a3b8' }}>
                                                 Saldo do dia: <strong style={{ color: saldo >= 0 ? '#10b981' : '#ef4444' }}>{formatCurrency(saldo)}</strong>
                                             </p>
@@ -784,11 +798,13 @@ function FluxoCaixaDiario({ recebidos, pagos, obras }: { recebidos: FluxoDia[]; 
                             />
                             <Bar dataKey="Recebido" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
                             <Bar dataKey="Pago" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
+                            <Bar dataKey="A pagar" fill="#f59e0b" radius={[3, 3, 0, 0]} maxBarSize={22} isAnimationActive={false} />
                         </BarChart>
                     </ResponsiveContainer>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '14px' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: '#94a3b8' }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#10b981' }} /> Recebido</span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: '#94a3b8' }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#ef4444' }} /> Pago</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: '#94a3b8' }}><span style={{ width: 12, height: 12, borderRadius: 3, background: '#f59e0b' }} /> A pagar</span>
                     </div>
                 </>
             )}

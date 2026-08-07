@@ -90,6 +90,28 @@ export default async function ControlePage() {
         if (rows.length < PAGE) break
     }
 
+    // A pagar por obra/DIA (contas_a_pagar: parcelas DVQ em aberto, por
+    // data_pagamento) — 3ª série do Fluxo de Caixa Diário.
+    const aPagarDia = new Map<string, { obra: string; data: string; valor: number }>()
+    for (let from = 0; ; from += PAGE) {
+        const { data: rows } = await supabase
+            .from('contas_a_pagar' as any)
+            .select('obra, data_pagamento, valor')
+            .range(from, from + PAGE - 1)
+        if (!rows || rows.length === 0) break
+        for (const r of rows as any[]) {
+            const dia = (r.data_pagamento || '').slice(0, 10)
+            if (!dia || !r.obra) continue
+            const valor = Number(r.valor || 0)
+            if (!valor) continue
+            const k = `${r.obra}|${dia}`
+            const cur = aPagarDia.get(k) ?? { obra: r.obra, data: dia, valor: 0 }
+            cur.valor += valor
+            aPagarDia.set(k, cur)
+        }
+        if (rows.length < PAGE) break
+    }
+
     return (
         <ControleClient
             obras={obras ?? []}
@@ -98,6 +120,7 @@ export default async function ControlePage() {
             comprometido={Array.from(agg.values())}
             fluxoRecebido={Array.from(recDia.values())}
             fluxoPago={Array.from(pagoDia.values())}
+            fluxoAPagar={Array.from(aPagarDia.values())}
         />
     )
 }

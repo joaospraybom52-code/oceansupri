@@ -72,6 +72,14 @@ export default async function FechamentoBancoPage({
         buscarTudo<{ obra_plt: string; obra: string | null }>(supabase, 'custo_uau', 'obra_plt, obra'),
     ])
 
+    // Contas a pagar (parcelas DVQ em aberto) — relatório "Fluxo de Caixa".
+    // Tabela pequena: traz tudo e o cliente filtra pelo período aplicado.
+    const aPagarRows = await buscarTudo<{
+        obra: string | null; num_proc: number | null; num_parc: number | null
+        banco: number | null; conta: string | null; fornecedor: string | null
+        obs_pag: string | null; data_pagamento: string | null; valor: number | null
+    }>(supabase, 'contas_a_pagar', 'obra, num_proc, num_parc, banco, conta, fornecedor, obs_pag, data_pagamento, valor')
+
     const bases = (basesRes.data ?? []) as { banco: number; conta: string; nome_banco: string | null; data_base: string; saldo: number }[]
 
     // Saldo anterior por conta. Soma os valores CRUS e arredonda só no fim —
@@ -144,6 +152,20 @@ export default async function FechamentoBancoPage({
         }
     })
 
+    const aPagar = aPagarRows
+        .map(r => {
+            const cod = r.obra?.trim().toUpperCase() || null
+            const nome = cod ? nomeObra.get(cod) : undefined
+            return {
+                obra: cod, obraLabel: cod ? (nome ? `${cod} — ${nome}` : cod) : null,
+                numProc: r.num_proc, numParc: r.num_parc,
+                banco: r.banco, conta: r.conta,
+                fornecedor: r.fornecedor, obsPag: r.obs_pag,
+                data: r.data_pagamento ?? '', valor: Number(r.valor || 0),
+            }
+        })
+        .sort((a, b) => a.data.localeCompare(b.data) || (a.obra || '').localeCompare(b.obra || ''))
+
     return (
         <FechamentoBancoClient
             de={de}
@@ -152,6 +174,7 @@ export default async function FechamentoBancoPage({
             dataBase={dataBase}
             contas={contas}
             movimentos={movimentosEnriquecidos}
+            aPagar={aPagar}
         />
     )
 }

@@ -15,6 +15,7 @@
     "sync:pago": "tsx src/workers/sync-pago-apagar.ts",
     "sync:vendasrec": "tsx src/workers/sync-vendasrecebidas.ts",
     "sync:areceber": "tsx src/workers/sync-a-receber.ts",
+    "sync:apagar": "tsx src/workers/sync-a-pagar.ts",
     "sync:compras": "tsx src/workers/sync-compras.ts",
     "sync:kpis": "tsx src/workers/sync-kpis.ts"
   },

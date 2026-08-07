@@ -11,6 +11,14 @@ interface Mov {
     credito: number; debito: number; tipoLanc: number | null
     obra: string | null
 }
+/** Parcela em aberto liberada para pagamento (Conf_Proc = 'DVQ') no UAU. */
+interface APagar {
+    obra: string | null; obraLabel: string | null
+    numProc: number | null; numParc: number | null
+    banco: number | null; conta: string | null
+    fornecedor: string | null; obsPag: string | null
+    data: string; valor: number
+}
 
 const brl = (v: number) =>
     new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0)
@@ -42,15 +50,15 @@ const TIPO: Record<number, string> = {
 const tipoLabel = (t: number | null) => (t == null ? '—' : TIPO[t] ?? `Tipo ${t}`)
 
 export default function FechamentoBancoClient({
-    de, ate, padrao, dataBase, contas, movimentos,
+    de, ate, padrao, dataBase, contas, movimentos, aPagar = [],
 }: {
     de: string; ate: string; padrao: string; dataBase: string | null
-    contas: Conta[]; movimentos: Mov[]
+    contas: Conta[]; movimentos: Mov[]; aPagar?: APagar[]
 }) {
     const router = useRouter()
     const [fDe, setFDe] = useState(de)
     const [fAte, setFAte] = useState(ate)
-    const [aba, setAba] = useState<'conciliacao' | 'posicao'>('conciliacao')
+    const [aba, setAba] = useState<'conciliacao' | 'posicao' | 'fluxo'>('conciliacao')
     const [printing, setPrinting] = useState(false)
     const [carregando, startTransition] = useTransition()
 
@@ -117,6 +125,17 @@ export default function FechamentoBancoClient({
         return { inicial: r2(inicial), linhas, final: r2(acc) }
     }, [contas, movimentos])
 
+    // ── Fluxo de Caixa: parcelas a pagar (DVQ) com vencimento no período
+    const fluxo = useMemo(() => {
+        const linhas = aPagar
+            .filter(p => p.data && p.data >= de && p.data <= ate)
+            .sort((a, b) => a.data.localeCompare(b.data)
+                || (a.obra || '').localeCompare(b.obra || '')
+                || (a.numProc ?? 0) - (b.numProc ?? 0)
+                || (a.numParc ?? 0) - (b.numParc ?? 0))
+        return { linhas, total: r2(linhas.reduce((s, l) => s + l.valor, 0)) }
+    }, [aPagar, de, ate])
+
     const periodoLabel = fDe === fAte ? dmy(de) : `${dmy(de)} a ${dmy(ate)}`
     const geradoEm = new Date().toLocaleString('pt-BR')
 
@@ -182,6 +201,7 @@ export default function FechamentoBancoClient({
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button onClick={() => setAba('conciliacao')} style={abaBtn(aba === 'conciliacao')}>Conciliação Bancária</button>
                     <button onClick={() => setAba('posicao')} style={abaBtn(aba === 'posicao')}>Posição de Bancos</button>
+                    <button onClick={() => setAba('fluxo')} style={abaBtn(aba === 'fluxo')}>Fluxo de Caixa</button>
                 </div>
                 <button onClick={() => setPrinting(true)} disabled={printing} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
                     <Printer size={16} /> {printing ? 'Preparando…' : 'Exportar PDF'}
@@ -194,7 +214,7 @@ export default function FechamentoBancoClient({
                     <div>
                         <div style={{ fontSize: '11px', fontWeight: 800, color: '#2B2E34' }}>CONSTROWINS SERVIÇOS DE ENGENHARIA LTDA</div>
                         <h2 style={{ fontSize: '17px', fontWeight: 800, margin: '3px 0 0' }}>
-                            {aba === 'conciliacao' ? 'Conciliação Bancária' : 'Posição de Bancos'}
+                            {aba === 'conciliacao' ? 'Conciliação Bancária' : aba === 'posicao' ? 'Posição de Bancos' : 'Fluxo de Caixa'}
                         </h2>
                         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Período: {periodoLabel}</div>
                         {aba === 'conciliacao' && (
@@ -202,10 +222,15 @@ export default function FechamentoBancoClient({
                                 Saldo real inicial: <strong style={corNeg(conciliacao.inicial)}>{brlP(conciliacao.inicial)}</strong> · Moeda: R$ REAL
                             </div>
                         )}
+                        {aba === 'fluxo' && (
+                            <div style={{ fontSize: '11px', color: '#555' }}>
+                                Parcelas liberadas para pagamento · Total: <strong style={corNeg(fluxo.total)}>{brlP(fluxo.total)}</strong>
+                            </div>
+                        )}
                     </div>
                     <div style={{ textAlign: 'right', fontSize: '9.5px', color: '#777', lineHeight: 1.6 }}>
                         <div>Emitido em {geradoEm}</div>
-                        <div>Origem: UAU · {contas.length} contas</div>
+                        <div>Origem: UAU · {aba === 'fluxo' ? `${fluxo.linhas.length} parcelas` : `${contas.length} contas`}</div>
                     </div>
                 </div>
 
@@ -289,7 +314,7 @@ export default function FechamentoBancoClient({
                             </tfoot>
                         </table>
                     )
-                ) : (
+                ) : aba === 'posicao' ? (
                     <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #d5d8dc' }}>
                         <thead>
                             <tr>
@@ -323,6 +348,49 @@ export default function FechamentoBancoClient({
                             </tr>
                         </tfoot>
                     </table>
+                ) : (
+                    fluxo.linhas.length === 0 ? (
+                        <div style={{ padding: '26px', textAlign: 'center', color: '#777', fontSize: '13px' }}>
+                            Nenhuma parcela a pagar com vencimento no período.
+                        </div>
+                    ) : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #d5d8dc' }}>
+                            <thead>
+                                <tr>
+                                    <th style={{ ...th, textAlign: 'left', width: '74px' }}>Data</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '180px' }}>Obra</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '64px' }}>Proc.</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '54px' }}>Parc.</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '150px' }}>Conta</th>
+                                    <th style={{ ...th, textAlign: 'left' }}>Fornecedor</th>
+                                    <th style={{ ...th, textAlign: 'left' }}>Obs. pagamento</th>
+                                    <th style={{ ...th, width: '116px' }}>Valor a pagar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {fluxo.linhas.map((l, i) => (
+                                    <tr key={i}>
+                                        <td style={{ ...td, textAlign: 'left' }}>{dmy(l.data)}</td>
+                                        <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obraLabel ? undefined : '#999' }}>{l.obraLabel || '—'}</td>
+                                        <td style={{ ...td, textAlign: 'left' }}>{l.numProc ?? '—'}</td>
+                                        <td style={{ ...td, textAlign: 'left' }}>{l.numParc ?? '—'}</td>
+                                        <td style={{ ...td, textAlign: 'left' }}>{l.banco ?? '—'} / {l.conta || '—'}</td>
+                                        <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.fornecedor || '—'}</td>
+                                        <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obsPag ? undefined : '#999' }}>{l.obsPag || '—'}</td>
+                                        <td style={{ ...td, fontWeight: 700, color: '#B91C1C' }}>{brl(l.valor)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="total-final">
+                                <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
+                                    <td style={{ ...td, textAlign: 'left' }} colSpan={7}>
+                                        TOTAL A PAGAR NO PERÍODO ({fluxo.linhas.length} parcelas)
+                                    </td>
+                                    <td style={td}>{brl(fluxo.total)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    )
                 )}
             </div>
         </div>
