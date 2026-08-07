@@ -146,6 +146,9 @@ export default function FechamentoBancoClient({
                     .no-print { display: none !important; }
                     #banco-print thead { display: table-header-group; }
                     #banco-print tr { break-inside: avoid; page-break-inside: avoid; }
+                    /* tfoot repete em toda quebra de página; como grupo de linha
+                       normal ele sai uma vez só, no fim do relatório */
+                    #banco-print tfoot.total-final { display: table-row-group; }
                 }
             `}</style>
 
@@ -274,7 +277,7 @@ export default function FechamentoBancoClient({
                                     </tr>
                                 ))}
                             </tbody>
-                            <tfoot>
+                            <tfoot className="total-final">
                                 <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
                                     <td style={{ ...td, textAlign: 'left' }} colSpan={6}>
                                         TOTAL DO PERÍODO ({conciliacao.linhas.length} lançamentos)
