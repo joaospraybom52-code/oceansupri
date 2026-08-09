@@ -112,6 +112,28 @@ export default async function ControlePage() {
         if (rows.length < PAGE) break
     }
 
+    // A receber por obra/DIA — mesma medida do painel "Próximas Medições":
+    // controle_a_receber, valor = valor_prc, data = data_fim_contrato_ven.
+    const aReceberDia = new Map<string, { obra: string; data: string; valor: number }>()
+    for (let from = 0; ; from += PAGE) {
+        const { data: rows } = await supabase
+            .from('controle_a_receber')
+            .select('obra, data_fim_contrato_ven, valor_prc')
+            .range(from, from + PAGE - 1)
+        if (!rows || rows.length === 0) break
+        for (const r of rows as any[]) {
+            const dia = (r.data_fim_contrato_ven || '').slice(0, 10)
+            if (!dia || !r.obra) continue
+            const valor = Number(r.valor_prc || 0)
+            if (!valor) continue
+            const k = `${r.obra}|${dia}`
+            const cur = aReceberDia.get(k) ?? { obra: r.obra, data: dia, valor: 0 }
+            cur.valor += valor
+            aReceberDia.set(k, cur)
+        }
+        if (rows.length < PAGE) break
+    }
+
     return (
         <ControleClient
             obras={obras ?? []}
@@ -121,6 +143,7 @@ export default async function ControlePage() {
             fluxoRecebido={Array.from(recDia.values())}
             fluxoPago={Array.from(pagoDia.values())}
             fluxoAPagar={Array.from(aPagarDia.values())}
+            fluxoAReceber={Array.from(aReceberDia.values())}
         />
     )
 }

@@ -36,10 +36,12 @@ const sqlConfig: sql.config = {
 const queryAReceber = `
 SELECT DISTINCT cr.Obra_Prc, cr.Data_Prc, cr.NumParcGer_Prc, cr.NumVend_Prc, cr.NumParc_Prc, cr.Tipo_Prc,
        v.ValProvisaoCurto_Ven, v.ValDescontoImposto_ven,
-       cr.Valor_Prc, v.DataFimContrato_Ven, v.HistLanc_Ven, v.Data_Ven
+       cr.Valor_Prc, v.DataFimContrato_Ven, v.HistLanc_Ven, v.Data_Ven,
+       pes.nome_pes AS Cliente
 FROM VwContasReceberBoleto cr
 INNER JOIN Vendas v WITH(NOLOCK) ON v.Empresa_Ven = cr.Empresa_Prc AND v.Obra_Ven = cr.Obra_Prc AND v.Num_Ven = cr.NumVend_Prc
 INNER JOIN Parcelas p WITH(NOLOCK) ON p.Tipo_par = cr.Tipo_Prc
+LEFT JOIN Pessoas pes WITH(NOLOCK) ON pes.cod_pes = v.Cliente_Ven
 WHERE v.TipoVenda_Ven IN (0,1,2,3,4,5)
 `
 
@@ -61,6 +63,7 @@ async function gravarAReceber(rows: any[]) {
         data_fim_contrato_ven: toISODate(r.DataFimContrato_Ven),
         hist_lanc_ven: r.HistLanc_Ven != null ? r.HistLanc_Ven.toString() : null,
         data_ven: toISODate(r.Data_Ven),
+        cliente: r.Cliente != null ? r.Cliente.toString().trim() || null : null,
     }))
 
     await supabase.from('controle_a_receber').delete().neq('id', '00000000-0000-0000-0000-000000000000')

@@ -11,12 +11,14 @@ interface Mov {
     credito: number; debito: number; tipoLanc: number | null
     obra: string | null
 }
-/** Parcela em aberto liberada para pagamento (Conf_Proc = 'DVQ') no UAU. */
+/** Linha do Fluxo de Caixa: parcela a pagar (Conf_Proc='DVQ') ou a receber
+ *  (mesma medida do painel "Próximas Medições"). */
 interface APagar {
+    tipo: 'pagar' | 'receber'
     obra: string | null; obraLabel: string | null
     numProc: number | null; numParc: number | null
     banco: number | null; conta: string | null
-    fornecedor: string | null; obsPag: string | null
+    contraparte: string | null; obs: string | null
     data: string; valor: number
 }
 
@@ -125,15 +127,18 @@ export default function FechamentoBancoClient({
         return { inicial: r2(inicial), linhas, final: r2(acc) }
     }, [contas, movimentos])
 
-    // ── Fluxo de Caixa: parcelas a pagar (DVQ) com vencimento no período
+    // ── Fluxo de Caixa: a receber e a pagar com vencimento no período
     const fluxo = useMemo(() => {
         const linhas = aPagar
             .filter(p => p.data && p.data >= de && p.data <= ate)
             .sort((a, b) => a.data.localeCompare(b.data)
+                || a.tipo.localeCompare(b.tipo)
                 || (a.obra || '').localeCompare(b.obra || '')
                 || (a.numProc ?? 0) - (b.numProc ?? 0)
                 || (a.numParc ?? 0) - (b.numParc ?? 0))
-        return { linhas, total: r2(linhas.reduce((s, l) => s + l.valor, 0)) }
+        const receber = linhas.filter(l => l.tipo === 'receber').reduce((s, l) => s + l.valor, 0)
+        const pagar = linhas.filter(l => l.tipo === 'pagar').reduce((s, l) => s + l.valor, 0)
+        return { linhas, receber: r2(receber), pagar: r2(pagar), total: r2(receber - pagar) }
     }, [aPagar, de, ate])
 
     const periodoLabel = fDe === fAte ? dmy(de) : `${dmy(de)} a ${dmy(ate)}`
@@ -224,7 +229,9 @@ export default function FechamentoBancoClient({
                         )}
                         {aba === 'fluxo' && (
                             <div style={{ fontSize: '11px', color: '#555' }}>
-                                Parcelas liberadas para pagamento · Total: <strong style={corNeg(fluxo.total)}>{brlP(fluxo.total)}</strong>
+                                A receber: <strong style={{ color: '#047857' }}>{brl(fluxo.receber)}</strong> ·
+                                {' '}A pagar: <strong style={{ color: '#B91C1C' }}>{brl(fluxo.pagar)}</strong> ·
+                                {' '}Saldo previsto: <strong style={corNeg(fluxo.total) ?? { color: '#047857' }}>{brlP(fluxo.total)}</strong>
                             </div>
                         )}
                     </div>
@@ -351,42 +358,60 @@ export default function FechamentoBancoClient({
                 ) : (
                     fluxo.linhas.length === 0 ? (
                         <div style={{ padding: '26px', textAlign: 'center', color: '#777', fontSize: '13px' }}>
-                            Nenhuma parcela a pagar com vencimento no período.
+                            Nenhuma parcela a receber ou a pagar com vencimento no período.
                         </div>
                     ) : (
                         <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #d5d8dc' }}>
                             <thead>
                                 <tr>
                                     <th style={{ ...th, textAlign: 'left', width: '74px' }}>Data</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '68px' }}>Tipo</th>
                                     <th style={{ ...th, textAlign: 'left', width: '180px' }}>Obra</th>
-                                    <th style={{ ...th, textAlign: 'left', width: '64px' }}>Proc.</th>
-                                    <th style={{ ...th, textAlign: 'left', width: '54px' }}>Parc.</th>
-                                    <th style={{ ...th, textAlign: 'left', width: '150px' }}>Conta</th>
-                                    <th style={{ ...th, textAlign: 'left' }}>Fornecedor</th>
-                                    <th style={{ ...th, textAlign: 'left' }}>Obs. pagamento</th>
-                                    <th style={{ ...th, width: '116px' }}>Valor a pagar</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '58px' }}>Proc.</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '48px' }}>Parc.</th>
+                                    <th style={{ ...th, textAlign: 'left', width: '134px' }}>Conta</th>
+                                    <th style={{ ...th, textAlign: 'left' }}>Fornecedor / Cliente</th>
+                                    <th style={{ ...th, textAlign: 'left' }}>Observações</th>
+                                    <th style={{ ...th, width: '116px' }}>Valor</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {fluxo.linhas.map((l, i) => (
-                                    <tr key={i}>
-                                        <td style={{ ...td, textAlign: 'left' }}>{dmy(l.data)}</td>
-                                        <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obraLabel ? undefined : '#999' }}>{l.obraLabel || '—'}</td>
-                                        <td style={{ ...td, textAlign: 'left' }}>{l.numProc ?? '—'}</td>
-                                        <td style={{ ...td, textAlign: 'left' }}>{l.numParc ?? '—'}</td>
-                                        <td style={{ ...td, textAlign: 'left' }}>{l.banco ?? '—'} / {l.conta || '—'}</td>
-                                        <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.fornecedor || '—'}</td>
-                                        <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obsPag ? undefined : '#999' }}>{l.obsPag || '—'}</td>
-                                        <td style={{ ...td, fontWeight: 700, color: '#B91C1C' }}>{brl(l.valor)}</td>
-                                    </tr>
-                                ))}
+                                {fluxo.linhas.map((l, i) => {
+                                    const rec = l.tipo === 'receber'
+                                    return (
+                                        <tr key={i} style={rec ? { background: '#f2fbf6' } : undefined}>
+                                            <td style={{ ...td, textAlign: 'left' }}>{dmy(l.data)}</td>
+                                            <td style={{ ...td, textAlign: 'left' }}>
+                                                <span style={{
+                                                    display: 'inline-block', padding: '1px 7px', borderRadius: '9px', fontSize: '9px', fontWeight: 800,
+                                                    background: rec ? '#dcfce7' : '#fee2e2', color: rec ? '#047857' : '#B91C1C',
+                                                }}>{rec ? 'RECEBER' : 'PAGAR'}</span>
+                                            </td>
+                                            <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obraLabel ? undefined : '#999' }}>{l.obraLabel || '—'}</td>
+                                            <td style={{ ...td, textAlign: 'left' }}>{l.numProc ?? '—'}</td>
+                                            <td style={{ ...td, textAlign: 'left' }}>{l.numParc ?? '—'}</td>
+                                            <td style={{ ...td, textAlign: 'left' }}>{l.banco != null ? `${l.banco} / ${l.conta || '—'}` : '—'}</td>
+                                            <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.contraparte || '—'}</td>
+                                            <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obs ? undefined : '#999' }}>{l.obs || '—'}</td>
+                                            <td style={{ ...td, fontWeight: 700, color: rec ? '#047857' : '#B91C1C' }}>{rec ? brl(l.valor) : brl(-l.valor)}</td>
+                                        </tr>
+                                    )
+                                })}
                             </tbody>
                             <tfoot className="total-final">
+                                <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
+                                    <td style={{ ...td, textAlign: 'right' }} colSpan={8}>Total a receber:</td>
+                                    <td style={{ ...td, color: '#047857' }}>{brl(fluxo.receber)}</td>
+                                </tr>
+                                <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
+                                    <td style={{ ...td, textAlign: 'right' }} colSpan={8}>Total a pagar:</td>
+                                    <td style={{ ...td, color: '#B91C1C' }}>{brl(-fluxo.pagar)}</td>
+                                </tr>
                                 <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
-                                    <td style={{ ...td, textAlign: 'left' }} colSpan={7}>
-                                        TOTAL A PAGAR NO PERÍODO ({fluxo.linhas.length} parcelas)
+                                    <td style={{ ...td, textAlign: 'left' }} colSpan={8}>
+                                        SALDO PREVISTO DO PERÍODO ({fluxo.linhas.length} lançamentos)
                                     </td>
-                                    <td style={td}>{brl(fluxo.total)}</td>
+                                    <td style={{ ...td, ...corNeg(fluxo.total, true) }}>{brlP(fluxo.total)}</td>
                                 </tr>
                             </tfoot>
                         </table>

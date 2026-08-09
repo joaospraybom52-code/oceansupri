@@ -80,6 +80,13 @@ export default async function FechamentoBancoPage({
         obs_pag: string | null; data_pagamento: string | null; valor: number | null
     }>(supabase, 'contas_a_pagar', 'obra, num_proc, num_parc, banco, conta, fornecedor, obs_pag, data_pagamento, valor')
 
+    // Contas a receber — mesma medida do painel "Próximas Medições":
+    // valor = valor_prc, data = data_fim_contrato_ven, descrição = hist_lanc_ven.
+    const aReceberRows = await buscarTudo<{
+        obra: string | null; num_parc_ger: string | null; cliente: string | null
+        hist_lanc_ven: string | null; data_fim_contrato_ven: string | null; valor_prc: number | null
+    }>(supabase, 'controle_a_receber', 'obra, num_parc_ger, cliente, hist_lanc_ven, data_fim_contrato_ven, valor_prc')
+
     const bases = (basesRes.data ?? []) as { banco: number; conta: string; nome_banco: string | null; data_base: string; saldo: number }[]
 
     // Saldo anterior por conta. Soma os valores CRUS e arredonda só no fim —
@@ -152,19 +159,32 @@ export default async function FechamentoBancoPage({
         }
     })
 
-    const aPagar = aPagarRows
-        .map(r => {
-            const cod = r.obra?.trim().toUpperCase() || null
-            const nome = cod ? nomeObra.get(cod) : undefined
-            return {
-                obra: cod, obraLabel: cod ? (nome ? `${cod} — ${nome}` : cod) : null,
-                numProc: r.num_proc, numParc: r.num_parc,
-                banco: r.banco, conta: r.conta,
-                fornecedor: r.fornecedor, obsPag: r.obs_pag,
-                data: r.data_pagamento ?? '', valor: Number(r.valor || 0),
-            }
-        })
-        .sort((a, b) => a.data.localeCompare(b.data) || (a.obra || '').localeCompare(b.obra || ''))
+    const rotuloObra = (cod0: string | null | undefined) => {
+        const cod = cod0?.trim().toUpperCase() || null
+        const nome = cod ? nomeObra.get(cod) : undefined
+        return { obra: cod, obraLabel: cod ? (nome ? `${cod} — ${nome}` : cod) : null }
+    }
+
+    // Linhas do relatório "Fluxo de Caixa": a pagar (Conf_Proc='DVQ') + a receber
+    // (Próximas Medições), no mesmo formato.
+    const aPagar = [
+        ...aPagarRows.map(r => ({
+            tipo: 'pagar' as const,
+            ...rotuloObra(r.obra),
+            numProc: r.num_proc, numParc: r.num_parc,
+            banco: r.banco, conta: r.conta,
+            contraparte: r.fornecedor, obs: r.obs_pag,
+            data: r.data_pagamento ?? '', valor: Number(r.valor || 0),
+        })),
+        ...aReceberRows.map(r => ({
+            tipo: 'receber' as const,
+            ...rotuloObra(r.obra),
+            numProc: null, numParc: r.num_parc_ger ? Number(r.num_parc_ger) || null : null,
+            banco: null, conta: null,
+            contraparte: r.cliente, obs: r.hist_lanc_ven,
+            data: r.data_fim_contrato_ven ?? '', valor: Number(r.valor_prc || 0),
+        })),
+    ].sort((a, b) => a.data.localeCompare(b.data) || (a.obra || '').localeCompare(b.obra || ''))
 
     return (
         <FechamentoBancoClient
