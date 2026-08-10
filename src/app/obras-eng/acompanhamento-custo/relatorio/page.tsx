@@ -36,17 +36,37 @@ async function buscarTudo<T>(
 export default async function RelatorioCustoPage({
     searchParams,
 }: {
-    searchParams: Promise<{ obra?: string }>
+    searchParams: Promise<{ obra?: string; obras?: string }>
 }) {
-    const { obra } = await searchParams
+    const sp = await searchParams
     const supabase = await createServerSupabaseClient()
 
     // O botão só aparece para o admin, mas a rota também se protege sozinha.
     const { data: { user } } = await supabase.auth.getUser()
     if ((user?.email || '').toLowerCase() !== ADMIN_EMAIL) redirect('/sem-acesso')
-    if (!obra) redirect('/obras-eng/acompanhamento-custo')
 
-    const [linhasRes, orcRes, recebido, pago, areceber, vgvRows, vendas] = await Promise.all([
+    // Aceita uma obra (?obra=X, formato antigo) ou várias (?obras=A,B,C).
+    const codigos = Array.from(new Set(
+        (sp.obras ? sp.obras.split(',') : [sp.obra ?? ''])
+            .map(c => c.trim()).filter(Boolean),
+    ))
+    if (codigos.length === 0) redirect('/obras-eng/acompanhamento-custo')
+
+    // Vendas não dependem da obra (o casamento é por valor) — busca uma vez só.
+    const vendas = await buscarTudo<{ val_provisao_curto_vrec: number | null; val_desconto_imposto_vrec: number | null }>(
+        supabase, 'controle_vendasrecebidas', 'val_provisao_curto_vrec, val_desconto_imposto_vrec')
+
+    const relatorios = await Promise.all(codigos.map(obra => montarRelatorio(supabase, obra, vendas)))
+
+    return <RelatorioCustoClient relatorios={relatorios.filter(r => r.rows.length > 0)} />
+}
+
+async function montarRelatorio(
+    supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+    obra: string,
+    vendas: { val_provisao_curto_vrec: number | null; val_desconto_imposto_vrec: number | null }[],
+) {
+    const [linhasRes, orcRes, recebido, pago, areceber, vgvRows] = await Promise.all([
         supabase.from('custo_uau')
             .select('obra_plt, obra, item_plt, serv_plt, servico, insumo, ins_cins, unid_ins, valor_aprov, saldo_vlr_vinc, ordem, atualizado_em')
             .eq('obra_plt', obra).order('ordem', { ascending: true }),
@@ -59,9 +79,6 @@ export default async function RelatorioCustoPage({
             supabase, 'controle_a_receber', 'num_parc_ger, val_provisao_curto_ven, val_desconto_imposto_ven', { coluna: 'obra', valor: obra }),
         buscarTudo<{ valor_venda: number | null }>(
             supabase, 'controle_vgv', 'valor_venda', { coluna: 'codigo_obra', valor: obra }),
-        // sem filtro de obra: o casamento é por valor (TREATAS), igual à KPI'S
-        buscarTudo<{ val_provisao_curto_vrec: number | null; val_desconto_imposto_vrec: number | null }>(
-            supabase, 'controle_vendasrecebidas', 'val_provisao_curto_vrec, val_desconto_imposto_vrec'),
     ])
 
     const linhas = (linhasRes.data ?? []) as unknown as LinhaCusto[]
@@ -92,15 +109,13 @@ export default async function RelatorioCustoPage({
 
     const vgv = vgvRows.reduce((s, v) => s + Number(v.valor_venda || 0), 0)
 
-    return (
-        <RelatorioCustoClient
-            obraCodigo={obra}
-            obraNome={linhas[0]?.obra ?? obra}
-            atualizado={atualizado}
-            rows={rows}
-            totais={totais}
-            balanco={{ receita: totalRecebidoReal, despesa: totalPago + controleFinanceiroSaida }}
-            evolucao={{ vgv, medido: valorRecebidoBruto, faturado: faturadoAReceber }}
-        />
-    )
+    return {
+        obraCodigo: obra,
+        obraNome: linhas[0]?.obra ?? obra,
+        atualizado,
+        rows,
+        totais,
+        balanco: { receita: totalRecebidoReal, despesa: totalPago + controleFinanceiroSaida },
+        evolucao: { vgv, medido: valorRecebidoBruto, faturado: faturadoAReceber },
+    }
 }

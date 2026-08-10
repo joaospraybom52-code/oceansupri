@@ -19,9 +19,7 @@ const NIVEL: Record<TipoLinhaCusto, number> = { raiz: 0, subtotal: 1, servico: 2
 
 interface Totais { planejado: number; custo: number; vinculado: number; saldo: number; comprometido: number }
 
-export default function RelatorioCustoClient({
-    obraCodigo, obraNome, atualizado, rows, totais, balanco, evolucao,
-}: {
+export interface RelatorioObra {
     obraCodigo: string
     obraNome: string
     atualizado: string | null
@@ -29,7 +27,9 @@ export default function RelatorioCustoClient({
     totais: Totais
     balanco: { receita: number; despesa: number }
     evolucao: { vgv: number; medido: number; faturado: number }
-}) {
+}
+
+export default function RelatorioCustoClient({ relatorios }: { relatorios: RelatorioObra[] }) {
     const [printing, setPrinting] = useState(false)
     useEffect(() => {
         if (!printing) return
@@ -38,6 +38,69 @@ export default function RelatorioCustoClient({
     }, [printing])
 
     const geradoEm = new Date().toLocaleString('pt-BR')
+    const varias = relatorios.length > 1
+
+    return (
+        <div>
+            <style>{`
+                @media print {
+                    @page { size: A4 portrait; margin: 10mm 9mm 14mm; }
+                    body { background: #fff !important; }
+                    body * { visibility: hidden !important; }
+                    #custo-print, #custo-print * { visibility: visible !important; }
+                    #custo-print { position: absolute; left: 0; top: 0; width: 750px; }
+                    .no-print { display: none !important; }
+                    .rep-sec { break-inside: avoid; page-break-inside: avoid; }
+                    #custo-print thead { display: table-header-group; }
+                    #custo-print tr { break-inside: avoid; page-break-inside: avoid; }
+                    .print-footer { display: flex !important; visibility: visible !important;
+                        position: fixed; bottom: 0; left: 0; right: 0; justify-content: space-between;
+                        padding: 4px 8px; background: #fff; border-top: 1px solid #ccc; font-size: 8px; color: #555; }
+                    .print-footer * { visibility: visible !important; }
+                    /* cada obra começa numa página nova (menos a primeira) */
+                    .folha-obra + .folha-obra { break-before: page; page-break-before: always; }
+                }
+            `}</style>
+
+            {/* Barra de ações (não sai no PDF) */}
+            <div className="glass-card no-print" style={{ padding: '14px 18px', marginBottom: '18px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Link href="/obras-eng/acompanhamento-custo" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'none' }}>
+                    <ArrowLeft size={16} /> Voltar
+                </Link>
+                <div style={{ flex: 1 }} />
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                    {varias ? `${relatorios.length} obras` : `${relatorios[0]?.obraCodigo} — ${relatorios[0]?.obraNome}`}
+                </span>
+                <button onClick={() => setPrinting(true)} disabled={printing} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+                    <Printer size={16} /> {printing ? 'Preparando…' : 'Exportar PDF'}
+                </button>
+            </div>
+
+            <div id="custo-print">
+                {relatorios.length === 0 && (
+                    <div className="glass-card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        Nenhuma das obras selecionadas tem dados de custo.
+                    </div>
+                )}
+                {relatorios.map(r => <FolhaObra key={r.obraCodigo} r={r} geradoEm={geradoEm} />)}
+
+                {/* Rodapé único (fixo em todas as páginas na impressão) */}
+                <div className="print-footer" style={{ display: 'none' }}>
+                    <span>
+                        Constrowins · {varias
+                            ? `${relatorios.length} obras`
+                            : `${relatorios[0]?.obraCodigo} — ${relatorios[0]?.obraNome}`}
+                    </span>
+                    <span>Acompanhamento de Custo · {geradoEm}</span>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+/** Uma folha completa do relatório (uma obra). */
+function FolhaObra({ r, geradoEm }: { r: RelatorioObra; geradoEm: string }) {
+    const { obraCodigo, obraNome, atualizado, rows, totais, balanco, evolucao } = r
 
     // ── Indicador principal: consumo do planejado
     const pctCusto = totais.planejado > 0 ? totais.custo / totais.planejado : 0
@@ -68,39 +131,7 @@ export default function RelatorioCustoClient({
     const td: React.CSSProperties = { padding: '5px 9px', fontSize: '10px', textAlign: 'right', whiteSpace: 'nowrap' }
 
     return (
-        <div>
-            <style>{`
-                @media print {
-                    @page { size: A4 portrait; margin: 10mm 9mm 14mm; }
-                    body { background: #fff !important; }
-                    body * { visibility: hidden !important; }
-                    #custo-print, #custo-print * { visibility: visible !important; }
-                    #custo-print { position: absolute; left: 0; top: 0; width: 750px; }
-                    .no-print { display: none !important; }
-                    .rep-sec { break-inside: avoid; page-break-inside: avoid; }
-                    #custo-print thead { display: table-header-group; }
-                    #custo-print tr { break-inside: avoid; page-break-inside: avoid; }
-                    .print-footer { display: flex !important; visibility: visible !important;
-                        position: fixed; bottom: 0; left: 0; right: 0; justify-content: space-between;
-                        padding: 4px 8px; background: #fff; border-top: 1px solid #ccc; font-size: 8px; color: #555; }
-                    .print-footer * { visibility: visible !important; }
-                }
-            `}</style>
-
-            {/* Barra de ações (não sai no PDF) */}
-            <div className="glass-card no-print" style={{ padding: '14px 18px', marginBottom: '18px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <Link href="/obras-eng/acompanhamento-custo" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'none' }}>
-                    <ArrowLeft size={16} /> Voltar
-                </Link>
-                <div style={{ flex: 1 }} />
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{obraCodigo} — {obraNome}</span>
-                <button onClick={() => setPrinting(true)} disabled={printing} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
-                    <Printer size={16} /> {printing ? 'Preparando…' : 'Exportar PDF'}
-                </button>
-            </div>
-
-            {/* ── Folha do relatório ── */}
-            <div id="custo-print" style={{ background: '#fff', color: '#222', padding: '22px 24px', borderRadius: '10px', fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: '840px', margin: '0 auto' }}>
+        <div className="folha-obra" style={{ background: '#fff', color: '#222', padding: '22px 24px', borderRadius: '10px', fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: '840px', margin: '0 auto 20px' }}>
 
                 {/* Cabeçalho */}
                 <div className="rep-sec" style={{ borderBottom: '3px solid #E63329', paddingBottom: '10px', marginBottom: '16px' }}>
@@ -260,11 +291,6 @@ export default function RelatorioCustoClient({
                     </table>
                 </div>
 
-                <div className="print-footer" style={{ display: 'none' }}>
-                    <span>Constrowins · {obraCodigo} — {obraNome}</span>
-                    <span>Acompanhamento de Custo · {geradoEm}</span>
-                </div>
-            </div>
         </div>
     )
 }

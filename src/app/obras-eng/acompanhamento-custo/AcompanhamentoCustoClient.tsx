@@ -39,6 +39,19 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
     const [obraSel, setObraSel] = useState(obras[0]?.codigo ?? '')
     const [sel, setSel] = useState<{ item: string; descr: string; ins_cins: string } | null>(null)
 
+    // Exportação em PDF de VÁRIAS obras de uma vez
+    const [showExport, setShowExport] = useState(false)
+    const [exportSel, setExportSel] = useState<string[]>([])
+    const abrirExport = () => { setExportSel(obraSel ? [obraSel] : []); setShowExport(true) }
+    const toggleExport = (cod: string) =>
+        setExportSel(prev => prev.includes(cod) ? prev.filter(c => c !== cod) : [...prev, cod])
+    const gerarExport = () => {
+        if (exportSel.length === 0) return
+        const ordenadas = obras.filter(o => exportSel.includes(o.codigo)).map(o => o.codigo)
+        window.open(`/obras-eng/acompanhamento-custo/relatorio?obras=${encodeURIComponent(ordenadas.join(','))}`, '_blank', 'noopener')
+        setShowExport(false)
+    }
+
     // Orçamento mutável (PLANEJADO editável só pelo admin nas linhas de insumo).
     const supabase = createClient()
     const [orc, setOrc] = useState<Orcamento[]>(orcamento)
@@ -132,18 +145,16 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                         placeholder="Selecionar obra..."
                         minWidth={300}
                     />
-                    {/* Relatório em PDF — só o admin */}
-                    {canEdit && obraSel && (
-                        <a
-                            href={`/obras-eng/acompanhamento-custo/relatorio?obra=${encodeURIComponent(obraSel)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                    {/* Relatório em PDF — só o admin; permite escolher várias obras */}
+                    {canEdit && obras.length > 0 && (
+                        <button
+                            onClick={abrirExport}
                             className="btn-primary"
-                            title="Abrir o relatório da obra selecionada para exportar em PDF"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 16px', fontSize: '13px', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                            title="Escolher as obras e exportar o relatório em PDF"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '10px 16px', fontSize: '13px', whiteSpace: 'nowrap' }}
                         >
                             <FileText size={16} /> Exportar PDF
-                        </a>
+                        </button>
                     )}
                 </div>
             </div>
@@ -265,6 +276,46 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                             <button onClick={() => setEditando(null)} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }}>Cancelar</button>
                             <button onClick={confirmarEdicao} disabled={!!salvando} className="btn-primary" style={{ padding: '8px 16px', fontSize: '13px', opacity: salvando ? 0.6 : 1 }}>
                                 {salvando ? 'Salvando…' : 'Confirmar alteração'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: escolher as obras do relatório */}
+            {showExport && (
+                <div onClick={() => setShowExport(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                    <div onClick={e => e.stopPropagation()} className="glass-card" style={{ padding: '24px', width: '460px', maxWidth: '100%', display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
+                        <h3 style={{ fontSize: '17px', fontWeight: 800, marginBottom: '4px' }}>Exportar relatório de custo</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                            Marque as obras que quer no PDF — cada uma sai numa página.
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                            <button onClick={() => setExportSel(obras.map(o => o.codigo))} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>Selecionar todas</button>
+                            <button onClick={() => setExportSel([])} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>Limpar</button>
+                            <div style={{ flex: 1 }} />
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', alignSelf: 'center' }}>{exportSel.length} de {obras.length}</span>
+                        </div>
+
+                        <div style={{ overflowY: 'auto', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '6px' }}>
+                            {obras.map(o => {
+                                const marcada = exportSel.includes(o.codigo)
+                                return (
+                                    <label key={o.codigo} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', background: marcada ? 'rgba(16,185,129,0.1)' : 'transparent' }}>
+                                        <input type="checkbox" checked={marcada} onChange={() => toggleExport(o.codigo)} style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#10b981' }} />
+                                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                            <strong style={{ color: 'var(--text-primary)' }}>{o.codigo}</strong> — {o.nome}
+                                        </span>
+                                    </label>
+                                )
+                            })}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
+                            <button onClick={() => setShowExport(false)} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }}>Cancelar</button>
+                            <button onClick={gerarExport} disabled={exportSel.length === 0} className="btn-primary" style={{ padding: '8px 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '7px', opacity: exportSel.length === 0 ? 0.5 : 1 }}>
+                                <FileText size={15} /> Gerar {exportSel.length > 1 ? `(${exportSel.length} obras)` : 'relatório'}
                             </button>
                         </div>
                     </div>
