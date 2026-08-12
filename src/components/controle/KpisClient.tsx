@@ -214,11 +214,15 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         .reduce((s, a) => s + Number(a.val_provisao_curto_ven || 0) + Number(a.val_desconto_imposto_ven || 0), 0),
         [areceberFiltrado])
 
-    // Card Imposto Retido = (Valor Recebido Bruto + Faturado a Receber) × 16,33%
-    // É o imposto estimado sobre a receita — não confundir com os pagamentos ao
-    // fisco (tipo_controle='ImpostoRetido'), que entram só no Balanço da Obra.
-    const ALIQUOTA_IMPOSTO_RETIDO = 0.1633
-    const impostoRetido = (valorRecebidoBruto + faturadoAReceber) * ALIQUOTA_IMPOSTO_RETIDO
+    // Impostos ESTIMADOS sobre a receita, ambos sobre a mesma base
+    // (Valor Recebido Bruto + Faturado a Receber). Não confundir com os
+    // pagamentos ao fisco (tipo_controle='ImpostoRetido'), que entram só nas
+    // Saídas (Pago) do Balanço da Obra.
+    const ALIQUOTA_IMPOSTO_SIMPLES = 0.1133
+    const ALIQUOTA_IMPOSTO_ISS = 0.05
+    const baseImpostos = valorRecebidoBruto + faturadoAReceber
+    const impostoSimples = baseImpostos * ALIQUOTA_IMPOSTO_SIMPLES
+    const impostoIss = baseImpostos * ALIQUOTA_IMPOSTO_ISS
 
     // Retenções = SUM(A_receber[Valor_Prc]) onde VALUE(NumParcGer_Prc) >= 2
     const retencoes = useMemo(() => areceberFiltrado
@@ -325,7 +329,8 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
                 <KpiCard label="Total A Pagar" value={formatCurrency(totalAPagar)} />
                 <KpiCard label="Controle Financeiro Saída" value={formatCurrency(controleFinanceiroSaida)} />
                 <KpiCard label="Total Comprometido Obra" value={formatCurrency(totalComprometidoObra)} />
-                <KpiCard label="Imposto Retido" value={formatCurrency(impostoRetido)} />
+                <KpiCard label="Imposto Simples" value={formatCurrency(impostoSimples)} />
+                <KpiCard label="Imposto ISS" value={formatCurrency(impostoIss)} />
             </div>
 
             {/* Indicador Evolução + Balanço da Obra */}
