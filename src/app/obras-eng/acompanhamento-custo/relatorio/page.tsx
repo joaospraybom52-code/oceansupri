@@ -102,8 +102,11 @@ async function montarRelatorio(
     // Total Pago = SUM(VlrAtPago) das Despesas · Controle Financeiro Saída = SUM(TotalReceita) das DespSaida
     const totalPago = pago.filter(p => p.tipo_controle === 'Despesas').reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0)
     const controleFinanceiroSaida = pago.filter(p => p.tipo_controle === 'DespSaida').reduce((s, p) => s + Number(p.total_receita || 0), 0)
-    // Pagamentos ao fisco: ficam fora do Total Pago, mas entram nas saídas do Balanço
-    const impostoRetidoPago = pago.filter(p => p.tipo_controle === 'ImpostoRetido').reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0)
+    // Imposto Simples = (Valor Recebido Bruto + Faturado a Receber) × 11,33%.
+    // É a MESMA medida da aba KPI'S e é o que entra nas saídas do Balanço — os
+    // pagamentos ao fisco (tipo_controle='ImpostoRetido') ficam fora, senão o
+    // mesmo imposto seria contado duas vezes.
+    const ALIQUOTA_IMPOSTO_SIMPLES = 0.1133
 
     // Faturado a Receber = SUM(ValProvisaoCurto_Ven + ValDescontoImposto_ven) onde NumParcGer = '1'
     const faturadoAReceber = areceber.filter(a => a.num_parc_ger === '1')
@@ -117,7 +120,10 @@ async function montarRelatorio(
         atualizado,
         rows,
         totais,
-        balanco: { receita: totalRecebidoReal, despesa: totalPago + controleFinanceiroSaida + impostoRetidoPago },
+        balanco: {
+            receita: totalRecebidoReal,
+            despesa: totalPago + controleFinanceiroSaida + (valorRecebidoBruto + faturadoAReceber) * ALIQUOTA_IMPOSTO_SIMPLES,
+        },
         evolucao: { vgv, medido: valorRecebidoBruto, faturado: faturadoAReceber },
     }
 }

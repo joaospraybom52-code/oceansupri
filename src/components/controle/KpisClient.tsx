@@ -175,15 +175,11 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         obraMatch(p.obra) && matchPeriodo(p.data_movimento, filtroAnos, filtroMeses),
     ), [pago, filtroObras, filtroAnos, filtroMeses])
 
-    // Imposto Retido (Banco_Des = 1010 no UAU; o worker marca como 'ImpostoRetido').
-    // O worker JÁ tira essas linhas de "Despesas" — o desconto no Total Pago /
-    // Total A Pagar acontece uma única vez, pela exclusão (não subtrair de novo!).
-    const impostoRetidoPago = useMemo(() => pagoFiltrado
-        .filter(p => p.tipo_controle === 'ImpostoRetido')
-        .reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0), [pagoFiltrado])
-    const impostoRetidoAPagar = useMemo(() => pagoFiltrado
-        .filter(p => p.tipo_controle === 'ImpostoRetido')
-        .reduce((s, p) => s + Number(p.vlr_at_pagar || 0), 0), [pagoFiltrado])
+    // Os pagamentos ao fisco (tipo_controle='ImpostoRetido' — Ministério da Fazenda
+    // e Prefeitura de Anápolis) são EXCLUÍDOS pelo worker de Despesas, então não
+    // entram em Total Pago / A Pagar / Comprometido. Também não entram nas Saídas
+    // do Balanço: lá o imposto é a medida ESTIMADA "Imposto Simples" (11,33%),
+    // para não contar o mesmo imposto duas vezes.
 
     // Total Pago = SUM(VlrAtPago) onde TipoControle = "Despesas" (já sem o imposto retido)
     const totalPago = useMemo(() => pagoFiltrado
@@ -336,7 +332,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
             {/* Indicador Evolução + Balanço da Obra */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '24px', marginTop: '24px', alignItems: 'start' }}>
                 <IndicadorEvolucao valorVenda={valorVendaVGV} valorMedido={valorRecebidoBruto} valorFaturado={faturadoAReceber} />
-                <BalancoCard receita={totalRecebidoReal} despesa={totalPago + controleFinanceiroSaida + impostoRetidoPago} />
+                <BalancoCard receita={totalRecebidoReal} despesa={totalPago + controleFinanceiroSaida + impostoSimples} />
             </div>
 
             {/* Gráfico ao lado do Próximas Medições (mesma divisão pra alinhar) */}
