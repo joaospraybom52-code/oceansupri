@@ -203,9 +203,6 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // Total Comprometido Obra = Total Pago + Total A Pagar + Controle Financeiro Saída
     const totalComprometidoObra = totalPago + totalAPagar + controleFinanceiroSaida
 
-    // Card Imposto Retido = pago + a pagar do banco 1010
-    const impostoRetido = impostoRetidoPago + impostoRetidoAPagar
-
     // A_receber filtrado por obra + período (dimensões)
     const areceberFiltrado = useMemo(() => areceber.filter(a =>
         obraMatch(a.obra) && matchPeriodo(a.data_ven, filtroAnos, filtroMeses),
@@ -216,6 +213,12 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         .filter(a => a.num_parc_ger === '1')
         .reduce((s, a) => s + Number(a.val_provisao_curto_ven || 0) + Number(a.val_desconto_imposto_ven || 0), 0),
         [areceberFiltrado])
+
+    // Card Imposto Retido = (Valor Recebido Bruto + Faturado a Receber) × 16,33%
+    // É o imposto estimado sobre a receita — não confundir com os pagamentos ao
+    // fisco (tipo_controle='ImpostoRetido'), que entram só no Balanço da Obra.
+    const ALIQUOTA_IMPOSTO_RETIDO = 0.1633
+    const impostoRetido = (valorRecebidoBruto + faturadoAReceber) * ALIQUOTA_IMPOSTO_RETIDO
 
     // Retenções = SUM(A_receber[Valor_Prc]) onde VALUE(NumParcGer_Prc) >= 2
     const retencoes = useMemo(() => areceberFiltrado
@@ -328,7 +331,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
             {/* Indicador Evolução + Balanço da Obra */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '24px', marginTop: '24px', alignItems: 'start' }}>
                 <IndicadorEvolucao valorVenda={valorVendaVGV} valorMedido={valorRecebidoBruto} valorFaturado={faturadoAReceber} />
-                <BalancoCard receita={totalRecebidoReal} despesa={totalPago + controleFinanceiroSaida} />
+                <BalancoCard receita={totalRecebidoReal} despesa={totalPago + controleFinanceiroSaida + impostoRetidoPago} />
             </div>
 
             {/* Gráfico ao lado do Próximas Medições (mesma divisão pra alinhar) */}
