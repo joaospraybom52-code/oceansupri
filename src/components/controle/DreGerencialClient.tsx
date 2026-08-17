@@ -278,7 +278,9 @@ export default function DreGerencialClient({
             </div>
 
             {/* Filtros */}
-            <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '18px', display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            {/* position/zIndex: o .glass-card cria contexto de empilhamento próprio,
+                então sem isso o menu dos filtros fica atrás dos cards de baixo. */}
+            <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '18px', display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap', position: 'relative', zIndex: 30 }}>
                 <div>
                     <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Ano (vencimento)</label>
                     <MultiSelect options={anosDisponiveis.map(a => ({ value: a, label: a }))} selected={filtroAnos} onChange={setFiltroAnos} placeholder="Todos os anos" />

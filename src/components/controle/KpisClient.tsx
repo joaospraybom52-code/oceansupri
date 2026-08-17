@@ -278,8 +278,8 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
                 </p>
             </div>
 
-            {/* Filtros */}
-            <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
+            {/* Filtros — position/zIndex para o menu dos selects não ficar atrás dos cards */}
+            <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end', position: 'relative', zIndex: 30 }}>
                 <div>
                     <label style={lbl}>Código da obra</label>
                     <MultiSearchSelect
