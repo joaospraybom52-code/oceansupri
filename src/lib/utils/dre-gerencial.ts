@@ -5,19 +5,22 @@
 //   − Custo direto da obra              CONTAS PAGAS + CONTROLE FINANCEIRO das obras normais
 //   = Margem de contribuição da obra
 //   − Cartões corporativos              TRANSFERÊNCIA com "CART" no histórico
-//   − Despesas de estrutura             CONTAS PAGAS de SD005, DRT* e ADMCO
+//   − Despesas de estrutura             CONTAS PAGAS de SD005 e ADMCO
+//   − Despesas diretoria                CONTAS PAGAS das obras DRT*
 //   = EBITDA gerencial
 //   − Resultado financeiro              CONTROLE FINANCEIRO da sede: rendimentos (+) e juros/IOF/tarifas (−)
 //   = Resultado gerencial
 
-/** Obras que representam a estrutura da empresa (sede/diretoria). */
+/** Obras que representam a estrutura da empresa (sede). */
 export const OBRAS_ESTRUTURA = ['SD005', 'ADMCO']
-export const PREFIXO_ESTRUTURA = 'DRT'
+/** Obras da diretoria — linha própria, separada da estrutura. */
+export const PREFIXO_DIRETORIA = 'DRT'
 
-export const ehEstrutura = (obra: string | null | undefined) => {
-    const o = (obra || '').trim().toUpperCase()
-    return OBRAS_ESTRUTURA.includes(o) || o.startsWith(PREFIXO_ESTRUTURA)
-}
+export const ehEstrutura = (obra: string | null | undefined) =>
+    OBRAS_ESTRUTURA.includes((obra || '').trim().toUpperCase())
+
+export const ehDiretoria = (obra: string | null | undefined) =>
+    (obra || '').trim().toUpperCase().startsWith(PREFIXO_DIRETORIA)
 
 /** Obras cujo controle financeiro é analisado para o resultado financeiro. */
 export const ehSede = (obra: string | null | undefined) =>

@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
 import {
-    ehEstrutura, ehSede, ehCartao, palpitarTipo, brl,
+    ehEstrutura, ehDiretoria, ehSede, ehCartao, palpitarTipo, brl,
     ROTULO_TIPO, type TipoClassificacao,
 } from '@/lib/utils/dre-gerencial'
 import type { MovRow } from '@/app/controle/dre-gerencial/page'
@@ -41,7 +41,7 @@ const inputFiltro: React.CSSProperties = {
 }
 
 /** Linhas da DRE que têm drill. */
-type LinhaId = 'receita' | 'custo' | 'cartao' | 'estrutura' | 'financeiro'
+type LinhaId = 'receita' | 'custo' | 'cartao' | 'estrutura' | 'diretoria' | 'financeiro'
 
 export default function DreGerencialClient({
     movimentos, classificacao, podeEditar,
@@ -97,6 +97,7 @@ export default function DreGerencialClient({
         const custo: MovRow[] = []
         const cartao: MovRow[] = []
         const estrutura: MovRow[] = []
+        const diretoria: MovRow[] = []
         const financeiro: MovRow[] = []
         const emprestimo: MovRow[] = []
         const entreContas: MovRow[] = []
@@ -108,11 +109,11 @@ export default function DreGerencialClient({
                 case 'RECEBIDAS':
                     receita.push(m); break
                 case 'CONTAS PAGAS':
-                    (ehEstrutura(m.obra) ? estrutura : custo).push(m); break
+                    (ehEstrutura(m.obra) ? estrutura : ehDiretoria(m.obra) ? diretoria : custo).push(m); break
                 case 'TRANSFERÊNCIA':
                     (ehCartao(m.nominal) ? cartao : entreContas).push(m); break
                 case 'CONTROLE FINANCEIRO': {
-                    if (!ehSede(m.obra)) { custo.push(m); break }   // obra normal: entra no custo direto
+                    if (!ehSede(m.obra)) { (ehDiretoria(m.obra) ? diretoria : custo).push(m); break }
                     const t = tipoDe(m.nominal, v)
                     if (t === 'rendimento' || t === 'financeiro') financeiro.push(m)
                     else if (t === 'emprestimo') emprestimo.push(m)
@@ -122,7 +123,7 @@ export default function DreGerencialClient({
                 }
             }
         }
-        return { receita, custo, cartao, estrutura, financeiro, emprestimo, entreContas, aClassificar }
+        return { receita, custo, cartao, estrutura, diretoria, financeiro, emprestimo, entreContas, aClassificar }
     }, [filtrados, mapaClasse])
 
     const soma = (rows: MovRow[]) => rows.reduce((s, r) => s + Number(r.valor || 0), 0)
@@ -133,7 +134,8 @@ export default function DreGerencialClient({
     const margem = vReceita + vCusto
     const vCartao = soma(grupos.cartao)
     const vEstrutura = soma(grupos.estrutura)
-    const ebitda = margem + vCartao + vEstrutura
+    const vDiretoria = soma(grupos.diretoria)
+    const ebitda = margem + vCartao + vEstrutura + vDiretoria
     const vFinanceiro = soma(grupos.financeiro)
     const resultado = ebitda + vFinanceiro
 
@@ -142,7 +144,7 @@ export default function DreGerencialClient({
 
     const dadosDrill: Record<LinhaId, MovRow[]> = {
         receita: grupos.receita, custo: grupos.custo, cartao: grupos.cartao,
-        estrutura: grupos.estrutura, financeiro: grupos.financeiro,
+        estrutura: grupos.estrutura, diretoria: grupos.diretoria, financeiro: grupos.financeiro,
     }
 
     async function classificar(nominal: string, tipo: TipoClassificacao) {
@@ -318,7 +320,8 @@ export default function DreGerencialClient({
                 <Linha rotulo="= Margem de contribuição da obra" hint="o número do engenheiro/gerente" valor={margem} destaque="sub" />
 
                 <Linha id="cartao" rotulo="(−) Cartões corporativos" hint="transferências para contas de cartão" valor={vCartao} sinal />
-                <Linha id="estrutura" rotulo="(−) Despesas de estrutura" hint="sede, RH, fiscal, orçamento, diretoria (SD005, DRT, ADMCO)" valor={vEstrutura} sinal />
+                <Linha id="estrutura" rotulo="(−) Despesas de estrutura" hint="sede, RH, fiscal, orçamento (SD005, ADMCO)" valor={vEstrutura} sinal />
+                <Linha id="diretoria" rotulo="(−) Despesas diretoria" hint="obras DRT" valor={vDiretoria} sinal />
                 <Linha rotulo="= EBITDA gerencial" hint="o número da diretoria" valor={ebitda} destaque="sub" />
 
                 <Linha id="financeiro" rotulo="(−) Resultado financeiro" hint="juros, IOF, deságio, tarifas (−) e rendimentos (+)" valor={vFinanceiro} sinal />
