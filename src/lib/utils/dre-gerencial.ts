@@ -5,14 +5,20 @@
 //   − Custo direto da obra              CONTAS PAGAS + CONTROLE FINANCEIRO das obras normais
 //   = Margem de contribuição da obra
 //   − Cartões corporativos              TRANSFERÊNCIA com "CART" no histórico
-//   − Despesas de estrutura             CONTAS PAGAS de SD005 e ADMCO
+//   − Despesas de estrutura             CONTAS PAGAS da ADMCO
 //   − Despesas diretoria                CONTAS PAGAS das obras DRT*
 //   = EBITDA gerencial
 //   − Resultado financeiro              CONTROLE FINANCEIRO da sede: rendimentos (+) e juros/IOF/tarifas (−)
+// Fora do resultado: a obra SD005 (empréstimo bancário) vai para captação.
 //   = Resultado gerencial
 
 /** Obras que representam a estrutura da empresa (sede). */
-export const OBRAS_ESTRUTURA = ['SD005', 'ADMCO']
+export const OBRAS_ESTRUTURA = ['ADMCO']
+/** SD005 é empréstimo bancário: sai do resultado e vai para captação. */
+export const OBRA_CAPTACAO = 'SD005'
+
+export const ehCaptacao = (obra: string | null | undefined) =>
+    (obra || '').trim().toUpperCase() === OBRA_CAPTACAO
 /** Obras da diretoria — linha própria, separada da estrutura. */
 export const PREFIXO_DIRETORIA = 'DRT'
 

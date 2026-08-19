@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
 import {
-    ehEstrutura, ehDiretoria, ehSede, ehCartao, palpitarTipo, brl,
+    ehEstrutura, ehDiretoria, ehCaptacao, ehSede, ehCartao, palpitarTipo, brl,
     ROTULO_TIPO, type TipoClassificacao,
 } from '@/lib/utils/dre-gerencial'
 import type { MovRow } from '@/app/controle/dre-gerencial/page'
@@ -109,7 +109,10 @@ export default function DreGerencialClient({
                 case 'RECEBIDAS':
                     receita.push(m); break
                 case 'CONTAS PAGAS':
-                    (ehEstrutura(m.obra) ? estrutura : ehDiretoria(m.obra) ? diretoria : custo).push(m); break
+                    // SD005 = empréstimo bancário: fora do resultado, vai p/ captação
+                    (ehCaptacao(m.obra) ? emprestimo
+                        : ehEstrutura(m.obra) ? estrutura
+                            : ehDiretoria(m.obra) ? diretoria : custo).push(m); break
                 case 'TRANSFERÊNCIA':
                     (ehCartao(m.nominal) ? cartao : entreContas).push(m); break
                 case 'CONTROLE FINANCEIRO': {
@@ -320,7 +323,7 @@ export default function DreGerencialClient({
                 <Linha rotulo="= Margem de contribuição da obra" hint="o número do engenheiro/gerente" valor={margem} destaque="sub" />
 
                 <Linha id="cartao" rotulo="(−) Cartões corporativos" hint="transferências para contas de cartão" valor={vCartao} sinal />
-                <Linha id="estrutura" rotulo="(−) Despesas de estrutura" hint="sede, RH, fiscal, orçamento (SD005, ADMCO)" valor={vEstrutura} sinal />
+                <Linha id="estrutura" rotulo="(−) Despesas de estrutura" hint="sede, RH, fiscal, orçamento (ADMCO)" valor={vEstrutura} sinal />
                 <Linha id="diretoria" rotulo="(−) Despesas diretoria" hint="obras DRT" valor={vDiretoria} sinal />
                 <Linha rotulo="= EBITDA gerencial" hint="o número da diretoria" valor={ebitda} destaque="sub" />
 
