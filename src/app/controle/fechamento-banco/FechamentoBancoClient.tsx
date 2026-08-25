@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect, useTransition } from 'react'
+import React, { useMemo, useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Landmark, Printer, Search } from 'lucide-react'
 
@@ -378,7 +378,13 @@ export default function FechamentoBancoClient({
                             <tbody>
                                 {fluxo.linhas.map((l, i) => {
                                     const rec = l.tipo === 'receber'
+                                    // Subtotal do dia: entra depois da última linha de cada data
+                                    const fimDoDia = i === fluxo.linhas.length - 1 || fluxo.linhas[i + 1].data !== l.data
+                                    const doDia = fimDoDia ? fluxo.linhas.filter(x => x.data === l.data) : []
+                                    const recDia = r2(doDia.filter(x => x.tipo === 'receber').reduce((s, x) => s + x.valor, 0))
+                                    const pagDia = r2(doDia.filter(x => x.tipo === 'pagar').reduce((s, x) => s + x.valor, 0))
                                     return (
+                                        <React.Fragment key={i}>
                                         <tr key={i} style={rec ? { background: '#f2fbf6' } : undefined}>
                                             <td style={{ ...td, textAlign: 'left' }}>{dmy(l.data)}</td>
                                             <td style={{ ...td, textAlign: 'left' }}>
@@ -397,6 +403,20 @@ export default function FechamentoBancoClient({
                                             <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obs ? undefined : '#999' }}>{l.obs || '—'}</td>
                                             <td style={{ ...td, fontWeight: 700, color: rec ? '#047857' : '#B91C1C' }}>{rec ? brl(l.valor) : brl(-l.valor)}</td>
                                         </tr>
+                                        {fimDoDia && (
+                                            <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
+                                                <td style={{ ...td, textAlign: 'left' }} colSpan={7}>
+                                                    Total do dia {dmy(l.data)} ({doDia.length} lançamento{doDia.length === 1 ? '' : 's'})
+                                                </td>
+                                                <td style={{ ...td, textAlign: 'right', fontSize: '9.5px' }}>
+                                                    <span style={{ color: '#047857' }}>A receber {brl(recDia)}</span>
+                                                    {'   ·   '}
+                                                    <span style={{ color: '#B91C1C' }}>A pagar {brl(-pagDia)}</span>
+                                                </td>
+                                                <td style={{ ...td, ...corNeg(r2(recDia - pagDia)) }}>{brlP(r2(recDia - pagDia))}</td>
+                                            </tr>
+                                        )}
+                                        </React.Fragment>
                                     )
                                 })}
                             </tbody>
