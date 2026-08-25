@@ -7,15 +7,22 @@ import path from 'path'
 
 // =============================================================================
 // Worker das CONTAS A PAGAR (módulo Controle).
-// Espelha na tabela contas_a_pagar as parcelas em aberto do UAU, seguindo a
-// medida de contas a pagar do usuário (Dados_Proc + Parc_Proc):
-//   - StatusParc_proc = 0            -> só em aberto (exclui pago e em andamento)
-//   - Conf_Proc = 'DVQ'              -> REGRA DO USUÁRIO: só liberadas p/ pagamento
-//   - escopo de obras do usuário J.LUCAS (OBRUSR) e obras ativas (status 0,1,3)
-//   - exclui contas bancárias restritas ao usuário (BancoContaUsuarios)
-// Valor  = ValPagar_proc = (ValorParc + Acrescimo) - Desconto
-// Data   = DtPagParc_Proc (vencimento / data prevista de pagamento)
-// Alimenta o "A Pagar" do Fluxo de Caixa Diário e o relatório "Fluxo de Caixa".
+// Espelha na tabela contas_a_pagar as parcelas já EMITIDAS aguardando débito,
+// somando as DUAS medidas de débito do usuário (mesma consulta, muda o tipo):
+//   StatusParc_proc = 1 AND TipoChq_Proc IN ('Débito Eletrônico', 'Débito C/C')
+// Escopo: obras do usuário UAU J.LUCAS com status_obr < 1 ou = 3, excluindo as
+// contas bancárias restritas a ele.
+//
+// Mapa das colunas (definido pelo usuário):
+//   obra           = Obra_Proc            nominal   = ChqNome_Proc
+//   valor          = (ValorParc + Acresc) - Desc
+//   conta          = Conta_Proc           obs       = ObsPag_Proc
+//   data (fluxo)   = DtPagParc_Proc  -> PRORROGAÇÃO
+//   parcela/total  = NumParc_Proc / QtdeParcelas_ProcPar
+//
+// Alimenta o "A pagar" do Fluxo de Caixa Diário e as linhas PAGAR do relatório
+// Fluxo de Caixa (Fechamento Banco).
+// (Substituiu a régua antiga: StatusParc = 0 + Conf_Proc = 'DVQ'.)
 // =============================================================================
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })
@@ -43,36 +50,36 @@ SELECT d.Empresa_proc,
        d.Obra_Proc,
        p.Num_Proc,
        p.NumParc_Proc,
+       par.QtdeParcelas_ProcPar,
        p.banContParc_proc,
        p.Conta_Proc,
-       pes.nome_pes                AS NomeFornecedor,
+       p.ChqNome_Proc          AS Nominal,
        p.ObsPag_Proc,
-       p.DtPagParc_Proc,
+       p.DtPagParc_Proc,       -- PRORROGAÇÃO: a data que vale no fluxo
+       p.DtVencParc_Proc,      -- vencimento original (referência)
+       p.TipoChq_Proc,
        ((p.ValorParc_Proc + p.AcrescParc_Proc) - p.DescParc_Proc) AS ValPagar_proc
-FROM OBRUSR EmpObr
+FROM Parc_Proc p WITH(NOLOCK)
 INNER JOIN Dados_Proc d WITH(NOLOCK)
-    ON d.Obra_Proc = EmpObr.Obr_uo
-   AND d.Empresa_proc = EmpObr.Emp_uo
-   AND EmpObr.Usr_uo = '${USUARIO_UAU}'
-INNER JOIN Parc_Proc p WITH(NOLOCK)
-    ON d.Empresa_proc = p.Empresa_proc
-   AND d.Num_Proc = p.Num_Proc
-   AND d.Obra_Proc = p.Obra_Proc
-INNER JOIN Obras o WITH(NOLOCK)
-    ON o.Cod_obr = p.Obra_Proc
-   AND o.Empresa_obr = p.Empresa_Proc
-   AND (o.status_obr <= 1 OR o.status_obr = 3)
-LEFT JOIN Pessoas pes WITH(NOLOCK)
-    ON d.CodForn_Proc = pes.cod_pes
-WHERE p.StatusParc_proc = 0
-  AND RTRIM(LTRIM(p.Conf_Proc)) = 'DVQ'
+    ON d.Empresa_proc = p.Empresa_proc AND d.Num_Proc = p.Num_Proc AND d.Obra_Proc = p.Obra_Proc
+INNER JOIN (
+    SELECT o.Emp_uo AS Empresa, o.Obr_uo AS Obra
+    FROM OBRUSR o
+    INNER JOIN Obras ob WITH(NOLOCK) ON o.obr_uo = ob.cod_obr AND o.emp_uo = ob.empresa_obr
+    WHERE o.Usr_uo = '${USUARIO_UAU}' AND (ob.status_obr < 1 OR ob.status_obr = 3)
+) e ON d.Empresa_proc = e.Empresa AND d.Obra_Proc = e.Obra
+LEFT JOIN DadosProcParam par WITH(NOLOCK)
+    ON par.Empresa_ProcPar = d.Empresa_proc AND par.NumProc_ProcPar = d.Num_Proc AND par.Obra_ProcPar = d.Obra_Proc
+WHERE p.StatusParc_proc = 1
+  AND p.TipoChq_Proc IN ('Débito Eletrônico', 'Débito C/C')
   AND NOT EXISTS (
         SELECT 1 FROM BancoContaUsuarios b WITH(NOLOCK)
         WHERE b.Usuario_BcoCont = '${USUARIO_UAU}'
-          AND p.Empresa_Proc = b.Empresa_BcoCont
+          AND p.Empresa_proc = b.Empresa_BcoCont
           AND p.banContParc_proc = b.Banco_BcoCont
           AND p.Conta_Proc = b.Conta_BcoCont)
 `
+
 
 function toISODate(d: any): string | null {
     if (!d) return null
@@ -89,11 +96,14 @@ async function gravar(rows: any[]) {
         obra: txt(r.Obra_Proc),
         num_proc: r.Num_Proc != null ? Number(r.Num_Proc) : null,
         num_parc: r.NumParc_Proc != null ? Number(r.NumParc_Proc) : null,
+        total_parcelas: r.QtdeParcelas_ProcPar != null ? Number(r.QtdeParcelas_ProcPar) : null,
         banco: r.banContParc_proc != null ? Number(r.banContParc_proc) : null,
         conta: txt(r.Conta_Proc),
-        fornecedor: txt(r.NomeFornecedor),
+        fornecedor: txt(r.Nominal),
         obs_pag: txt(r.ObsPag_Proc),
         data_pagamento: toISODate(r.DtPagParc_Proc),
+        vencimento: toISODate(r.DtVencParc_Proc),
+        tipo_pagamento: txt(r.TipoChq_Proc),
         valor: Number(r.ValPagar_proc || 0),
     }))
 
@@ -115,7 +125,7 @@ async function ciclo() {
         pool.on('error', () => { })
         const r = await pool.request().query(queryAPagar)
         const total = await gravar(r.recordset)
-        console.log(`[APAGAR] OK: ${r.recordset.length} parcelas (DVQ) — total R$ ${total.toFixed(2)}`)
+        console.log(`[APAGAR] OK: ${r.recordset.length} parcelas em débito — total R$ ${total.toFixed(2)}`)
     } catch (e: any) {
         console.log(`[APAGAR] ERRO: ${(e?.message || e).toString().slice(0, 160)}`)
     } finally {

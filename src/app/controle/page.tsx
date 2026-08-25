@@ -90,8 +90,9 @@ export default async function ControlePage() {
         if (rows.length < PAGE) break
     }
 
-    // A pagar por obra/DIA (contas_a_pagar: parcelas DVQ em aberto, por
-    // data_pagamento) — 3ª série do Fluxo de Caixa Diário.
+    // A pagar por obra/DIA (contas_a_pagar: parcelas já emitidas em débito —
+    // Débito Eletrônico + Débito C/C — pela data de PRORROGAÇÃO) — 3ª série do
+    // Fluxo de Caixa Diário.
     const aPagarDia = new Map<string, { obra: string; data: string; valor: number }>()
     for (let from = 0; ; from += PAGE) {
         const { data: rows } = await supabase

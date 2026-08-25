@@ -72,13 +72,14 @@ export default async function FechamentoBancoPage({
         buscarTudo<{ obra_plt: string; obra: string | null }>(supabase, 'custo_uau', 'obra_plt, obra'),
     ])
 
-    // Contas a pagar (parcelas DVQ em aberto) — relatório "Fluxo de Caixa".
-    // Tabela pequena: traz tudo e o cliente filtra pelo período aplicado.
+    // Contas a pagar (parcelas emitidas em débito) — relatório "Fluxo de Caixa".
+    // A data é a PRORROGAÇÃO (data_pagamento). Tabela pequena: traz tudo e o
+    // cliente filtra pelo período aplicado.
     const aPagarRows = await buscarTudo<{
-        obra: string | null; num_proc: number | null; num_parc: number | null
+        obra: string | null; num_proc: number | null; num_parc: number | null; total_parcelas: number | null
         banco: number | null; conta: string | null; fornecedor: string | null
         obs_pag: string | null; data_pagamento: string | null; valor: number | null
-    }>(supabase, 'contas_a_pagar', 'obra, num_proc, num_parc, banco, conta, fornecedor, obs_pag, data_pagamento, valor')
+    }>(supabase, 'contas_a_pagar', 'obra, num_proc, num_parc, total_parcelas, banco, conta, fornecedor, obs_pag, data_pagamento, valor')
 
     // Contas a receber — mesma medida do painel "Próximas Medições":
     // valor = valor_prc, data = data_fim_contrato_ven, descrição = hist_lanc_ven.
@@ -171,7 +172,7 @@ export default async function FechamentoBancoPage({
         ...aPagarRows.map(r => ({
             tipo: 'pagar' as const,
             ...rotuloObra(r.obra),
-            numProc: r.num_proc, numParc: r.num_parc,
+            numProc: r.num_proc, numParc: r.num_parc, totalParcelas: r.total_parcelas,
             banco: r.banco, conta: r.conta,
             contraparte: r.fornecedor, obs: r.obs_pag,
             data: r.data_pagamento ?? '', valor: Number(r.valor || 0),
@@ -179,7 +180,7 @@ export default async function FechamentoBancoPage({
         ...aReceberRows.map(r => ({
             tipo: 'receber' as const,
             ...rotuloObra(r.obra),
-            numProc: null, numParc: r.num_parc_ger ? Number(r.num_parc_ger) || null : null,
+            numProc: null, numParc: r.num_parc_ger ? Number(r.num_parc_ger) || null : null, totalParcelas: null,
             banco: null, conta: null,
             contraparte: r.cliente, obs: r.hist_lanc_ven,
             data: r.data_fim_contrato_ven ?? '', valor: Number(r.valor_prc || 0),

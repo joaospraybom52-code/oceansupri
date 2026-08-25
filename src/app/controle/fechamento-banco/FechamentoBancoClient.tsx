@@ -11,12 +11,12 @@ interface Mov {
     credito: number; debito: number; tipoLanc: number | null
     obra: string | null
 }
-/** Linha do Fluxo de Caixa: parcela a pagar (Conf_Proc='DVQ') ou a receber
- *  (mesma medida do painel "Próximas Medições"). */
+/** Linha do Fluxo de Caixa: parcela a pagar (emitida em débito, StatusParc=1)
+ *  ou a receber (mesma medida do painel "Próximas Medições"). */
 interface APagar {
     tipo: 'pagar' | 'receber'
     obra: string | null; obraLabel: string | null
-    numProc: number | null; numParc: number | null
+    numProc: number | null; numParc: number | null; totalParcelas: number | null
     banco: number | null; conta: string | null
     contraparte: string | null; obs: string | null
     data: string; valor: number
@@ -389,7 +389,9 @@ export default function FechamentoBancoClient({
                                             </td>
                                             <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obraLabel ? undefined : '#999' }}>{l.obraLabel || '—'}</td>
                                             <td style={{ ...td, textAlign: 'left' }}>{l.numProc ?? '—'}</td>
-                                            <td style={{ ...td, textAlign: 'left' }}>{l.numParc ?? '—'}</td>
+                                            <td style={{ ...td, textAlign: 'left' }}>
+                                                {l.numParc == null ? '—' : l.totalParcelas ? `${l.numParc}/${l.totalParcelas}` : l.numParc}
+                                            </td>
                                             <td style={{ ...td, textAlign: 'left' }}>{l.banco != null ? `${l.banco} / ${l.conta || '—'}` : '—'}</td>
                                             <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.contraparte || '—'}</td>
                                             <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obs ? undefined : '#999' }}>{l.obs || '—'}</td>
