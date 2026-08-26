@@ -34,15 +34,37 @@ export async function POST(request: Request) {
         const local = (formData.get('local') as string) || null
         const previsaoInicio = (formData.get('previsaoInicio') as string) || null
         const previsaoTermino = (formData.get('previsaoTermino') as string) || null
-        const file = formData.get('file') as File
+        const file = formData.get('file') as File | null
+        // obraId presente = importar o orçamento numa obra JÁ criada (aba Medições).
+        const obraIdExistente = ((formData.get('obraId') as string) || '').trim() || null
 
-        if (!nome || !file) {
-            return NextResponse.json({ error: 'Nome e arquivo são obrigatórios.' }, { status: 400 })
+        if (!obraIdExistente && !nome) {
+            return NextResponse.json({ error: 'Nome da obra é obrigatório.' }, { status: 400 })
+        }
+        if (obraIdExistente && !file) {
+            return NextResponse.json({ error: 'Selecione o arquivo Excel do orçamento.' }, { status: 400 })
         }
 
         const supabase = await createServerSupabaseClient()
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 })
+
+        // Cadastro SEM planilha: cria a obra e pronto — o orçamento entra depois
+        // pela aba Medições ("Importar orçamento").
+        if (!file) {
+            const { data: nova, error: erroNova } = await supabase
+                .from('obras_eng')
+                .insert({ nome, cliente, status: 'Ativa', codigo_uau: codigoUau, local, previsao_inicio: previsaoInicio, previsao_termino: previsaoTermino })
+                .select('id')
+                .single()
+            if (erroNova || !nova) {
+                return NextResponse.json({ error: 'Erro ao criar obra no banco de dados.' }, { status: 500 })
+            }
+            return NextResponse.json({
+                success: true, obra_id: nova.id, sem_orcamento: true,
+                items_count: 0, total_planilha: 0, total_cadastrado: 0, confere: true,
+            })
+        }
 
         const buffer = Buffer.from(await file.arrayBuffer())
         const workbook = xlsx.read(buffer, { type: 'buffer' })
@@ -67,16 +89,31 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Não encontrei as colunas (Item/Descrição). Use o modelo de importação.' }, { status: 400 })
         }
 
-        // Criar Obra
-        const { data: obra, error: obraError } = await supabase
-            .from('obras_eng')
-            .insert({ nome, cliente, status: 'Ativa', codigo_uau: codigoUau, local, previsao_inicio: previsaoInicio, previsao_termino: previsaoTermino })
-            .select('id')
-            .single()
-        if (obraError || !obra) {
-            return NextResponse.json({ error: 'Erro ao criar obra no banco de dados.' }, { status: 500 })
+        // Obra: usa a existente (importação posterior) ou cria uma nova.
+        let obraId: string
+        if (obraIdExistente) {
+            const { data: existente } = await supabase
+                .from('obras_eng').select('id').eq('id', obraIdExistente).maybeSingle()
+            if (!existente) return NextResponse.json({ error: 'Obra não encontrada.' }, { status: 404 })
+
+            // Não sobrescreve orçamento já importado — evita duplicar itens.
+            const { count } = await supabase
+                .from('itens_orcamento').select('id', { count: 'exact', head: true }).eq('obra_id', obraIdExistente)
+            if ((count ?? 0) > 0) {
+                return NextResponse.json({ error: 'Esta obra já tem orçamento importado. Exclua os itens antes de importar de novo.' }, { status: 400 })
+            }
+            obraId = existente.id
+        } else {
+            const { data: obra, error: obraError } = await supabase
+                .from('obras_eng')
+                .insert({ nome, cliente, status: 'Ativa', codigo_uau: codigoUau, local, previsao_inicio: previsaoInicio, previsao_termino: previsaoTermino })
+                .select('id')
+                .single()
+            if (obraError || !obra) {
+                return NextResponse.json({ error: 'Erro ao criar obra no banco de dados.' }, { status: 500 })
+            }
+            obraId = obra.id
         }
-        const obraId = obra.id
 
         let totalPlanilha = 0
         const itens = rows
@@ -107,13 +144,13 @@ export async function POST(request: Request) {
             .filter((i): i is NonNullable<typeof i> => i !== null)
 
         if (itens.length === 0) {
-            await supabase.from('obras_eng').delete().eq('id', obraId)
+            if (!obraIdExistente) await supabase.from('obras_eng').delete().eq('id', obraId)
             return NextResponse.json({ error: 'Não foi possível encontrar itens na planilha.' }, { status: 400 })
         }
 
         const { error: itemsError } = await supabase.from('itens_orcamento').insert(itens)
         if (itemsError) {
-            await supabase.from('obras_eng').delete().eq('id', obraId)
+            if (!obraIdExistente) await supabase.from('obras_eng').delete().eq('id', obraId)
             return NextResponse.json({ error: 'Erro ao salvar itens: ' + itemsError.message }, { status: 500 })
         }
 

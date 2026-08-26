@@ -3,6 +3,7 @@ import { Plus, Ruler } from 'lucide-react'
 import Link from 'next/link'
 import { getPapelObras, podeCriarMedProg } from '@/lib/utils/obras-access'
 import DeleteMedicaoButton from '@/components/obras-eng/DeleteMedicaoButton'
+import ImportarOrcamentoCard from '@/components/obras-eng/ImportarOrcamentoCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,14 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
     const supabase = await createServerSupabaseClient()
     const podeEditar = podeCriarMedProg(await getPapelObras())
     
+    // A obra já tem orçamento? Sem itens não há o que medir — o card de
+    // importação aparece aqui para quem cadastrou a obra antes da planilha.
+    const { count: qtdItens } = await supabase
+        .from('itens_orcamento')
+        .select('id', { count: 'exact', head: true })
+        .eq('obra_id', id)
+    const semOrcamento = (qtdItens ?? 0) === 0
+
     // Buscar medições da obra
     const { data: medicoes } = await supabase
         .from('medicoes')
@@ -38,7 +47,7 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Controle de Medições</h2>
                 
-                {podeEditar && (
+                {podeEditar && !semOrcamento && (
                     <Link href={`/obras-eng/${id}/medicao/nova`} className="btn-primary" style={{
                         display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 16px', fontSize: '14px', textDecoration: 'none'
                     }}>
@@ -47,6 +56,8 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
                     </Link>
                 )}
             </div>
+
+            {semOrcamento && podeEditar && <ImportarOrcamentoCard obraId={id} />}
 
             {!medicoes || medicoes.length === 0 ? (
                 <div className="glass-card" style={{ padding: '60px 40px', textAlign: 'center' }}>
@@ -58,7 +69,11 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
                         <Ruler size={32} color="var(--text-muted)" />
                     </div>
                     <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>Nenhuma medição encontrada</h3>
-                    <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Crie a primeira medição para iniciar o controle físico/financeiro.</p>
+                    <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+                        {semOrcamento
+                            ? 'Importe o orçamento acima para liberar as medições.'
+                            : 'Crie a primeira medição para iniciar o controle físico/financeiro.'}
+                    </p>
                 </div>
             ) : (
                 <div className="glass-card">

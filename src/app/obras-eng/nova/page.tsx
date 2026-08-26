@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, HardHat, MapPin, Hash } from 'lucide-react'
+import { ArrowLeft, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, HardHat, MapPin, Hash, Info } from 'lucide-react'
 import Link from 'next/link'
 
 export default function NovaObraPage() {
@@ -24,11 +24,6 @@ export default function NovaObraPage() {
             setError('Digite o nome da obra.')
             return
         }
-        if (!file) {
-            setError('Selecione o arquivo Excel do orçamento.')
-            return
-        }
-
         setError('')
         setSuccess('')
         setLoading(true)
@@ -40,7 +35,7 @@ export default function NovaObraPage() {
         formData.append('local', local)
         if (previsaoInicio) formData.append('previsaoInicio', previsaoInicio)
         if (previsaoTermino) formData.append('previsaoTermino', previsaoTermino)
-        formData.append('file', file)
+        if (file) formData.append('file', file)
 
         try {
             const res = await fetch('/api/obras/importar-excel', {
@@ -55,6 +50,14 @@ export default function NovaObraPage() {
             }
 
             const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+            if (data.sem_orcamento) {
+                setSuccess('Obra cadastrada! O orçamento pode ser importado depois, na aba Medições da obra.')
+                setTimeout(() => {
+                    router.push(`/obras-eng/${data.obra_id}/medicao`)
+                    router.refresh()
+                }, 2500)
+                return
+            }
             const aviso = data.confere === false
                 ? ` ⚠️ ATENÇÃO: o total da planilha (${fmt(data.total_planilha)}) não bateu com o cadastrado (${fmt(data.total_cadastrado)}). Confira a planilha.`
                 : ` Total conferido: ${fmt(data.total_cadastrado)} (${data.items_count} itens).`
@@ -79,7 +82,7 @@ export default function NovaObraPage() {
                     Cadastrar Nova Obra
                 </h1>
                 <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-                    Crie uma nova obra e importe o orçamento inicial via Excel.
+                    Crie uma nova obra. O orçamento em Excel é opcional — dá para importar depois, na aba Medições.
                 </p>
             </div>
 
@@ -192,7 +195,7 @@ export default function NovaObraPage() {
                     {/* Upload de Excel */}
                     <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                            Orçamento (Excel)
+                            Orçamento (Excel) <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>— opcional</span>
                         </label>
                         <label
                             style={{
@@ -214,7 +217,6 @@ export default function NovaObraPage() {
                                 accept=".xlsx, .xls"
                                 onChange={(e) => setFile(e.target.files?.[0] || null)}
                                 style={{ display: 'none' }}
-                                required
                             />
                             {file ? (
                                 <>
@@ -233,7 +235,7 @@ export default function NovaObraPage() {
                                         Clique para selecionar o arquivo
                                     </span>
                                     <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                        Formato aceito: .xlsx
+                                        Formato aceito: .xlsx — ou deixe em branco e importe depois
                                     </span>
                                 </>
                             )}
@@ -244,6 +246,12 @@ export default function NovaObraPage() {
                                 Baixar modelo
                             </a>
                         </p>
+                        {!file && (
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '10px', display: 'flex', alignItems: 'flex-start', gap: '6px', lineHeight: 1.5 }}>
+                                <Info size={14} style={{ flexShrink: 0, marginTop: '2px' }} />
+                                Sem a planilha a obra é criada mesmo assim. Depois, com o orçamento pronto, importe pela aba <strong>Medições</strong> da obra.
+                            </p>
+                        )}
                     </div>
 
                     {error && (
@@ -264,8 +272,8 @@ export default function NovaObraPage() {
                         <button type="button" onClick={() => router.push('/obras-eng')} className="btn-secondary" disabled={loading}>
                             Cancelar
                         </button>
-                        <button type="submit" className="btn-primary" disabled={loading || !file || !nome} style={{ minWidth: '140px' }}>
-                            {loading ? 'Importando...' : 'Salvar e Importar'}
+                        <button type="submit" className="btn-primary" disabled={loading || !nome} style={{ minWidth: '140px' }}>
+                            {loading ? (file ? 'Importando...' : 'Salvando...') : (file ? 'Salvar e Importar' : 'Salvar obra')}
                         </button>
                     </div>
                 </form>
