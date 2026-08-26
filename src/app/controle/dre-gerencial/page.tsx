@@ -47,10 +47,16 @@ export default async function DreGerencialPage() {
         .from('dre_gerencial_classificacao' as any)
         .select('nominal, tipo')
 
+    // Regras manuais de linha da DRE (sobrepõem o recorte automático)
+    const { data: regrasLinha } = await supabase
+        .from('dre_gerencial_linha' as any)
+        .select('obra, descr_comp, nominal, linha')
+
     return (
         <DreGerencialClient
             movimentos={movimentos}
             classificacao={(classificacao as any) ?? []}
+            regras={(regrasLinha as any) ?? []}
             podeEditar={podeEditar}
         />
     )

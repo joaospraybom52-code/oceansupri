@@ -1,13 +1,15 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { BarChart3, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { BarChart3, ChevronDown, ChevronRight, AlertTriangle, SlidersHorizontal, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
 import {
     ehEstrutura, ehDiretoria, ehCaptacao, ehSede, ehCartao, palpitarTipo, brl,
     ROTULO_TIPO, type TipoClassificacao,
+    ROTULO_LINHA, LINHAS_SELECIONAVEIS, chaveRegra, chaveSeg, linhaManual, escopoRegra,
+    type LinhaDre, type RegraLinha,
 } from '@/lib/utils/dre-gerencial'
 import type { MovRow } from '@/app/controle/dre-gerencial/page'
 
@@ -43,11 +45,20 @@ const inputFiltro: React.CSSProperties = {
 /** Linhas da DRE que têm drill. */
 type LinhaId = 'receita' | 'custo' | 'cartao' | 'estrutura' | 'diretoria' | 'financeiro'
 
+/** Alcance da regra manual escolhido na hora de classificar. */
+type Escopo = 'lancamento' | 'despesa' | 'obra'
+const ROTULO_ESCOPO: Record<Escopo, string> = {
+    lancamento: 'só este lançamento',
+    despesa: 'toda esta despesa da obra',
+    obra: 'a obra inteira',
+}
+
 export default function DreGerencialClient({
-    movimentos, classificacao, podeEditar,
+    movimentos, classificacao, regras, podeEditar,
 }: {
     movimentos: MovRow[]
     classificacao: Classif[]
+    regras: RegraLinha[]
     podeEditar: boolean
 }) {
     const supabase = createClient()
@@ -58,6 +69,15 @@ export default function DreGerencialClient({
     const [busca, setBusca] = useState('')
     const [classes, setClasses] = useState<Classif[]>(classificacao)
     const [salvando, setSalvando] = useState('')
+    const [regrasManuais, setRegrasManuais] = useState<RegraLinha[]>(regras)
+    const [escopos, setEscopos] = useState<Record<string, Escopo>>({})
+
+    /** Regras manuais indexadas pela chave obra|despesa|nominal ('' = coringa). */
+    const mapaRegras = useMemo(() => {
+        const m = new Map<string, LinhaDre>()
+        regrasManuais.forEach(r => m.set(chaveRegra(r.obra, r.descr_comp, r.nominal), r.linha))
+        return m
+    }, [regrasManuais])
 
     const mapaClasse = useMemo(() => {
         const m = new Map<string, TipoClassificacao>()
@@ -103,31 +123,48 @@ export default function DreGerencialClient({
         const entreContas: MovRow[] = []
         const aClassificar: MovRow[] = []
 
+        const balde: Record<LinhaDre, MovRow[]> = {
+            receita, custo, cartao, estrutura, diretoria, financeiro,
+            emprestimo, entre_contas: entreContas, ignorado: [],
+        }
+
         for (const m of filtrados) {
             const v = Number(m.valor || 0)
+
+            // Linha pela regra automática (obra + origem)
+            let auto: LinhaDre | null = null
             switch (m.origem) {
                 case 'RECEBIDAS':
-                    receita.push(m); break
+                    auto = 'receita'; break
                 case 'CONTAS PAGAS':
                     // SD005 = empréstimo bancário: fora do resultado, vai p/ captação
-                    (ehCaptacao(m.obra) ? emprestimo
-                        : ehEstrutura(m.obra) ? estrutura
-                            : ehDiretoria(m.obra) ? diretoria : custo).push(m); break
+                    auto = ehCaptacao(m.obra) ? 'emprestimo'
+                        : ehEstrutura(m.obra) ? 'estrutura'
+                            : ehDiretoria(m.obra) ? 'diretoria' : 'custo'
+                    break
                 case 'TRANSFERÊNCIA':
-                    (ehCartao(m.nominal) ? cartao : entreContas).push(m); break
+                    auto = ehCartao(m.nominal) ? 'cartao' : 'entre_contas'; break
                 case 'CONTROLE FINANCEIRO': {
-                    if (!ehSede(m.obra)) { (ehDiretoria(m.obra) ? diretoria : custo).push(m); break }
+                    if (!ehSede(m.obra)) { auto = ehDiretoria(m.obra) ? 'diretoria' : 'custo'; break }
                     const t = tipoDe(m.nominal, v)
-                    if (t === 'rendimento' || t === 'financeiro') financeiro.push(m)
-                    else if (t === 'emprestimo') emprestimo.push(m)
-                    // 'ignorado' some do resultado
-                    if (!mapaClasse.has((m.nominal || '').toUpperCase())) aClassificar.push(m)
+                    auto = t === 'rendimento' || t === 'financeiro' ? 'financeiro'
+                        : t === 'emprestimo' ? 'emprestimo' : 'ignorado'
                     break
                 }
             }
+            if (!auto) continue
+
+            // A classificação manual do usuário vence a automática.
+            const manual = linhaManual(mapaRegras, m.obra, m.descr_comp, m.nominal)
+            balde[manual ?? auto].push(m)
+
+            // O aviso de "classificação automática" só vale para o que ainda
+            // depende do palpite — quem já foi classificado à mão sai da conta.
+            if (!manual && m.origem === 'CONTROLE FINANCEIRO' && ehSede(m.obra)
+                && !mapaClasse.has((m.nominal || '').toUpperCase())) aClassificar.push(m)
         }
         return { receita, custo, cartao, estrutura, diretoria, financeiro, emprestimo, entreContas, aClassificar }
-    }, [filtrados, mapaClasse])
+    }, [filtrados, mapaClasse, mapaRegras])
 
     const soma = (rows: MovRow[]) => rows.reduce((s, r) => s + Number(r.valor || 0), 0)
 
@@ -168,6 +205,54 @@ export default function DreGerencialClient({
         setSalvando('')
     }
 
+    /**
+     * Salva a linha escolhida à mão. O alcance decide o quanto a regra pega:
+     * o lançamento, toda a despesa da obra, ou a obra inteira.
+     */
+    async function definirLinha(
+        obra: string, descr: string, nominal: string, escopo: Escopo, linha: LinhaDre,
+    ) {
+        if (!podeEditar) return
+        const reg: RegraLinha = {
+            obra: chaveSeg(obra),
+            descr_comp: escopo === 'obra' ? '' : chaveSeg(descr),
+            nominal: escopo === 'lancamento' ? chaveSeg(nominal) : '',
+            linha,
+        }
+        if (!reg.obra) { toast.error('Lançamento sem obra — não dá para classificar.'); return }
+
+        const chave = chaveRegra(reg.obra, reg.descr_comp, reg.nominal)
+        setSalvando(chave)
+        const { error } = await supabase
+            .from('dre_gerencial_linha' as any)
+            .upsert({ ...reg, atualizado_em: new Date().toISOString() }, { onConflict: 'obra,descr_comp,nominal' })
+        if (error) toast.error('Erro ao classificar: ' + error.message)
+        else {
+            setRegrasManuais(prev => [
+                ...prev.filter(r => chaveRegra(r.obra, r.descr_comp, r.nominal) !== chave),
+                reg,
+            ])
+            toast.success(`Movido para "${ROTULO_LINHA[linha]}" — ${ROTULO_ESCOPO[escopo]}.`)
+        }
+        setSalvando('')
+    }
+
+    /** Remove a regra e devolve o movimento para a linha automática. */
+    async function removerRegra(r: RegraLinha) {
+        if (!podeEditar) return
+        const chave = chaveRegra(r.obra, r.descr_comp, r.nominal)
+        setSalvando(chave)
+        const { error } = await supabase
+            .from('dre_gerencial_linha' as any)
+            .delete().eq('obra', r.obra).eq('descr_comp', r.descr_comp).eq('nominal', r.nominal)
+        if (error) toast.error('Erro ao remover: ' + error.message)
+        else {
+            setRegrasManuais(prev => prev.filter(x => chaveRegra(x.obra, x.descr_comp, x.nominal) !== chave))
+            toast.success('Voltou para a classificação automática.')
+        }
+        setSalvando('')
+    }
+
     const Linha = ({ id, rotulo, valor, hint, destaque, sinal }: {
         id?: LinhaId; rotulo: string; valor: number; hint?: string
         destaque?: 'total' | 'sub'; sinal?: boolean
@@ -203,17 +288,86 @@ export default function DreGerencialClient({
         )
     }
 
+    /** A regra manual que está pegando neste lançamento (ou null). */
+    const regraAplicavel = (obra: string, descr: string, nominal: string): RegraLinha | null => {
+        const candidatas = [
+            { obra: chaveSeg(obra), descr_comp: chaveSeg(descr), nominal: chaveSeg(nominal) },
+            { obra: chaveSeg(obra), descr_comp: chaveSeg(descr), nominal: '' },
+            { obra: chaveSeg(obra), descr_comp: '', nominal: '' },
+        ]
+        for (const c of candidatas) {
+            const linha = mapaRegras.get(chaveRegra(c.obra, c.descr_comp, c.nominal))
+            if (linha) return { ...c, linha }
+        }
+        return null
+    }
+
+    /** Seletor da linha da DRE de um lançamento do drill. */
+    const SeletorLinha = ({ l, linhaAtual }: {
+        l: { obra: string; descr: string; nominal: string }; linhaAtual: LinhaId
+    }) => {
+        const chaveLocal = `${l.obra}|${l.descr}|${l.nominal}`
+        const escopo = escopos[chaveLocal] ?? 'lancamento'
+        const regra = regraAplicavel(l.obra, l.descr, l.nominal)
+        const ocupado = salvando !== ''
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <select
+                    value={regra?.linha ?? linhaAtual}
+                    disabled={ocupado}
+                    onChange={e => definirLinha(l.obra, l.descr, l.nominal, escopo, e.target.value as LinhaDre)}
+                    className="select-field"
+                    style={{ padding: '4px 8px', fontSize: '11px', width: '100%' }}
+                >
+                    {LINHAS_SELECIONAVEIS.map(v => (
+                        <option key={v} value={v}>{ROTULO_LINHA[v]}</option>
+                    ))}
+                </select>
+
+                {regra ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10px', color: '#f59e0b' }}>
+                        <SlidersHorizontal size={11} />
+                        <span title={escopoRegra(regra)}>
+                            manual · {regra.nominal ? 'lançamento' : regra.descr_comp ? 'despesa' : 'obra'}
+                        </span>
+                        <button
+                            type="button" onClick={() => removerRegra(regra)} disabled={ocupado}
+                            title="Voltar para a classificação automática"
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                        >
+                            <X size={11} />
+                        </button>
+                    </div>
+                ) : (
+                    <select
+                        value={escopo}
+                        onChange={e => setEscopos(prev => ({ ...prev, [chaveLocal]: e.target.value as Escopo }))}
+                        className="select-field"
+                        style={{ padding: '2px 6px', fontSize: '10px', width: '100%', color: 'var(--text-muted)' }}
+                        title="A quê a classificação vai valer"
+                    >
+                        {(Object.keys(ROTULO_ESCOPO) as Escopo[]).map(v => (
+                            <option key={v} value={v}>aplicar a: {ROTULO_ESCOPO[v]}</option>
+                        ))}
+                    </select>
+                )}
+            </div>
+        )
+    }
+
     const Drill = ({ rows, linha }: { rows: MovRow[]; linha: LinhaId }) => {
         const filtradas = rows.filter(r => {
             if (!busca.trim()) return true
             const q = norm(busca)
             return norm(`${r.obra ?? ''} ${r.descr_comp ?? ''} ${r.nominal ?? ''} ${r.fornecedor ?? ''}`).includes(q)
         })
-        // agrupa por obra + despesa + nominal (o que o usuário pediu para ver)
+        // agrupa por obra + despesa + nominal (o que o usuário pediu para ver).
+        // Guarda os valores crus: é com eles que a regra manual é gravada.
         const agrupado = new Map<string, { obra: string; descr: string; nominal: string; valor: number; n: number }>()
         for (const r of filtradas) {
             const k = `${r.obra}|${r.descr_comp}|${r.nominal}`
-            const cur = agrupado.get(k) ?? { obra: r.obra || '—', descr: r.descr_comp || '—', nominal: r.nominal || '—', valor: 0, n: 0 }
+            const cur = agrupado.get(k) ?? { obra: r.obra || '', descr: r.descr_comp || '', nominal: r.nominal || '', valor: 0, n: 0 }
             cur.valor += Number(r.valor || 0); cur.n++
             agrupado.set(k, cur)
         }
@@ -231,18 +385,19 @@ export default function DreGerencialClient({
                             <th style={th}>Descr. Comp (despesa)</th>
                             <th style={th}>Nominal</th>
                             {linha === 'financeiro' && <th style={{ ...th, width: '190px' }}>Classificação</th>}
+                            {podeEditar && <th style={{ ...th, width: '230px' }}>Linha da DRE</th>}
                             <th style={{ ...th, textAlign: 'right', width: '140px' }}>Valor</th>
                         </tr>
                     </thead>
                     <tbody>
                         {lista.length === 0 && (
-                            <tr><td style={{ ...td, color: 'var(--text-muted)' }} colSpan={5}>Nada no filtro.</td></tr>
+                            <tr><td style={{ ...td, color: 'var(--text-muted)' }} colSpan={6}>Nada no filtro.</td></tr>
                         )}
                         {lista.slice(0, 300).map((l, i) => (
                             <tr key={i}>
-                                <td style={{ ...td, color: 'var(--accent-blue)', fontWeight: 600 }}>{l.obra}</td>
-                                <td style={td}>{l.descr}</td>
-                                <td style={{ ...td, color: 'var(--text-secondary)' }}>{l.nominal}</td>
+                                <td style={{ ...td, color: 'var(--accent-blue)', fontWeight: 600 }}>{l.obra || '—'}</td>
+                                <td style={td}>{l.descr || '—'}</td>
+                                <td style={{ ...td, color: 'var(--text-secondary)' }}>{l.nominal || '—'}</td>
                                 {linha === 'financeiro' && (
                                     <td style={td}>
                                         <select
@@ -257,13 +412,18 @@ export default function DreGerencialClient({
                                         </select>
                                     </td>
                                 )}
+                                {podeEditar && (
+                                    <td style={td}>
+                                        <SeletorLinha l={l} linhaAtual={linha} />
+                                    </td>
+                                )}
                                 <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: l.valor < 0 ? '#ef4444' : '#10b981', whiteSpace: 'nowrap' }}>
                                     {brl(l.valor)}
                                 </td>
                             </tr>
                         ))}
                         {lista.length > 300 && (
-                            <tr><td style={{ ...td, color: 'var(--text-muted)' }} colSpan={5}>… e mais {lista.length - 300} linhas (refine o filtro).</td></tr>
+                            <tr><td style={{ ...td, color: 'var(--text-muted)' }} colSpan={6}>… e mais {lista.length - 300} linhas (refine o filtro).</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -278,7 +438,8 @@ export default function DreGerencialClient({
                     <BarChart3 size={22} color="#10b981" /> DRE Gerencial
                 </h1>
                 <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-                    Resultado por obra e da estrutura (origem: UAU · regime de caixa · período pelo vencimento)
+                    Resultado por obra e da estrutura (origem: UAU · regime de caixa · período pelo vencimento).
+                    Abra uma linha para ver o detalhe e mudar à mão em que linha cada custo entra.
                 </p>
             </div>
 
@@ -330,6 +491,42 @@ export default function DreGerencialClient({
                 <Linha id="financeiro" rotulo="(−) Resultado financeiro" hint="juros, IOF, deságio, tarifas (−) e rendimentos (+)" valor={vFinanceiro} sinal />
                 <Linha rotulo="= Resultado gerencial" valor={resultado} destaque="total" />
             </div>
+
+            {/* Classificações manuais salvas */}
+            {regrasManuais.length > 0 && (
+                <div className="glass-card" style={{ padding: '18px 20px', marginTop: '18px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <SlidersHorizontal size={15} color="#f59e0b" />
+                        Classificações manuais ({regrasManuais.length})
+                    </h3>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                        Estes lançamentos foram mandados para outra linha à mão — a regra automática não vale para eles.
+                        A regra mais específica ganha: lançamento &gt; despesa &gt; obra.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {[...regrasManuais]
+                            .sort((a, b) => escopoRegra(a).localeCompare(escopoRegra(b)))
+                            .map(r => (
+                                <div key={chaveRegra(r.obra, r.descr_comp, r.nominal)} style={{
+                                    display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px',
+                                    padding: '7px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px',
+                                }}>
+                                    <span style={{ flex: 1, color: 'var(--text-secondary)' }}>{escopoRegra(r)}</span>
+                                    <span style={{ fontWeight: 700, color: '#f59e0b', whiteSpace: 'nowrap' }}>→ {ROTULO_LINHA[r.linha]}</span>
+                                    {podeEditar && (
+                                        <button
+                                            type="button" onClick={() => removerRegra(r)} disabled={salvando !== ''}
+                                            title="Voltar para a classificação automática"
+                                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                    </div>
+                </div>
+            )}
 
             {/* Bloco informativo */}
             <div className="glass-card" style={{ padding: '18px 20px', marginTop: '18px' }}>
