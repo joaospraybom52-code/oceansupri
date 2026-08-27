@@ -15,6 +15,53 @@ import { NextResponse, type NextRequest } from 'next/server'
 const LIMITE_AUTH_MS = 8000
 const LIMITE_QUERY_MS = 5000
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Cache em memória (medido em 27/08/2026)
+//
+// O Next faz PREFETCH de todo <Link> visível, e cada prefetch passa por aqui.
+// Resultado real dos logs: 387 execuções do middleware para 13 páginas abertas
+// — 30 execuções por página. Como cada execução fazia 2 idas ao Supabase
+// (~250ms cada), toda troca de aba pagava esse pedágio e ainda martelava o
+// Auth, que foi o que fez a coisa pendurar.
+//
+// O cache vive no escopo do módulo: a instância da edge é reaproveitada entre
+// requisições, então a rajada de 30 prefetches paga UMA ida à rede e o resto
+// sai da memória. Se a instância for nova, cai no caminho normal — é cache,
+// não é fonte da verdade.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** TTL curto: mudança de permissão no Supabase vale em no máximo 1 minuto. */
+const TTL_AUTH_MS = 30_000
+const TTL_PERM_MS = 60_000
+const MAX_ENTRADAS = 500
+
+const memoria = new Map<string, { valor: unknown; expira: number }>()
+
+function daMemoria<T>(chave: string): T | undefined {
+    const e = memoria.get(chave)
+    if (!e) return undefined
+    if (e.expira < Date.now()) { memoria.delete(chave); return undefined }
+    return e.valor as T
+}
+
+function paraMemoria(chave: string, valor: unknown, ttl: number) {
+    // Poda simples: sem isso a instância acumula chave de sessão pra sempre.
+    if (memoria.size >= MAX_ENTRADAS) {
+        const agora = Date.now()
+        for (const [k, v] of memoria) if (v.expira < agora) memoria.delete(k)
+        if (memoria.size >= MAX_ENTRADAS) memoria.clear()
+    }
+    memoria.set(chave, { valor, expira: Date.now() + ttl })
+}
+
+/** Identidade da sessão para o cache: os cookies do Supabase mudam a cada refresh. */
+function chaveSessao(request: NextRequest) {
+    return request.cookies.getAll()
+        .filter(c => c.name.startsWith('sb-'))
+        .map(c => c.name + '=' + c.value)
+        .join('|') || 'anon'
+}
+
 /**
  * Corta a espera de uma promise. Não cancela o fetch por baixo, mas devolve o
  * controle ao middleware para ele responder em vez de ficar preso.
@@ -76,12 +123,22 @@ export async function updateSession(request: NextRequest) {
             }
         )
 
+        const sessao = chaveSessao(request)
+
+        // getUser() vai na rede e é o que renova o token. Com o cache, a rajada
+        // de prefetches paga essa ida UMA vez a cada 30s em vez de 30 vezes.
         let user: { email?: string } | null = null
-        try {
-            const r = await comRetentativa(() => supabase.auth.getUser(), LIMITE_AUTH_MS, 'validar a sessão')
-            user = r.data.user
-        } catch (e) {
-            return paginaDeErro(request, 'Não deu para validar sua sessão: ' + (e as Error).message + '. Tente recarregar a página.')
+        const userCache = daMemoria<{ email?: string } | null>('u:' + sessao)
+        if (userCache !== undefined) {
+            user = userCache
+        } else {
+            try {
+                const r = await comRetentativa(() => supabase.auth.getUser(), LIMITE_AUTH_MS, 'validar a sessão')
+                user = r.data.user
+                paraMemoria('u:' + sessao, user, TTL_AUTH_MS)
+            } catch (e) {
+                return paginaDeErro(request, 'Não deu para validar sua sessão: ' + (e as Error).message + '. Tente recarregar a página.')
+            }
         }
 
         // Rotas públicas: login, registro, launcher (/), sem-acesso
@@ -111,13 +168,20 @@ export async function updateSession(request: NextRequest) {
                 let papel: string | null = null
                 try {
                     if (email) {
-                        // maybeSingle: sem linha devolve null SEM erro, então dá
-                        // para separar "não tem permissão" de "a consulta falhou".
-                        const { data, error } = await comRetentativa(
-                            () => supabase.from('permissoes_obras').select('papel').eq('email', email).maybeSingle(),
-                            LIMITE_QUERY_MS, 'checar sua permissão no módulo Obras')
-                        if (error) throw new Error(error.message)
-                        papel = (data as { papel?: string } | null)?.papel ?? null
+                        const chave = 'obras:' + email
+                        const cache = daMemoria<string | null>(chave)
+                        if (cache !== undefined) {
+                            papel = cache
+                        } else {
+                            // maybeSingle: sem linha devolve null SEM erro, então dá
+                            // para separar "não tem permissão" de "a consulta falhou".
+                            const { data, error } = await comRetentativa(
+                                () => supabase.from('permissoes_obras').select('papel').eq('email', email).maybeSingle(),
+                                LIMITE_QUERY_MS, 'checar sua permissão no módulo Obras')
+                            if (error) throw new Error(error.message)
+                            papel = (data as { papel?: string } | null)?.papel ?? null
+                            paraMemoria(chave, papel, TTL_PERM_MS)
+                        }
                     }
                 } catch (e) {
                     return paginaDeErro(request, 'Não deu para checar sua permissão no módulo Obras: ' + (e as Error).message + '. Tente recarregar a página.')
@@ -142,11 +206,18 @@ export async function updateSession(request: NextRequest) {
                 let temPermissao = false
                 try {
                     if (email) {
-                        const { data, error } = await comRetentativa(
-                            () => supabase.from('permissao_modulocontrole').select('email').eq('email', email).maybeSingle(),
-                            LIMITE_QUERY_MS, 'checar sua permissão no módulo Controle')
-                        if (error) throw new Error(error.message)
-                        temPermissao = !!data
+                        const chave = 'controle:' + email
+                        const cache = daMemoria<boolean>(chave)
+                        if (cache !== undefined) {
+                            temPermissao = cache
+                        } else {
+                            const { data, error } = await comRetentativa(
+                                () => supabase.from('permissao_modulocontrole').select('email').eq('email', email).maybeSingle(),
+                                LIMITE_QUERY_MS, 'checar sua permissão no módulo Controle')
+                            if (error) throw new Error(error.message)
+                            temPermissao = !!data
+                            paraMemoria(chave, temPermissao, TTL_PERM_MS)
+                        }
                     }
                 } catch (e) {
                     return paginaDeErro(request, 'Não deu para checar sua permissão no módulo Controle: ' + (e as Error).message + '. Tente recarregar a página.')
@@ -160,10 +231,17 @@ export async function updateSession(request: NextRequest) {
                 let ehVisualizador = false
                 try {
                     if (email) {
-                        const { data } = await comRetentativa(
-                            () => supabase.from('visualizadores').select('id').eq('email', email).maybeSingle(),
-                            LIMITE_QUERY_MS, 'checar se você é visualizador')
-                        ehVisualizador = !!data
+                        const chave = 'visu:' + email
+                        const cache = daMemoria<boolean>(chave)
+                        if (cache !== undefined) {
+                            ehVisualizador = cache
+                        } else {
+                            const { data } = await comRetentativa(
+                                () => supabase.from('visualizadores').select('id').eq('email', email).maybeSingle(),
+                                LIMITE_QUERY_MS, 'checar se você é visualizador')
+                            ehVisualizador = !!data
+                            paraMemoria(chave, ehVisualizador, TTL_PERM_MS)
+                        }
                     }
                 } catch {
                     // Falhou a checagem: segue como NÃO visualizador. É a regra

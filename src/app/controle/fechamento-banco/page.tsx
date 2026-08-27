@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import FechamentoBancoClient from './FechamentoBancoClient'
+import { paginarTudo } from '@/lib/supabase/paginar'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,25 +10,16 @@ interface MovRow {
     credito: number | null; debito: number | null; tipo_lanc: number | null
 }
 
-/** Busca todas as linhas paginando — o PostgREST corta em 1000 por requisição. */
-async function buscarTudo<T>(
+/**
+ * Busca todas as linhas paginando EM PARALELO — o PostgREST corta em 1000 por
+ * requisição, e o jeito em fila fazia esta tela levar 6,1s (medido 27/08/2026).
+ */
+function buscarTudo<T>(
     supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
     tabela: string, colunas: string,
     ajuste?: (q: any) => any, // eslint-disable-line @typescript-eslint/no-explicit-any
 ): Promise<T[]> {
-    const PAGE = 1000
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = supabase as any
-    const out: T[] = []
-    for (let from = 0; ; from += PAGE) {
-        let q = client.from(tabela).select(colunas).range(from, from + PAGE - 1)
-        if (ajuste) q = ajuste(q)
-        const { data, error } = await q
-        if (error || !data || data.length === 0) break
-        out.push(...(data as T[]))
-        if (data.length < PAGE) break
-    }
-    return out
+    return paginarTudo<T>(supabase, tabela, colunas, { ajuste })
 }
 
 const hojeISO = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
@@ -75,7 +67,7 @@ export default async function FechamentoBancoPage({
     // Contas a pagar (parcelas emitidas em débito) — relatório "Fluxo de Caixa".
     // A data é a PRORROGAÇÃO (data_pagamento). Tabela pequena: traz tudo e o
     // cliente filtra pelo período aplicado.
-    const aPagarRows = await buscarTudo<{
+    const aPagarPromise = buscarTudo<{
         obra: string | null; num_proc: number | null; num_parc: number | null; total_parcelas: number | null
         banco: number | null; conta: string | null; fornecedor: string | null
         obs_pag: string | null; data_pagamento: string | null; valor: number | null
@@ -83,10 +75,13 @@ export default async function FechamentoBancoPage({
 
     // Contas a receber — mesma medida do painel "Próximas Medições":
     // valor = valor_prc, data = data_fim_contrato_ven, descrição = hist_lanc_ven.
-    const aReceberRows = await buscarTudo<{
+    const aReceberPromise = buscarTudo<{
         obra: string | null; num_parc_ger: string | null; cliente: string | null
         hist_lanc_ven: string | null; data_fim_contrato_ven: string | null; valor_prc: number | null
     }>(supabase, 'controle_a_receber', 'obra, num_parc_ger, cliente, hist_lanc_ven, data_fim_contrato_ven, valor_prc')
+
+    // As duas juntas, não uma esperando a outra.
+    const [aPagarRows, aReceberRows] = await Promise.all([aPagarPromise, aReceberPromise])
 
     const bases = (basesRes.data ?? []) as { banco: number; conta: string; nome_banco: string | null; data_base: string; saldo: number }[]
 
