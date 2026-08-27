@@ -3,148 +3,114 @@ import ControleClient from '@/components/controle/ControleClient'
 
 export const dynamic = 'force-dynamic'
 
+// =============================================================================
+// Painel de Recebimentos (/controle).
+//
+// A página SOMAVA no JavaScript: baixava controle_pago_apagar, controle_recebido,
+// contas_a_pagar e controle_a_receber inteiras — 9.684 linhas em 14 consultas
+// EM FILA — e agrupava aqui. Em 27/08/2026 a função pendurou e o módulo ficou
+// inacessível (o middleware liberava em 200 e o `λ` nunca terminava).
+//
+// Agora quem soma é o Postgres (views vw_controle_*, mesma regra e mesmos
+// números — conferido: R$ 76.606.814,87 dos dois jeitos) e as buscas vão TODAS
+// EM PARALELO, com limite de tempo. Uma consulta lenta não segura mais as outras
+// nem pendura a página.
+// =============================================================================
+
+/** Teto de espera do carregamento inteiro. Melhor a tela vir vazia que travada. */
+const LIMITE_MS = 20000
+
+interface LinhaDia { obra: string | null; data: string | null; valor: number | string | null }
+interface LinhaMes { obra: string | null; ym: string | null; valor: number | string | null; pago: number | string | null }
+
+/**
+ * Traz a view inteira paginando em PARALELO (o PostgREST corta em 1000 por
+ * requisição): pega a 1ª página junto com a contagem e dispara o resto de uma vez.
+ */
+async function buscarTudo<T>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any, view: string, colunas: string,
+): Promise<T[]> {
+    const PAGE = 1000
+    const { data, count, error } = await supabase
+        .from(view).select(colunas, { count: 'exact' }).range(0, PAGE - 1)
+    if (error || !data) return []
+    const total = count ?? data.length
+    if (total <= PAGE) return data as T[]
+
+    const paginas: Promise<T[]>[] = []
+    for (let from = PAGE; from < total; from += PAGE) {
+        paginas.push(
+            supabase.from(view).select(colunas).range(from, from + PAGE - 1)
+                .then((r: { data: T[] | null }) => r.data ?? []),
+        )
+    }
+    return [...(data as T[]), ...(await Promise.all(paginas)).flat()]
+}
+
+/** Não deixa a página pendurar: no estouro devolve o padrão e segue. */
+function comLimite<T>(p: Promise<T>, ms: number, padrao: T): Promise<T> {
+    return Promise.race([
+        p.catch(() => padrao),
+        new Promise<T>(res => setTimeout(() => res(padrao), ms)),
+    ])
+}
+
+const num = (v: number | string | null) => Number(v ?? 0) || 0
+const dia = (v: string | null) => (v ?? '').slice(0, 10)
+
 export default async function ControlePage() {
     const supabase = await createServerSupabaseClient()
 
     const { data: { user } } = await supabase.auth.getUser()
-    let podeEditar = false
-    if (user?.email) {
-        const { data: perm } = await supabase
-            .from('permissao_modulocontrole')
-            .select('pode_editar')
-            .eq('email', user.email)
-            .maybeSingle()
-        podeEditar = perm?.pode_editar ?? false
-    }
 
-    const { data: obras } = await supabase
-        .from('obras')
-        .select('id, nome, codigo, cidade')
-        .eq('ativo', true)
-        .order('nome', { ascending: true })
+    // Tudo em paralelo: o tempo da página passa a ser o da consulta mais lenta,
+    // não a soma de todas.
+    const [perm, obras, medicoes, comprometido, pagoDia, recDia, aPagarDia, aReceberDia] = await Promise.all([
+        comLimite((async () => {
+            if (!user?.email) return null
+            const { data } = await supabase
+                .from('permissao_modulocontrole').select('pode_editar').eq('email', user.email).maybeSingle()
+            return data as { pode_editar?: boolean } | null
+        })(), LIMITE_MS, null),
 
-    const { data: medicoes } = await supabase
-        .from('controle_medicoes')
-        .select('id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at, obra:obras(id, nome, codigo, cidade)')
-        .order('mes_recebimento', { ascending: true })
+        comLimite((async () => {
+            const { data } = await supabase
+                .from('obras').select('id, nome, codigo, cidade').eq('ativo', true).order('nome', { ascending: true })
+            return data ?? []
+        })(), LIMITE_MS, []),
 
-    // Comprometido por obra/mês (mesma medida da KPI'S: Despesas -> pago + a pagar;
-    // DespSaida -> total_receita), agregado aqui pra não mandar a tabela inteira.
-    // "pago" = Total Pago (vlr_at_pago das Despesas) + Controle Financeiro Saída
-    // (total_receita das DespSaida) — mesma despesa do Balanço da Obra na KPI'S.
-    // pagoDia = a MESMA medida "pago" por DIA (data_movimento) — Fluxo de Caixa Diário.
-    const agg = new Map<string, { obra: string; ym: string; valor: number; pago: number }>()
-    const pagoDia = new Map<string, { obra: string; data: string; valor: number }>()
-    const PAGE = 1000
-    for (let from = 0; ; from += PAGE) {
-        const { data: rows } = await supabase
-            .from('controle_pago_apagar')
-            .select('obra, data_movimento, tipo_controle, vlr_at_pago, vlr_at_pagar, total_receita')
-            .range(from, from + PAGE - 1)
-        if (!rows || rows.length === 0) break
-        for (const r of rows as any[]) {
-            const dia = (r.data_movimento || '').slice(0, 10)
-            const ym = dia.slice(0, 7)
-            if (!ym || !r.obra) continue
-            // ImpostoRetido (Banco_Des 1010) fica de fora — a exclusão já é o desconto
-            const valor = r.tipo_controle === 'Despesas'
-                ? Number(r.vlr_at_pago || 0) + Number(r.vlr_at_pagar || 0)
-                : r.tipo_controle === 'DespSaida' ? Number(r.total_receita || 0) : 0
-            const pago = r.tipo_controle === 'Despesas' ? Number(r.vlr_at_pago || 0)
-                : r.tipo_controle === 'DespSaida' ? Number(r.total_receita || 0) : 0
-            if (!valor && !pago) continue
-            const k = `${r.obra}|${ym}`
-            const cur = agg.get(k) ?? { obra: r.obra, ym, valor: 0, pago: 0 }
-            cur.valor += valor
-            cur.pago += pago
-            agg.set(k, cur)
-            if (pago) {
-                const kd = `${r.obra}|${dia}`
-                const cd = pagoDia.get(kd) ?? { obra: r.obra, data: dia, valor: 0 }
-                cd.valor += pago
-                pagoDia.set(kd, cd)
-            }
-        }
-        if (rows.length < PAGE) break
-    }
+        comLimite((async () => {
+            const { data } = await supabase
+                .from('controle_medicoes')
+                .select('id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at, obra:obras(id, nome, codigo, cidade)')
+                .order('mes_recebimento', { ascending: true })
+            return data ?? []
+        })(), LIMITE_MS, []),
 
-    // Recebido por obra/DIA (medida Total Recebido Real: SUM(tot_conf) de
-    // controle_recebido por data_rec) — Fluxo de Caixa Diário.
-    const recDia = new Map<string, { obra: string; data: string; valor: number }>()
-    for (let from = 0; ; from += PAGE) {
-        const { data: rows } = await supabase
-            .from('controle_recebido')
-            .select('obra_rec, data_rec, tot_conf')
-            .range(from, from + PAGE - 1)
-        if (!rows || rows.length === 0) break
-        for (const r of rows as any[]) {
-            const dia = (r.data_rec || '').slice(0, 10)
-            if (!dia || !r.obra_rec) continue
-            const valor = Number(r.tot_conf || 0)
-            if (!valor) continue
-            const k = `${r.obra_rec}|${dia}`
-            const cur = recDia.get(k) ?? { obra: r.obra_rec, data: dia, valor: 0 }
-            cur.valor += valor
-            recDia.set(k, cur)
-        }
-        if (rows.length < PAGE) break
-    }
+        comLimite(buscarTudo<LinhaMes>(supabase, 'vw_controle_comprometido_mes', 'obra, ym, valor, pago'), LIMITE_MS, []),
+        comLimite(buscarTudo<LinhaDia>(supabase, 'vw_controle_pago_dia', 'obra, data, valor'), LIMITE_MS, []),
+        comLimite(buscarTudo<LinhaDia>(supabase, 'vw_controle_recebido_dia', 'obra, data, valor'), LIMITE_MS, []),
+        comLimite(buscarTudo<LinhaDia>(supabase, 'vw_controle_apagar_dia', 'obra, data, valor'), LIMITE_MS, []),
+        comLimite(buscarTudo<LinhaDia>(supabase, 'vw_controle_areceber_dia', 'obra, data, valor'), LIMITE_MS, []),
+    ])
 
-    // A pagar por obra/DIA (contas_a_pagar: parcelas já emitidas em débito —
-    // Débito Eletrônico + Débito C/C — pela data de PRORROGAÇÃO) — 3ª série do
-    // Fluxo de Caixa Diário.
-    const aPagarDia = new Map<string, { obra: string; data: string; valor: number }>()
-    for (let from = 0; ; from += PAGE) {
-        const { data: rows } = await supabase
-            .from('contas_a_pagar' as any)
-            .select('obra, data_pagamento, valor')
-            .range(from, from + PAGE - 1)
-        if (!rows || rows.length === 0) break
-        for (const r of rows as any[]) {
-            const dia = (r.data_pagamento || '').slice(0, 10)
-            if (!dia || !r.obra) continue
-            const valor = Number(r.valor || 0)
-            if (!valor) continue
-            const k = `${r.obra}|${dia}`
-            const cur = aPagarDia.get(k) ?? { obra: r.obra, data: dia, valor: 0 }
-            cur.valor += valor
-            aPagarDia.set(k, cur)
-        }
-        if (rows.length < PAGE) break
-    }
-
-    // A receber por obra/DIA — mesma medida do painel "Próximas Medições":
-    // controle_a_receber, valor = valor_prc, data = data_fim_contrato_ven.
-    const aReceberDia = new Map<string, { obra: string; data: string; valor: number }>()
-    for (let from = 0; ; from += PAGE) {
-        const { data: rows } = await supabase
-            .from('controle_a_receber')
-            .select('obra, data_fim_contrato_ven, valor_prc')
-            .range(from, from + PAGE - 1)
-        if (!rows || rows.length === 0) break
-        for (const r of rows as any[]) {
-            const dia = (r.data_fim_contrato_ven || '').slice(0, 10)
-            if (!dia || !r.obra) continue
-            const valor = Number(r.valor_prc || 0)
-            if (!valor) continue
-            const k = `${r.obra}|${dia}`
-            const cur = aReceberDia.get(k) ?? { obra: r.obra, data: dia, valor: 0 }
-            cur.valor += valor
-            aReceberDia.set(k, cur)
-        }
-        if (rows.length < PAGE) break
-    }
+    const serie = (linhas: LinhaDia[]) => linhas
+        .filter(r => r.obra && r.data)
+        .map(r => ({ obra: r.obra as string, data: dia(r.data), valor: num(r.valor) }))
 
     return (
         <ControleClient
-            obras={obras ?? []}
-            medicoesIniciais={(medicoes as any) ?? []}
-            podeEditar={podeEditar}
-            comprometido={Array.from(agg.values())}
-            fluxoRecebido={Array.from(recDia.values())}
-            fluxoPago={Array.from(pagoDia.values())}
-            fluxoAPagar={Array.from(aPagarDia.values())}
-            fluxoAReceber={Array.from(aReceberDia.values())}
+            obras={obras as never}
+            medicoesIniciais={medicoes as never}
+            podeEditar={perm?.pode_editar ?? false}
+            comprometido={comprometido
+                .filter(r => r.obra && r.ym)
+                .map(r => ({ obra: r.obra as string, ym: r.ym as string, valor: num(r.valor), pago: num(r.pago) }))}
+            fluxoRecebido={serie(recDia)}
+            fluxoPago={serie(pagoDia)}
+            fluxoAPagar={serie(aPagarDia)}
+            fluxoAReceber={serie(aReceberDia)}
         />
     )
 }
