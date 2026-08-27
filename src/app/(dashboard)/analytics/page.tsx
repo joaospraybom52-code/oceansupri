@@ -9,9 +9,12 @@ import { Clock, ShoppingCart, AlertTriangle, DollarSign, Users, Calendar, Bankno
 
 /**
  * Solicitantes que não entram no Top 3 Obras — Pedidos Urgentes.
- * Comparação com o solicitante_obra em MAIÚSCULO e sem espaços nas pontas.
+ * Compara com o solicitante_obra em MAIÚSCULO, sem espaços nas pontas, pelo
+ * INÍCIO do nome — alguns logins vêm com sufixo (AMANDA → "AMANDASS").
+ * Hoje pega: LUCAS, AMANDASS, JULIANA, EVERALDO e WIGOR.
+ * Não pega "J.LUCAS", que é outro solicitante.
  */
-const SOLICITANTES_FORA_URGENTES = ['LUCAS']
+const SOLICITANTES_FORA_URGENTES = ['LUCAS', 'AMANDA', 'JULIANA', 'EVERALDO', 'WIGOR']
 
 export default function AnalyticsPage() {
     const [pedidos, setPedidos] = useState<PedidoCompra[]>([])
@@ -128,17 +131,19 @@ export default function AnalyticsPage() {
     // completos — mesma regra do board). Cada pedido é 1 registro e conta UMA vez,
     // desde que entra em Pedido Confirmado — mudar de coluna não duplica nem
     // remove da conta. Só obras cadastradas na aba Obras do módulo Obras.
-    // Pedido solicitado pelo LUCAS fica FORA do indicador (regra do usuário):
-    // sai tanto dos urgentes quanto do total da obra. J.LUCAS é outro
-    // solicitante e continua contando.
+    // Pedido dos solicitantes de SOLICITANTES_FORA_URGENTES fica FORA do
+    // indicador (regra do usuário): sai tanto dos urgentes quanto do total da
+    // obra, então não mexe no denominador do percentual.
     const topUrgentes = (() => {
         const codigosValidos = new Set(obrasEng.map(o => (o.codigo_uau || '').trim().toUpperCase()).filter(Boolean))
         const tem = (v: string | null | undefined) => v != null && String(v).trim() !== ''
         const ehCompraDireta = (p: PedidoCompra) =>
             ['aprovado', 'ordem_gerada', 'em_transito', 'aguardando_entrega', 'entregue'].includes(p.status_fsm || '') &&
             !(tem(p.numero_pedido) && tem(p.categoria_cap) && tem(p.numero_ordem_compra))
-        const ehSolicitanteForaDoRanking = (p: PedidoCompra) =>
-            SOLICITANTES_FORA_URGENTES.includes((p.solicitante_obra || '').trim().toUpperCase())
+        const ehSolicitanteForaDoRanking = (p: PedidoCompra) => {
+            const quem = (p.solicitante_obra || '').trim().toUpperCase()
+            return SOLICITANTES_FORA_URGENTES.some(n => quem.startsWith(n))
+        }
         const porObra: Record<string, { codigo: string; nome: string; urgentes: number; total: number }> = {}
         for (const p of filteredPedidos) {
             if (ehCompraDireta(p)) continue
@@ -435,7 +440,7 @@ export default function AnalyticsPage() {
                     </h3>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '-10px', marginBottom: '16px' }}>
                         % de urgentes sobre todos os pedidos da obra — cada pedido conta uma vez, desde a entrada.
-                        Pedidos solicitados por {SOLICITANTES_FORA_URGENTES.join(', ')} ficam de fora.
+                        Pedidos solicitados por {SOLICITANTES_FORA_URGENTES.map(n => n[0] + n.slice(1).toLowerCase()).join(', ')} ficam de fora.
                     </p>
                     {topUrgentes.length === 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '180px', color: 'var(--text-muted)', fontSize: '13px' }}>
