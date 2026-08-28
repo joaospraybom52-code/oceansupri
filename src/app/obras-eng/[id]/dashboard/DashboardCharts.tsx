@@ -23,8 +23,10 @@ export interface MedicaoChartItem {
   id: string
   label: string
   periodoLabel?: string
-  valorMedido: number
+  valorMedido: number      // líquido (já com o desconto do sinal)
   acumulado: number
+  bruto?: number           // antes do desconto
+  descontoSinal?: number   // amortização do sinal nesta medição
 }
 
 export interface PPCChartItem {
@@ -87,7 +89,9 @@ const tooltipRow: React.CSSProperties = {
 
 function MedicaoTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
   if (!active || !payload?.length) return null
-  const itemLabel = payload[0]?.payload?.periodoLabel || payload[0]?.payload?.label || label
+  const dados = payload[0]?.payload || {}
+  const itemLabel = dados.periodoLabel || dados.label || label
+  const desconto = Number(dados.descontoSinal || 0)
   return (
     <div style={tooltipStyle}>
       <p style={tooltipLabel}>{itemLabel}</p>
@@ -111,6 +115,11 @@ function MedicaoTooltip({ active, payload, label }: { active?: boolean; payload?
           </span>
         </div>
       ))}
+      {desconto > 0 && (
+        <div style={{ ...tooltipRow, marginTop: '6px', marginBottom: 0, fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>
+          bruto {formatCurrency(Number(dados.bruto || 0))} · sinal −{formatCurrency(desconto)}
+        </div>
+      )}
     </div>
   )
 }

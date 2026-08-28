@@ -42,7 +42,7 @@ export default async function ObraDashboardPage({
     /* ── 2. Medições + Itens de Medição ── */
     const { data: medicoes, error: errMed } = await supabase
       .from('medicoes')
-      .select('id, periodo_inicio, periodo_fim, status, tipo, valor_sinal')
+      .select('id, periodo_inicio, periodo_fim, status, tipo, valor_sinal, desconto_sinal_percentual')
       .eq('obra_id', id)
       .order('periodo_inicio', { ascending: true })
 
@@ -62,26 +62,52 @@ export default async function ObraDashboardPage({
       allMedicaoItens = mItens ?? []
     }
 
-    // Build chart data
+    // Build chart data.
+    // O gráfico mostra o valor LÍQUIDO da medição — o mesmo da lista de
+    // medições — descontando a amortização do sinal. A trava é a mesma: o
+    // desconto nunca passa do saldo do sinal ainda não devolvido.
+    const sinalTotal = (medicoes ?? [])
+      .filter((m) => (m as { tipo?: string | null }).tipo === 'sinal')
+      .reduce((s, m) => s + Number((m as { valor_sinal?: number | null }).valor_sinal || 0), 0)
+    let saldoSinal = sinalTotal
+
     let acumulado = 0
+    let acumuladoBruto = 0   // avanço FÍSICO: o % executado da obra não leva desconto
     const medicoesChartData: MedicaoChartItem[] = (medicoes ?? []).map((m) => {
       const ehSinal = (m as { tipo?: string | null }).tipo === 'sinal'
-      const valorMedido = ehSinal
+      const bruto = ehSinal
         ? Number((m as { valor_sinal?: number | null }).valor_sinal || 0)
         : allMedicaoItens
             .filter((mi) => mi.medicao_id === m.id)
             .reduce((sum, mi) => sum + (Number(mi.valor_medido) || 0), 0)
+
+      let desconto = 0
+      if (!ehSinal && saldoSinal > 0) {
+        const pct = Number((m as { desconto_sinal_percentual?: number | null }).desconto_sinal_percentual || 0)
+        if (pct > 0) {
+          desconto = Math.min(bruto * (pct / 100), saldoSinal)
+          saldoSinal -= desconto
+        }
+      }
+
+      const valorMedido = bruto - desconto
       acumulado += valorMedido
+      acumuladoBruto += bruto
       const inicio = new Date(m.periodo_inicio + 'T00:00:00')
       const fim = new Date(m.periodo_fim + 'T00:00:00')
       const label = inicio.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
       const periodoLabel = ehSinal
         ? `Sinal — ${inicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
         : `${inicio.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
-      return { id: m.id, label, periodoLabel, valorMedido, acumulado }
+      return {
+        id: m.id, label, periodoLabel, valorMedido, acumulado,
+        bruto, descontoSinal: Math.round((desconto + Number.EPSILON) * 100) / 100,
+      }
     })
 
-    const totalMedido = acumulado
+    // % executado = avanço físico, sobre o BRUTO. O desconto do sinal é
+    // financeiro (devolução de adiantamento) e não desfaz serviço executado.
+    const totalMedido = acumuladoBruto
     const percExecutado = totalOrcamento > 0 ? (totalMedido / totalOrcamento) * 100 : 0
 
     /* ── 3. Programações Semanais + Tarefas (PPC) ── */
