@@ -31,8 +31,12 @@ export default async function MedicaoDetalhePage({ params }: { params: Promise<{
     //    concluída anterior já mediu e o saldo baixa corretamente.
     const { data: todasMedicoes } = await supabase
         .from('medicoes')
-        .select('id, periodo_inicio, created_at, status')
+        .select('id, periodo_inicio, created_at, status, tipo, valor_sinal, desconto_sinal_percentual')
         .eq('obra_id', id)
+    const todasMedicoes2 = todasMedicoes as unknown as {
+        id: string; periodo_inicio: string; created_at: string | null; status: string
+        tipo: string | null; valor_sinal: number | null; desconto_sinal_percentual: number | null
+    }[] | null
 
     const idsAnteriores = (todasMedicoes || [])
         .filter(m => m.id !== medicaoId && m.status === 'Concluída' && (
@@ -86,6 +90,29 @@ export default async function MedicaoDetalhePage({ params }: { params: Promise<{
         }
     }) || []
 
+    // ── Sinal da obra e quanto dele já foi devolvido.
+    //    O sinal é adiantamento: cada medição amortiza um % dele, e o desconto
+    //    nunca pode passar do que ainda falta devolver.
+    const sinalTotal = (todasMedicoes2 ?? [])
+        .filter(m => m.tipo === 'sinal')
+        .reduce((s, m) => s + Number(m.valor_sinal || 0), 0)
+
+    // Quanto as OUTRAS medições já descontaram (o % de cada uma sobre o que ela mediu)
+    let sinalJaAmortizado = 0
+    if (sinalTotal > 0) {
+        const outras = (todasMedicoes2 ?? []).filter(m => m.id !== medicaoId && m.tipo !== 'sinal' && Number(m.desconto_sinal_percentual || 0) > 0)
+        if (outras.length > 0) {
+            const { data: itensOutras } = await supabase
+                .from('medicao_itens').select('medicao_id, valor_medido').in('medicao_id', outras.map(m => m.id))
+            for (const m of outras) {
+                const medido = (itensOutras ?? [])
+                    .filter(i => i.medicao_id === m.id)
+                    .reduce((s, i) => s + Number(i.valor_medido || 0), 0)
+                sinalJaAmortizado += medido * (Number(m.desconto_sinal_percentual || 0) / 100)
+            }
+        }
+    }
+
     const podeEditar = podeCriarMedProg(await getPapelObras())
 
     return (
@@ -94,6 +121,8 @@ export default async function MedicaoDetalhePage({ params }: { params: Promise<{
             medicao={medicao}
             dadosTabela={dadosTabela}
             podeEditar={podeEditar}
+            sinalTotal={sinalTotal}
+            sinalJaAmortizado={Math.round((sinalJaAmortizado + Number.EPSILON) * 100) / 100}
         />
     )
 }

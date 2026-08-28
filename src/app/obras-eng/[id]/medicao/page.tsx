@@ -40,6 +40,26 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
             if (mid) totaisPorMedicao[mid] = (totaisPorMedicao[mid] || 0) + Number((it as { valor_medido: number | null }).valor_medido || 0)
         }
     }
+    // Desconto do sinal de cada medição: % da medição sobre o que ela mediu,
+    // travado no saldo do sinal que ainda falta devolver (ordem cronológica).
+    const sinalTotal = (medicoes ?? [])
+        .filter(m => m.tipo === 'sinal')
+        .reduce((s, m) => s + Number(m.valor_sinal || 0), 0)
+    const descontoPorMedicao: Record<string, number> = {}
+    if (sinalTotal > 0) {
+        let saldo = sinalTotal
+        const emOrdem = [...(medicoes ?? [])]
+            .filter(m => m.tipo !== 'sinal')
+            .sort((a, b) => (a.periodo_inicio || '').localeCompare(b.periodo_inicio || ''))
+        for (const m of emOrdem) {
+            const pct = Number((m as { desconto_sinal_percentual?: number | null }).desconto_sinal_percentual || 0)
+            if (!pct || saldo <= 0) continue
+            const d = Math.min((totaisPorMedicao[m.id] || 0) * (pct / 100), saldo)
+            descontoPorMedicao[m.id] = Math.round((d + Number.EPSILON) * 100) / 100
+            saldo -= d
+        }
+    }
+
     const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
     return (
@@ -114,7 +134,20 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
                                         {new Date(med.created_at || '').toLocaleDateString('pt-BR')}
                                     </td>
                                     <td style={{ padding: '16px', fontSize: '14px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-green)' }}>
-                                        {fmt(ehSinal ? Number(med.valor_sinal || 0) : (totaisPorMedicao[med.id] || 0))}
+                                        {(() => {
+                                            const bruto = ehSinal ? Number(med.valor_sinal || 0) : (totaisPorMedicao[med.id] || 0)
+                                            const desc = descontoPorMedicao[med.id] || 0
+                                            if (!desc) return fmt(bruto)
+                                            // Com desconto do sinal, o que vale é o líquido — o bruto vira nota de rodapé.
+                                            return (
+                                                <>
+                                                    {fmt(bruto - desc)}
+                                                    <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                        bruto {fmt(bruto)} · sinal −{fmt(desc)} ({Number(med.desconto_sinal_percentual || 0).toString().replace('.', ',')}%)
+                                                    </div>
+                                                </>
+                                            )
+                                        })()}
                                     </td>
                                     <td style={{ padding: '16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                         {!ehSinal && (

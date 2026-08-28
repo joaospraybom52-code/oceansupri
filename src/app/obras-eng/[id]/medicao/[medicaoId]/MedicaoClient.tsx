@@ -1,13 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowLeft, Save, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle2, Percent, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
-export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar = false }: { obraId: string, medicao: any, dadosTabela: any[], podeEditar?: boolean }) {
+export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar = false, sinalTotal = 0, sinalJaAmortizado = 0 }: {
+    obraId: string, medicao: any, dadosTabela: any[], podeEditar?: boolean
+    sinalTotal?: number, sinalJaAmortizado?: number
+}) {
     const supabase = createClient()
     const router = useRouter()
     
@@ -26,6 +29,31 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
     const totalOrcado = itens.reduce((acc, i) => acc + (i.valor_total_orcado || 0), 0)
     const totalPeriodo = itens.reduce((acc, i) => acc + Number(i.atual_valor || 0), 0)
     const totalMedidoAcum = itens.reduce((acc, i) => acc + Number(i.anterior_valor || 0) + Number(i.atual_valor || 0), 0)
+
+    // ── Desconto do sinal (só aparece quando a obra tem sinal registrado).
+    //    O sinal é adiantamento: cada medição devolve um % dele, calculado
+    //    sobre o valor medido no período. O desconto nunca passa do saldo que
+    //    ainda falta devolver — não faz sentido amortizar mais do que se pegou.
+    const temSinal = Number(sinalTotal || 0) > 0 && medicao.tipo !== 'sinal'
+    const [descontoPct, setDescontoPct] = useState<number>(Number(medicao.desconto_sinal_percentual || 0))
+    const [pctBuf, setPctBuf] = useState<string>(
+        medicao.desconto_sinal_percentual ? String(medicao.desconto_sinal_percentual).replace('.', ',') : '')
+
+    const saldoSinal = Math.max(0, Number(sinalTotal || 0) - Number(sinalJaAmortizado || 0))
+    const descontoBruto = totalPeriodo * (descontoPct / 100)
+    const descontoSinal = Math.min(descontoBruto, saldoSinal)   // trava no saldo
+    const descontoLimitado = descontoBruto > saldoSinal + 0.005
+    const totalLiquido = totalPeriodo - descontoSinal
+
+    const handlePct = (txt: string) => {
+        setPctBuf(txt)
+        let v = parseFloat(txt.replace(',', '.'))
+        if (isNaN(v)) v = 0
+        if (v < 0) { toast.warning('O percentual não pode ser negativo.', { id: 'pct-neg' }); v = 0; setPctBuf('') }
+        if (v > 100) { toast.warning('O percentual não pode passar de 100%.', { id: 'pct-max' }); v = 100; setPctBuf('100') }
+        setDescontoPct(v)
+        setSaved(false)
+    }
 
     // Atualiza linha quando o usuário digita
     const handleUpdate = (index: number, field: 'atual_quantidade' | 'atual_percentual', valueStr: string) => {
@@ -80,6 +108,11 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
                 const { error } = await supabase.from('medicao_itens').upsert(upserts)
                 if (error) throw error
             }
+
+            // O % do sinal é da medição, não dos itens — grava sempre.
+            const { error: errPct } = await supabase.from('medicoes')
+                .update({ desconto_sinal_percentual: descontoPct }).eq('id', medicao.id)
+            if (errPct) throw errPct
 
             if (concluir) {
                 const { error } = await supabase.from('medicoes').update({ status: 'Concluída' }).eq('id', medicao.id)
@@ -170,6 +203,71 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
                     <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-secondary)' }}>{formatCurrency(totalOrcado)}</div>
                 </div>
             </div>
+
+            {/* Desconto do sinal — só aparece quando a obra tem sinal registrado */}
+            {temSinal && (
+                <div className="glass-card" style={{ padding: '18px 20px', marginBottom: '20px', borderLeft: '4px solid #f59e0b' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <Percent size={15} color="#f59e0b" />
+                        <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>Desconto do sinal</h3>
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                        A obra tem sinal de <strong>{formatCurrency(sinalTotal)}</strong>. O percentual abaixo é aplicado
+                        sobre o valor desta medição e abate do que ainda falta devolver.
+                    </p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', alignItems: 'end' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                % de desconto
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={pctBuf}
+                                    onChange={e => handlePct(e.target.value)}
+                                    disabled={!podeEditar || medicao.status === 'Concluída'}
+                                    placeholder="0"
+                                    className="input-field"
+                                    style={{ paddingRight: '28px', fontWeight: 700 }}
+                                />
+                                <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '13px' }}>%</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Desconto nesta medição</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: '#ef4444' }}>− {formatCurrency(descontoSinal)}</div>
+                        </div>
+
+                        <div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Valor líquido a receber</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(totalLiquido)}</div>
+                        </div>
+
+                        <div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>Sinal ainda a devolver</div>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-secondary)' }}>
+                                {formatCurrency(Math.max(0, saldoSinal - descontoSinal))}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                de {formatCurrency(sinalTotal)} · já devolvido {formatCurrency(sinalJaAmortizado)}
+                            </div>
+                        </div>
+                    </div>
+
+                    {descontoLimitado && (
+                        <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontSize: '12px', color: '#f59e0b' }}>
+                            <AlertTriangle size={15} />
+                            <span>
+                                {descontoPct}% daria {formatCurrency(descontoBruto)}, mas só faltam {formatCurrency(saldoSinal)} do sinal —
+                                o desconto foi limitado a esse saldo.
+                            </span>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Planilha de Medição */}
             <div className="glass-card" style={{ overflowX: 'auto' }}>
