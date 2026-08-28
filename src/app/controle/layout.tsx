@@ -69,14 +69,6 @@ export default function ControleLayout({ children }: { children: React.ReactNode
                         DRE Sede
                     </button>
                     <button
-                        onClick={() => router.push('/controle/dre-gerencial')}
-                        className={`sidebar-link${pathname?.startsWith('/controle/dre-gerencial') ? ' active' : ''}`}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'Inter, sans-serif', fontSize: '14px', textAlign: 'left' }}
-                    >
-                        <BarChart3 size={18} />
-                        DRE Gerencial
-                    </button>
-                    <button
                         onClick={() => router.push('/controle/fechamento-banco')}
                         className={`sidebar-link${pathname?.startsWith('/controle/fechamento-banco') ? ' active' : ''}`}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'Inter, sans-serif', fontSize: '14px', textAlign: 'left' }}

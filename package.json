@@ -17,8 +17,7 @@
     "sync:areceber": "tsx src/workers/sync-a-receber.ts",
     "sync:apagar": "tsx src/workers/sync-a-pagar.ts",
     "sync:compras": "tsx src/workers/sync-compras.ts",
-    "sync:kpis": "tsx src/workers/sync-kpis.ts",
-    "sync:mov": "tsx src/workers/sync-movimentacao.ts"
+    "sync:kpis": "tsx src/workers/sync-kpis.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
