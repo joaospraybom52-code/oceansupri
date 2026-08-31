@@ -105,6 +105,17 @@ export default function EmprestimosClient({ obras, linhas }: {
         return Array.from(m.values()).sort((a, b) => b.pago - a.pago)
     }, [filtradas, obras])
 
+    const porCliente = useMemo(() => {
+        const m = new Map<string, { cliente: string; pago: number; aPagar: number; n: number }>()
+        for (const r of filtradas) {
+            const k = (r.cliente ?? '').trim() || '— sem cliente —'
+            const cur = m.get(k) ?? { cliente: k, pago: 0, aPagar: 0, n: 0 }
+            cur.pago += Number(r.vlr_at_pago || 0); cur.aPagar += Number(r.vlr_at_pagar || 0); cur.n++
+            m.set(k, cur)
+        }
+        return Array.from(m.values()).sort((a, b) => b.pago - a.pago)
+    }, [filtradas])
+
     // Evolução mensal do PAGO, por categoria
     const evolucao = useMemo(() => {
         const meses = MESES_ABREV.map(m => {
@@ -291,6 +302,56 @@ export default function EmprestimosClient({ obras, linhas }: {
                                 </tr>
                             ))}
                         </tbody>
+                        <tfoot>
+                            <tr>
+                                <td style={{ ...td, fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>Total</td>
+                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>{brl(total.pago)}</td>
+                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>{brl(total.aPagar)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            {/* Por cliente (o nominal do pagamento — banco, financeira, consorciadora) */}
+            <div className="glass-card" style={{ padding: 0, overflow: 'hidden', marginTop: '24px' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-glass)' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: 700 }}>Por cliente</h3>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Quem recebeu — banco, financeira ou administradora. {porCliente.length} no filtro.
+                    </p>
+                </div>
+                <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr>
+                                <th style={{ ...th, position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Cliente</th>
+                                <th style={{ ...th, textAlign: 'right', width: '90px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Lanç.</th>
+                                <th style={{ ...th, textAlign: 'right', width: '180px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Pago</th>
+                                <th style={{ ...th, textAlign: 'right', width: '180px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>A pagar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {porCliente.length === 0 && (
+                                <tr><td style={{ ...td, color: 'var(--text-muted)' }} colSpan={4}>Nada no filtro.</td></tr>
+                            )}
+                            {porCliente.map(cl => (
+                                <tr key={cl.cliente}>
+                                    <td style={td}>{cl.cliente}</td>
+                                    <td style={{ ...td, textAlign: 'right', color: 'var(--text-muted)' }}>{cl.n}</td>
+                                    <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{brl(cl.pago)}</td>
+                                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: 'var(--text-secondary)' }}>{brl(cl.aPagar)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td style={{ ...td, fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>Total</td>
+                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)', color: 'var(--text-muted)' }}>{filtradas.length}</td>
+                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>{brl(total.pago)}</td>
+                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>{brl(total.aPagar)}</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>
