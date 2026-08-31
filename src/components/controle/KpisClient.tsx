@@ -4,6 +4,7 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import { CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react'
 import { LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import MultiSearchSelect from '@/components/ui/MultiSearchSelect'
+import { ehInsumoFinanceiro } from '@/lib/utils/insumos-financeiros'
 
 interface Obra {
     id: string
@@ -169,6 +170,16 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         return somaRecebido + somaDescImposto
     }, [recebidoFiltrado, vendasrec])
 
+    // pagoIC = o pago aberto por INSUMO, filtrado por obra + período.
+    const pagoICFiltrado = useMemo(() => pagoIC.filter(r =>
+        obraMatch(r.obra) && matchPeriodo(r.data_movimento, filtroAnos, filtroMeses),
+    ), [pagoIC, filtroObras, filtroAnos, filtroMeses])
+
+    // Só o custo de obra — empréstimo, juros, tarifa e consórcio ficam de fora
+    // de TODAS as medidas desta aba e vivem na aba Empréstimos e Encargos.
+    const pagoICSemFinanceiro = useMemo(
+        () => pagoICFiltrado.filter(r => !ehInsumoFinanceiro(r.descrinsumo)), [pagoICFiltrado])
+
     // pago já filtrado por obra + período (dimensões); as medidas abaixo só
     // aplicam o filtro de TipoControle por cima.
     const pagoFiltrado = useMemo(() => pago.filter(p =>
@@ -181,15 +192,21 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // do Balanço: lá o imposto é a medida ESTIMADA "Imposto Simples" (11,33%),
     // para não contar o mesmo imposto duas vezes.
 
-    // Total Pago = SUM(VlrAtPago) onde TipoControle = "Despesas" (já sem o imposto retido)
-    const totalPago = useMemo(() => pagoFiltrado
-        .filter(p => p.tipo_controle === 'Despesas')
-        .reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0), [pagoFiltrado])
+    // ── Total Pago / Total A Pagar
+    //
+    // Vinham de controle_pago_apagar (TipoControle='Despesas'), que não tem o
+    // insumo — então empréstimo, juros, tarifa e consórcio entravam junto e
+    // inflavam o Balanço da Obra (só em 2026, R$ 4,8 mi dentro de R$ 24,2 mi).
+    //
+    // Agora saem do MESMO dado aberto por insumo (controle_pago_insumo_cliente),
+    // sem os financeiros. As duas tabelas fecham exatamente — conferido:
+    // R$ 59.345.954,65 pago e R$ 13.518.802,61 a pagar nas duas — então o único
+    // efeito é a exclusão pedida. O financeiro tem aba própria.
+    const totalPago = useMemo(() => pagoICSemFinanceiro
+        .reduce((s, p) => s + Number(p.vlr_at_pago || 0), 0), [pagoICSemFinanceiro])
 
-    // Total A Pagar = SUM(VlrAtPagar) onde TipoControle = "Despesas" (já sem o imposto retido)
-    const totalAPagar = useMemo(() => pagoFiltrado
-        .filter(p => p.tipo_controle === 'Despesas')
-        .reduce((s, p) => s + Number(p.vlr_at_pagar || 0), 0), [pagoFiltrado])
+    const totalAPagar = useMemo(() => pagoICSemFinanceiro
+        .reduce((s, p) => s + Number(p.vlr_at_pagar || 0), 0), [pagoICSemFinanceiro])
 
     // Controle Financeiro Saída = SUM(TotalReceita) onde TipoControle = "DespSaida"
     const controleFinanceiroSaida = useMemo(() => pagoFiltrado
@@ -233,27 +250,22 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         .reduce((s, v) => s + Number(v.valor_venda || 0), 0),
         [vgv, filtroObras, filtroAnos])
 
-    // pagoIC filtrado por Obra + Ano/Mês (data_movimento) — os filtros do topo valem nas tabelas
-    const pagoICFiltrado = useMemo(() => pagoIC.filter(r =>
-        obraMatch(r.obra) && matchPeriodo(r.data_movimento, filtroAnos, filtroMeses),
-    ), [pagoIC, filtroObras, filtroAnos, filtroMeses])
-
     // Tabela 1: agrupado por Insumo (DescrInsumo)
     const linhasInsumo = useMemo(() => {
         const m = new Map<string, LinhaPag>()
-        for (const r of pagoICFiltrado) {
+        for (const r of pagoICSemFinanceiro) {
             const k = r.descrinsumo ?? '—'
             const cur = m.get(k) ?? { chave: k, label: k, aPagar: 0, pago: 0 }
             cur.aPagar += Number(r.vlr_at_pagar || 0); cur.pago += Number(r.vlr_at_pago || 0)
             m.set(k, cur)
         }
         return Array.from(m.values())
-    }, [pagoICFiltrado])
+    }, [pagoICSemFinanceiro])
 
     // Tabela 2: agrupado por Cliente, filtrado pelo insumo selecionado
     const linhasCliente = useMemo(() => {
         const m = new Map<string, LinhaPag>()
-        for (const r of pagoICFiltrado) {
+        for (const r of pagoICSemFinanceiro) {
             if (insumoSel && (r.descrinsumo ?? '—') !== insumoSel) continue
             const k = r.cliente ?? '—'
             const cur = m.get(k) ?? { chave: k, label: k, aPagar: 0, pago: 0 }
@@ -261,7 +273,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
             m.set(k, cur)
         }
         return Array.from(m.values())
-    }, [pagoICFiltrado, insumoSel])
+    }, [pagoICSemFinanceiro, insumoSel])
 
     const limparFiltros = () => { setFiltroObras([]); setFiltroAnos([]); setFiltroMeses([]) }
 

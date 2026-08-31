@@ -61,6 +61,14 @@ export default function ControleLayout({ children }: { children: React.ReactNode
                         KPI&apos;S
                     </button>
                     <button
+                        onClick={() => router.push('/controle/emprestimos')}
+                        className={`sidebar-link${pathname?.startsWith('/controle/emprestimos') ? ' active' : ''}`}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'Inter, sans-serif', fontSize: '14px', textAlign: 'left' }}
+                    >
+                        <Landmark size={18} />
+                        Empréstimos e Encargos
+                    </button>
+                    <button
                         onClick={() => router.push('/controle/dre')}
                         className={`sidebar-link${pathname === '/controle/dre' ? ' active' : ''}`}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'Inter, sans-serif', fontSize: '14px', textAlign: 'left' }}
