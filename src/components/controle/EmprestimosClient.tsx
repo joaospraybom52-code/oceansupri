@@ -105,16 +105,40 @@ export default function EmprestimosClient({ obras, linhas }: {
         return Array.from(m.values()).sort((a, b) => b.pago - a.pago)
     }, [filtradas, obras])
 
-    const porCliente = useMemo(() => {
-        const m = new Map<string, { cliente: string; pago: number; aPagar: number; n: number }>()
+    // Por cliente, quebrado por categoria. Guarda pago E a pagar de cada
+    // categoria; a tabela mostra uma das duas medidas por vez, senão seriam
+    // 8 colunas de dinheiro e ninguém lê.
+    interface LinhaCliente {
+        cliente: string
+        n: number
+        pago: Record<CategoriaFinanceira, number>
+        aPagar: Record<CategoriaFinanceira, number>
+        totalPago: number
+        totalAPagar: number
+    }
+    const zeros = () => Object.fromEntries(CATEGORIAS.map(c => [c, 0])) as Record<CategoriaFinanceira, number>
+
+    const porCliente = useMemo<LinhaCliente[]>(() => {
+        const m = new Map<string, LinhaCliente>()
         for (const r of filtradas) {
+            const cat = categoriaFinanceira(r.descrinsumo)
+            if (!cat) continue
             const k = (r.cliente ?? '').trim() || '— sem cliente —'
-            const cur = m.get(k) ?? { cliente: k, pago: 0, aPagar: 0, n: 0 }
-            cur.pago += Number(r.vlr_at_pago || 0); cur.aPagar += Number(r.vlr_at_pagar || 0); cur.n++
+            const cur = m.get(k) ?? { cliente: k, n: 0, pago: zeros(), aPagar: zeros(), totalPago: 0, totalAPagar: 0 }
+            const p = Number(r.vlr_at_pago || 0), a = Number(r.vlr_at_pagar || 0)
+            cur.pago[cat] += p; cur.aPagar[cat] += a
+            cur.totalPago += p; cur.totalAPagar += a; cur.n++
             m.set(k, cur)
         }
-        return Array.from(m.values()).sort((a, b) => b.pago - a.pago)
+        return Array.from(m.values())
     }, [filtradas])
+
+    // Medida exibida na tabela por cliente
+    const [medidaCliente, setMedidaCliente] = useState<'pago' | 'aPagar'>('pago')
+    const valorCli = (l: LinhaCliente, c: CategoriaFinanceira) => medidaCliente === 'pago' ? l.pago[c] : l.aPagar[c]
+    const totalCli = (l: LinhaCliente) => medidaCliente === 'pago' ? l.totalPago : l.totalAPagar
+    const clientesOrdenados = useMemo(
+        () => [...porCliente].sort((a, b) => totalCli(b) - totalCli(a)), [porCliente, medidaCliente])
 
     // Evolução mensal do PAGO, por categoria
     const evolucao = useMemo(() => {
@@ -313,43 +337,86 @@ export default function EmprestimosClient({ obras, linhas }: {
                 </div>
             </div>
 
-            {/* Por cliente (o nominal do pagamento — banco, financeira, consorciadora) */}
+            {/* Por cliente, quebrado por categoria */}
             <div className="glass-card" style={{ padding: 0, overflow: 'hidden', marginTop: '24px' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-glass)' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: 700 }}>Por cliente</h3>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Quem recebeu — banco, financeira ou administradora. {porCliente.length} no filtro.
-                    </p>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-glass)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
+                    <div>
+                        <h3 style={{ fontSize: '15px', fontWeight: 700 }}>Por cliente e categoria</h3>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            Quem recebeu — banco, financeira ou administradora. {porCliente.length} no filtro.
+                        </p>
+                    </div>
+                    {/* Uma medida por vez: com pago E a pagar seriam 8 colunas de dinheiro. */}
+                    <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.04)', padding: '3px', borderRadius: '8px' }}>
+                        {([['pago', 'Pago'], ['aPagar', 'A pagar']] as const).map(([v, rot]) => (
+                            <button
+                                key={v} type="button" onClick={() => setMedidaCliente(v)}
+                                style={{
+                                    padding: '5px 14px', fontSize: '12px', fontWeight: 700, borderRadius: '6px',
+                                    border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                                    background: medidaCliente === v ? 'rgba(99,102,241,0.35)' : 'transparent',
+                                    color: medidaCliente === v ? 'var(--text-primary)' : 'var(--text-muted)',
+                                }}
+                            >
+                                {rot}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ maxHeight: '460px', overflowY: 'auto', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
                         <thead>
                             <tr>
                                 <th style={{ ...th, position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Cliente</th>
-                                <th style={{ ...th, textAlign: 'right', width: '90px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Lanç.</th>
-                                <th style={{ ...th, textAlign: 'right', width: '180px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Pago</th>
-                                <th style={{ ...th, textAlign: 'right', width: '180px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>A pagar</th>
+                                <th style={{ ...th, textAlign: 'right', width: '70px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Lanç.</th>
+                                {CATEGORIAS.map(c => (
+                                    <th key={c} style={{ ...th, textAlign: 'right', width: '150px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: CORES_CATEGORIA[c] }} />
+                                            {ROTULO_CATEGORIA[c]}
+                                        </span>
+                                    </th>
+                                ))}
+                                <th style={{ ...th, textAlign: 'right', width: '160px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Total</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {porCliente.length === 0 && (
-                                <tr><td style={{ ...td, color: 'var(--text-muted)' }} colSpan={4}>Nada no filtro.</td></tr>
+                            {clientesOrdenados.length === 0 && (
+                                <tr><td style={{ ...td, color: 'var(--text-muted)' }} colSpan={CATEGORIAS.length + 3}>Nada no filtro.</td></tr>
                             )}
-                            {porCliente.map(cl => (
+                            {clientesOrdenados.map(cl => (
                                 <tr key={cl.cliente}>
                                     <td style={td}>{cl.cliente}</td>
                                     <td style={{ ...td, textAlign: 'right', color: 'var(--text-muted)' }}>{cl.n}</td>
-                                    <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{brl(cl.pago)}</td>
-                                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: 'var(--text-secondary)' }}>{brl(cl.aPagar)}</td>
+                                    {CATEGORIAS.map(c => {
+                                        const v = valorCli(cl, c)
+                                        // Zero vira travessão: a tabela fica legível de longe.
+                                        return (
+                                            <td key={c} style={{ ...td, textAlign: 'right', color: v ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: v ? 600 : 400 }}>
+                                                {v ? brl(v) : '—'}
+                                            </td>
+                                        )
+                                    })}
+                                    <td style={{ ...td, textAlign: 'right', fontWeight: 800 }}>{brl(totalCli(cl))}</td>
                                 </tr>
                             ))}
                         </tbody>
                         <tfoot>
                             <tr>
                                 <td style={{ ...td, fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>Total</td>
-                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)', color: 'var(--text-muted)' }}>{filtradas.length}</td>
-                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>{brl(total.pago)}</td>
-                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>{brl(total.aPagar)}</td>
+                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, color: 'var(--text-muted)', borderTop: '1px solid var(--border-glass)' }}>{filtradas.length}</td>
+                                {CATEGORIAS.map(c => {
+                                    const s2 = soma(porCategoria.get(c) ?? [])
+                                    const v = medidaCliente === 'pago' ? s2.pago : s2.aPagar
+                                    return (
+                                        <td key={c} style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)', color: v ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                                            {v ? brl(v) : '—'}
+                                        </td>
+                                    )
+                                })}
+                                <td style={{ ...td, textAlign: 'right', fontWeight: 800, borderTop: '1px solid var(--border-glass)' }}>
+                                    {brl(medidaCliente === 'pago' ? total.pago : total.aPagar)}
+                                </td>
                             </tr>
                         </tfoot>
                     </table>
