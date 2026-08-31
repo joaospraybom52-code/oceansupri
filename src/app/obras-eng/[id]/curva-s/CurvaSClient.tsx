@@ -15,9 +15,29 @@ interface Row {
     real_pct: string
 }
 
+// ── Semana da Curva S = SEGUNDA a DOMINGO, igual à programação semanal.
+//    Guardamos só o INÍCIO (segunda); o fim é sempre +6 dias, então as duas
+//    pontas não têm como divergir.
+const DIA_MS = 86400000
+const somaDias = (iso: string, n: number) =>
+    new Date(Date.parse(iso + 'T00:00:00Z') + n * DIA_MS).toISOString().slice(0, 10)
+
+/** Segunda-feira MAIS PRÓXIMA da data escolhida (domingo 23/08 -> segunda 24/08). */
+const segundaMaisProxima = (iso: string) => {
+    if (!iso) return ''
+    const dow = new Date(Date.parse(iso + 'T00:00:00Z')).getUTCDay()   // 0=dom ... 6=sáb
+    if (dow === 1) return iso
+    const paraTras = (dow + 6) % 7          // dias até a segunda anterior
+    const paraFrente = (8 - dow) % 7        // dias até a próxima segunda
+    return somaDias(iso, paraFrente <= paraTras ? paraFrente : -paraTras)
+}
+
+const fimDaSemana = (iso: string) => (iso ? somaDias(iso, 6) : '')
+
 const toStr = (v: any) => v == null ? '' : String(v).replace('.', ',')
 const toNum = (v: string): number | null => v.trim() === '' ? null : Number(v.replace(',', '.'))
 const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''
+const fmtDataLonga = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : ''
 
 export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeEditarLinhaBase = false }: { obraId: string, initialSemanas: any[], podeEditar: boolean, podeEditarLinhaBase?: boolean }) {
     const supabase = createClient()
@@ -43,10 +63,16 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
     }))
 
     function update(i: number, campo: keyof Row, valor: string) {
-        setRows(rows.map((r, idx) => idx === i ? { ...r, [campo]: valor } : r))
+        // A data da semana sempre cai na segunda — evita o desencontro de 1 dia
+        // com a programação, que deixava o relatório sem % Previsto/Real.
+        const v = campo === 'semana_ref' ? segundaMaisProxima(valor) : valor
+        setRows(rows.map((r, idx) => idx === i ? { ...r, [campo]: v } : r))
     }
     function addRow() {
-        setRows([...rows, { semana_ref: '', lb1_pct: '', lb2_pct: '', real_pct: '' }])
+        // Já sugere a segunda seguinte à última semana — só clicar e preencher.
+        const ultima = [...rows].map(r => r.semana_ref).filter(Boolean).sort().pop()
+        const proxima = ultima ? somaDias(segundaMaisProxima(ultima), 7) : segundaMaisProxima(new Date().toISOString().slice(0, 10))
+        setRows([...rows, { semana_ref: proxima, lb1_pct: '', lb2_pct: '', real_pct: '' }])
     }
     function removeRow(i: number) {
         setRows(rows.filter((_, idx) => idx !== i))
@@ -142,7 +168,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr>
-                                <th style={th}>Semana</th>
+                                <th style={th}>Semana (segunda a domingo)</th>
                                 <th style={th}>Linha de Base (%)</th>
                                 <th style={th}>Real (%)</th>
                                 <th style={th}>Tendência (%)</th>
@@ -158,7 +184,12 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
                                 return (
                                     <tr key={i}>
                                         <td style={td}>
-                                            <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px' }} disabled={!podeEditar} />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px' }} disabled={!podeEditar} />
+                                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                                    {r.semana_ref ? `a ${fmtDataLonga(fimDaSemana(r.semana_ref))}` : ''}
+                                                </span>
+                                            </div>
                                         </td>
                                         {(['lb1_pct', 'real_pct'] as const).map(campo => {
                                             // Linha de Base: restrita aos editores autorizados (engjoao/planejamento)
@@ -184,7 +215,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
                         </tbody>
                     </table>
                 </div>
-                {podeEditar && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>A Tendência é calculada automaticamente a partir do Real e da Linha de Base. Lembre de clicar em <strong>Salvar</strong>.</p>}
+                {podeEditar && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>A semana vai de <strong>segunda a domingo</strong> e casa com a programação semanal — a data escolhida se encaixa sozinha na segunda mais próxima. A Tendência é calculada automaticamente a partir do Real e da Linha de Base. Lembre de clicar em <strong>Salvar</strong>.</p>}
             </div>
         </div>
     )
