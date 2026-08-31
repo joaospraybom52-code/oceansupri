@@ -23,6 +23,9 @@ const fmt = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-
 const fmtCurto = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''
 const toNum = (v: any): number | null => v == null || v === '' ? null : Number(String(v).replace(',', '.'))
 const pct = (v: number | null | undefined) => v == null ? '-' : `${Number(v).toFixed(0)}%`
+/** Percentual com 2 casas, no formato BR (42,50%) — usado no % Real da Curva S. */
+const pct2 = (v: number | null | undefined) =>
+    v == null ? '-' : `${Number(v).toFixed(2).replace('.', ',')}%`
 
 function diasDaSemana(ref: string) {
     let monday: Date | null = null
@@ -394,7 +397,7 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                             </tr>
                             <tr>
                                 <td style={lbl}>Projeto</td><td style={val}>{obra?.nome || '-'}</td>
-                                <td style={lbl}>% Real</td><td style={val}>{pct(real)}</td>
+                                <td style={lbl}>% Real</td><td style={val}>{pct2(real)}</td>
                                 <td style={lbl}>Término LB</td><td style={val}>{fmt(fimLB)}</td>
                                 <td style={lbl}>Término tendência</td><td style={val}>{fmt(fimTend)}</td>
                             </tr>
