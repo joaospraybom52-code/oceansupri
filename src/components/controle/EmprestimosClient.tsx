@@ -32,22 +32,23 @@ const lbl: React.CSSProperties = { fontSize: '12px', color: 'var(--text-secondar
 const th: React.CSSProperties = { textAlign: 'left', padding: '10px 16px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-glass)' }
 const td: React.CSSProperties = { padding: '9px 16px', fontSize: '13px', borderBottom: '1px solid rgba(255,255,255,0.04)' }
 
-export default function EmprestimosClient({ obras, linhas }: {
+export default function EmprestimosClient({ obras, linhas, atualizadoEm }: {
     obras: { codigo: string | null; nome: string }[]
     linhas: InsumoFinRow[]
+    atualizadoEm: string | null
 }) {
     const [filtroObras, setFiltroObras] = useState<string[]>([])
     const [filtroAnos, setFiltroAnos] = useState<string[]>([])
     const [filtroMeses, setFiltroMeses] = useState<string[]>([])
     const [aberta, setAberta] = useState<CategoriaFinanceira | null>(null)
 
-    // Só o que é financeiro — o resto é custo de obra e vive na KPI'S.
-    const financeiras = useMemo(
-        () => linhas.filter(r => categoriaFinanceira(r.descrinsumo) !== null), [linhas])
+    // A tabela já vem só com os insumos financeiros (o worker filtra na origem);
+    // o categoriaFinanceira aqui é só para separar em Empréstimos/Juros/etc.
+    const financeiras = linhas
 
     const anoOptions = useMemo(() => {
         const s = new Set<string>()
-        financeiras.forEach(r => { if (r.data_movimento) s.add(r.data_movimento.slice(0, 4)) })
+        financeiras.forEach(r => { if (r.mes) s.add(r.mes.slice(0, 4)) })
         return Array.from(s).sort((a, b) => b.localeCompare(a))
     }, [financeiras])
 
@@ -60,13 +61,13 @@ export default function EmprestimosClient({ obras, linhas }: {
 
     const filtradas = useMemo(() => financeiras.filter(r =>
         (filtroObras.length === 0 || filtroObras.includes(r.obra ?? ''))
-        && matchPeriodo(r.data_movimento, filtroAnos, filtroMeses),
+        && matchPeriodo(r.mes, filtroAnos, filtroMeses),
     ), [financeiras, filtroObras, filtroAnos, filtroMeses])
 
     /** Soma pago / a pagar de um conjunto de linhas. */
     const soma = (rows: InsumoFinRow[]) => rows.reduce((a, r) => ({
-        pago: a.pago + Number(r.vlr_at_pago || 0),
-        aPagar: a.aPagar + Number(r.vlr_at_pagar || 0),
+        pago: a.pago + Number(r.vlr_pago || 0),
+        aPagar: a.aPagar + Number(r.vlr_emissao || 0),
     }), { pago: 0, aPagar: 0 })
 
     const porCategoria = useMemo(() => {
@@ -87,7 +88,7 @@ export default function EmprestimosClient({ obras, linhas }: {
         for (const r of porCategoria.get(cat) ?? []) {
             const k = r.descrinsumo ?? '—'
             const cur = m.get(k) ?? { insumo: k, pago: 0, aPagar: 0, n: 0 }
-            cur.pago += Number(r.vlr_at_pago || 0); cur.aPagar += Number(r.vlr_at_pagar || 0); cur.n++
+            cur.pago += Number(r.vlr_pago || 0); cur.aPagar += Number(r.vlr_emissao || 0); cur.n += Number(r.qtd || 0)
             m.set(k, cur)
         }
         return Array.from(m.values()).sort((a, b) => b.pago - a.pago)
@@ -99,7 +100,7 @@ export default function EmprestimosClient({ obras, linhas }: {
         for (const r of filtradas) {
             const k = r.obra ?? '—'
             const cur = m.get(k) ?? { obra: k, label: nome.has(k) ? `${k} - ${nome.get(k)}` : k, pago: 0, aPagar: 0 }
-            cur.pago += Number(r.vlr_at_pago || 0); cur.aPagar += Number(r.vlr_at_pagar || 0)
+            cur.pago += Number(r.vlr_pago || 0); cur.aPagar += Number(r.vlr_emissao || 0)
             m.set(k, cur)
         }
         return Array.from(m.values()).sort((a, b) => b.pago - a.pago)
@@ -125,9 +126,9 @@ export default function EmprestimosClient({ obras, linhas }: {
             if (!cat) continue
             const k = (r.cliente ?? '').trim() || '— sem cliente —'
             const cur = m.get(k) ?? { cliente: k, n: 0, pago: zeros(), aPagar: zeros(), totalPago: 0, totalAPagar: 0 }
-            const p = Number(r.vlr_at_pago || 0), a = Number(r.vlr_at_pagar || 0)
+            const p = Number(r.vlr_pago || 0), a = Number(r.vlr_emissao || 0)
             cur.pago[cat] += p; cur.aPagar[cat] += a
-            cur.totalPago += p; cur.totalAPagar += a; cur.n++
+            cur.totalPago += p; cur.totalAPagar += a; cur.n += Number(r.qtd || 0)
             m.set(k, cur)
         }
         return Array.from(m.values())
@@ -148,11 +149,11 @@ export default function EmprestimosClient({ obras, linhas }: {
             return base
         })
         for (const r of filtradas) {
-            if (!r.data_movimento) continue
-            const i = Number(r.data_movimento.slice(5, 7)) - 1
+            if (!r.mes) continue
+            const i = Number(r.mes.slice(5, 7)) - 1
             const c = categoriaFinanceira(r.descrinsumo)
             if (i < 0 || i > 11 || !c) continue
-            meses[i][ROTULO_CATEGORIA[c]] = Number(meses[i][ROTULO_CATEGORIA[c]]) + Number(r.vlr_at_pago || 0)
+            meses[i][ROTULO_CATEGORIA[c]] = Number(meses[i][ROTULO_CATEGORIA[c]]) + Number(r.vlr_pago || 0)
         }
         return meses
     }, [filtradas])
@@ -168,6 +169,8 @@ export default function EmprestimosClient({ obras, linhas }: {
                 </h1>
                 <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
                     Movimento financeiro com bancos — fora das medidas de obra da KPI&apos;S, que agora contam só o que a obra recebe e paga.
+                    Entram as parcelas <strong>pagas</strong> e as <strong>em emissão de pagamento</strong>; o &quot;a pagar&quot; ainda em aberto não entra.
+                    {atualizadoEm && ` · atualizado em ${new Date(atualizadoEm).toLocaleString('pt-BR')}`}
                 </p>
             </div>
 
@@ -195,11 +198,11 @@ export default function EmprestimosClient({ obras, linhas }: {
                     <div style={{ fontSize: '24px', fontWeight: 800, color: '#ef4444', marginTop: '4px' }}>{brl(total.pago)}</div>
                 </div>
                 <div className="glass-card" style={{ padding: '18px 20px', borderLeft: '4px solid #f59e0b' }}>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total a pagar</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Em emissão de pagamento</div>
                     <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>{brl(total.aPagar)}</div>
                 </div>
                 <div className="glass-card" style={{ padding: '18px 20px' }}>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pago + a pagar</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pago + em emissão</div>
                     <div style={{ fontSize: '24px', fontWeight: 800, marginTop: '4px' }}>{brl(total.pago + total.aPagar)}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{filtradas.length} lançamentos</div>
                 </div>
@@ -239,7 +242,7 @@ export default function EmprestimosClient({ obras, linhas }: {
                                     <div style={{ fontWeight: 800, fontSize: '15px', color: '#ef4444' }}>{brl(s.pago)}</div>
                                 </div>
                                 <div style={{ textAlign: 'right', minWidth: '150px' }}>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>A pagar</div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Em emissão</div>
                                     <div style={{ fontWeight: 800, fontSize: '15px', color: '#f59e0b' }}>{brl(s.aPagar)}</div>
                                 </div>
                             </div>
@@ -251,7 +254,7 @@ export default function EmprestimosClient({ obras, linhas }: {
                                                 <th style={th}>Insumo (nome no UAU)</th>
                                                 <th style={{ ...th, textAlign: 'right', width: '90px' }}>Lanç.</th>
                                                 <th style={{ ...th, textAlign: 'right', width: '170px' }}>Pago</th>
-                                                <th style={{ ...th, textAlign: 'right', width: '170px' }}>A pagar</th>
+                                                <th style={{ ...th, textAlign: 'right', width: '170px' }}>Em emissão</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -311,7 +314,7 @@ export default function EmprestimosClient({ obras, linhas }: {
                             <tr>
                                 <th style={{ ...th, position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Obra</th>
                                 <th style={{ ...th, textAlign: 'right', width: '180px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Pago</th>
-                                <th style={{ ...th, textAlign: 'right', width: '180px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>A pagar</th>
+                                <th style={{ ...th, textAlign: 'right', width: '180px', position: 'sticky', top: 0, background: '#131328', zIndex: 2 }}>Em emissão</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -348,7 +351,7 @@ export default function EmprestimosClient({ obras, linhas }: {
                     </div>
                     {/* Uma medida por vez: com pago E a pagar seriam 8 colunas de dinheiro. */}
                     <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.04)', padding: '3px', borderRadius: '8px' }}>
-                        {([['pago', 'Pago'], ['aPagar', 'A pagar']] as const).map(([v, rot]) => (
+                        {([['pago', 'Pago'], ['aPagar', 'Em emissão']] as const).map(([v, rot]) => (
                             <button
                                 key={v} type="button" onClick={() => setMedidaCliente(v)}
                                 style={{
