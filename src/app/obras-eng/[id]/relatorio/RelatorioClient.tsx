@@ -101,7 +101,21 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
         const base: SemanaCurva[] = curva.map((c: any) => ({ semana_ref: c.semana_ref, lb1_pct: toNum(c.lb1_pct), lb2_pct: null, real_pct: toNum(c.real_pct) }))
         return calcularTendencia(base)
     }, [curva])
+    // Ponto da Curva S que representa a semana do relatório.
+    //
+    // Casava por data EXATA, e isso nunca batia: a programação é cadastrada na
+    // SEGUNDA (ex.: 24/08) e a Curva S no DOMINGO (23/08) — um dia de
+    // diferença deixava % Previsto, % Real, % Desvio e Status em branco em
+    // TODAS as semanas. Como a curva é acumulada, o certo é pegar o último
+    // ponto até o FIM da semana do relatório: é o % acumulado àquela altura.
+    const semanaAtualObj = semanas.find(s => s.ref === semanaSel)
+    const fimSemanaSel = semanaAtualObj?.fim || (semanaSel
+        ? new Date(Date.parse(semanaSel + 'T00:00:00Z') + 6 * 86400000).toISOString().slice(0, 10)
+        : '')
+    // Casamento exato primeiro (não muda nada do que já funcionava); só quando
+    // não existe ponto na data é que cai no acumulado até o fim da semana.
     const curvaSel = comTendencia.find(s => s.semana_ref === semanaSel)
+        ?? (fimSemanaSel ? [...comTendencia].reverse().find(s => s.semana_ref <= fimSemanaSel) : undefined)
     const previsto = curvaSel?.lb1_pct ?? null
     const real = curvaSel?.real_pct ?? null
     const desvio = (real != null && previsto != null) ? previsto - real : null
