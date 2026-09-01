@@ -189,7 +189,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // Os pagamentos ao fisco (tipo_controle='ImpostoRetido' — Ministério da Fazenda
     // e Prefeitura de Anápolis) são EXCLUÍDOS pelo worker de Despesas, então não
     // entram em Total Pago / A Pagar / Comprometido. Também não entram nas Saídas
-    // do Balanço: lá o imposto é a medida ESTIMADA "Imposto Simples" (11,33%),
+    // do Balanço: lá o imposto é a medida ESTIMADA "Imposto Simples" (7,83%),
     // para não contar o mesmo imposto duas vezes.
 
     // ── Total Pago / Total A Pagar
@@ -231,11 +231,15 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // (Valor Recebido Bruto + Faturado a Receber). Não confundir com os
     // pagamentos ao fisco (tipo_controle='ImpostoRetido'), que entram só nas
     // Saídas (Pago) do Balanço da Obra.
-    const ALIQUOTA_IMPOSTO_SIMPLES = 0.1133
+    const ALIQUOTA_IMPOSTO_SIMPLES = 0.0783   // era 11,33% até 31/08/2026
     const ALIQUOTA_IMPOSTO_ISS = 0.05
+    const ALIQUOTA_IMPOSTO_INSS = 0.035
     const baseImpostos = valorRecebidoBruto + faturadoAReceber
     const impostoSimples = baseImpostos * ALIQUOTA_IMPOSTO_SIMPLES
     const impostoIss = baseImpostos * ALIQUOTA_IMPOSTO_ISS
+    // INSS: mesma base e mesmo papel do ISS — card informativo, NÃO entra nas
+    // Saídas do Balanço. Só o Simples entra lá.
+    const impostoInss = baseImpostos * ALIQUOTA_IMPOSTO_INSS
 
     // Retenções = SUM(A_receber[Valor_Prc]) onde VALUE(NumParcGer_Prc) >= 2
     const retencoes = useMemo(() => areceberFiltrado
@@ -339,6 +343,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
                 <KpiCard label="Total Comprometido Obra" value={formatCurrency(totalComprometidoObra)} />
                 <KpiCard label="Imposto Simples" value={formatCurrency(impostoSimples)} />
                 <KpiCard label="Imposto ISS" value={formatCurrency(impostoIss)} />
+                <KpiCard label="Imposto INSS" value={formatCurrency(impostoInss)} />
             </div>
 
             {/* Indicador Evolução + Balanço da Obra */}
