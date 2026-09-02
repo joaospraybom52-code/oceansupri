@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Kanban, BarChart3, Building2, Users, Settings, Truck, ArrowLeftRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { podeVerDashboard } from '@/lib/utils/visualizadores'
 
 const navItems = [
     { href: '/board', label: 'Board', icon: Kanban },
@@ -14,7 +15,6 @@ const navItems = [
 ]
 
 // Visualizadores que também podem ver o Dashboard (além do Board)
-const VISUALIZADORES_COM_DASHBOARD = ['pedrohenrique@constrowins.eng.br']
 
 export default function Sidebar() {
     const pathname = usePathname()
@@ -34,7 +34,7 @@ export default function Sidebar() {
         checkRole()
     }, [])
 
-    const podeDashboard = VISUALIZADORES_COM_DASHBOARD.includes(emailUser)
+    const podeDashboard = podeVerDashboard(emailUser)
     const filteredNavItems = isVisualizador
         ? navItems.filter(item => item.href === '/board' || (podeDashboard && item.href === '/analytics'))
         : navItems

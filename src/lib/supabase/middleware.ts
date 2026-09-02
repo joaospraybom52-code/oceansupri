@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { podeVerDashboard, ROTAS_DASHBOARD } from '@/lib/utils/visualizadores'
 
 // =============================================================================
 // Middleware de sessão + portão de acesso dos módulos.
@@ -250,7 +251,15 @@ export async function updateSession(request: NextRequest) {
                     ehVisualizador = false
                 }
 
-                if (ehVisualizador && caminho !== '/board' && !caminho.startsWith('/api') && caminho !== '/' && !caminho.startsWith('/sem-acesso')) {
+                // Alguns visualizadores também podem ver o Dashboard de KPIs.
+                // A lista mora em lib/utils/visualizadores para não divergir da
+                // Sidebar — era só lá, então o link aparecia e o middleware
+                // barrava, jogando o usuário de volta no Board.
+                const liberadoDashboard = podeVerDashboard(email)
+                    && ROTAS_DASHBOARD.some(r => caminho.startsWith(r))
+
+                if (ehVisualizador && !liberadoDashboard
+                    && caminho !== '/board' && !caminho.startsWith('/api') && caminho !== '/' && !caminho.startsWith('/sem-acesso')) {
                     const url = request.nextUrl.clone()
                     url.pathname = '/board'
                     return NextResponse.redirect(url)
