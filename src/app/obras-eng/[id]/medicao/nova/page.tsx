@@ -10,7 +10,11 @@ export default function NovaMedicaoPage() {
     const router = useRouter()
     const { id } = useParams<{ id: string }>()
     const supabase = createClient()
-    const [tipo, setTipo] = useState<'medicao' | 'sinal'>('medicao')
+    // 'medicao' = mede item a item na planilha do orçamento
+    // 'direto'  = lança só o valor total, sem passar pela planilha
+    // 'sinal'   = entrada/adiantamento da obra
+    const [tipo, setTipo] = useState<'medicao' | 'direto' | 'sinal'>('medicao')
+    const [valorDireto, setValorDireto] = useState('')
     const [inicio, setInicio] = useState('')
     const [fim, setFim] = useState('')
     const [dataSinal, setDataSinal] = useState('')
@@ -54,6 +58,30 @@ export default function NovaMedicaoPage() {
                 return
             }
 
+            if (tipo === 'direto') {
+                const valor = parseFloat(String(valorDireto).replace(/\./g, '').replace(',', '.'))
+                if (isNaN(valor) || valor <= 0) {
+                    setError('Informe um valor medido válido.')
+                    setLoading(false)
+                    return
+                }
+                // Valor direto: não passa pela planilha, já nasce concluída.
+                const { error } = await supabase
+                    .from('medicoes')
+                    .insert({
+                        obra_id: id,
+                        periodo_inicio: inicio,
+                        periodo_fim: fim,
+                        status: 'Concluída',
+                        tipo: 'medicao',
+                        valor_direto: valor,
+                    })
+                if (error) throw error
+                router.push(`/obras-eng/${id}/medicao`)
+                router.refresh()
+                return
+            }
+
             const { data, error } = await supabase
                 .from('medicoes')
                 .insert({
@@ -93,16 +121,25 @@ export default function NovaMedicaoPage() {
             <div className="glass-card" style={{ padding: '32px' }}>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {/* Tipo: medição normal ou sinal */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                         <button type="button" onClick={() => setTipo('medicao')} style={tipoBtn(tipo === 'medicao', '#6366f1')}>
-                            Medição
+                            Pela planilha
+                        </button>
+                        <button type="button" onClick={() => setTipo('direto')} style={tipoBtn(tipo === 'direto', '#10b981')}>
+                            Valor direto
                         </button>
                         <button type="button" onClick={() => setTipo('sinal')} style={tipoBtn(tipo === 'sinal', '#f59e0b')}>
                             Sinal
                         </button>
                     </div>
 
-                    {tipo === 'medicao' ? (
+                    {tipo !== 'sinal' ? (
+                        <>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+                            {tipo === 'medicao'
+                                ? 'Você mede item a item na planilha do orçamento, e o total sai da soma dos itens.'
+                                : 'Você informa o valor total medido no período. A planilha não é usada — serve para quando o valor já vem fechado.'}
+                        </p>
                         <div style={{ display: 'flex', gap: '20px' }}>
                             <div style={{ flex: 1 }}>
                                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
@@ -129,6 +166,23 @@ export default function NovaMedicaoPage() {
                                 />
                             </div>
                         </div>
+                        {tipo === 'direto' && (
+                            <div>
+                                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                    Valor medido (R$)
+                                </label>
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={valorDireto}
+                                    onChange={(e) => setValorDireto(e.target.value)}
+                                    className="input-field"
+                                    placeholder="Ex: 150.000,00"
+                                    required
+                                />
+                            </div>
+                        )}
+                        </>
                     ) : (
                         <>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
@@ -176,7 +230,10 @@ export default function NovaMedicaoPage() {
                             Cancelar
                         </button>
                         <button type="submit" className="btn-primary" disabled={loading} style={{ minWidth: '140px' }}>
-                            {loading ? 'Criando...' : tipo === 'sinal' ? 'Registrar Sinal' : 'Salvar e Continuar'}
+                            {loading ? 'Criando...'
+                                : tipo === 'sinal' ? 'Registrar Sinal'
+                                    : tipo === 'direto' ? 'Registrar Medição'
+                                        : 'Salvar e Continuar'}
                         </button>
                     </div>
                 </form>

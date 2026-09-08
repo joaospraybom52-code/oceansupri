@@ -31,11 +31,11 @@ export default async function MedicaoDetalhePage({ params }: { params: Promise<{
     //    concluída anterior já mediu e o saldo baixa corretamente.
     const { data: todasMedicoes } = await supabase
         .from('medicoes')
-        .select('id, periodo_inicio, created_at, status, tipo, valor_sinal, desconto_sinal_percentual')
+        .select('id, periodo_inicio, created_at, status, tipo, valor_sinal, valor_direto, desconto_sinal_percentual')
         .eq('obra_id', id)
     const todasMedicoes2 = todasMedicoes as unknown as {
         id: string; periodo_inicio: string; created_at: string | null; status: string
-        tipo: string | null; valor_sinal: number | null; desconto_sinal_percentual: number | null
+        tipo: string | null; valor_sinal: number | null; valor_direto: number | null; desconto_sinal_percentual: number | null
     }[] | null
 
     const idsAnteriores = (todasMedicoes || [])
@@ -113,6 +113,12 @@ export default async function MedicaoDetalhePage({ params }: { params: Promise<{
         }
     }
 
+    // Medições ANTERIORES lançadas por valor direto não têm itens, então não
+    // aparecem no "acumulado anterior" da planilha. Somam à parte.
+    const anterioresDiretos = (todasMedicoes2 ?? [])
+        .filter(m => idsAnteriores.includes(m.id) && m.tipo !== 'sinal' && m.valor_direto != null)
+        .reduce((s, m) => s + Number(m.valor_direto || 0), 0)
+
     const podeEditar = podeCriarMedProg(await getPapelObras())
 
     return (
@@ -121,6 +127,7 @@ export default async function MedicaoDetalhePage({ params }: { params: Promise<{
             medicao={medicao}
             dadosTabela={dadosTabela}
             podeEditar={podeEditar}
+            anterioresDiretos={anterioresDiretos}
             sinalTotal={sinalTotal}
             sinalJaAmortizado={Math.round((sinalJaAmortizado + Number.EPSILON) * 100) / 100}
         />

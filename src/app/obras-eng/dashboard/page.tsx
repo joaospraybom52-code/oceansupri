@@ -83,14 +83,14 @@ export default async function GlobalDashboardPage() {
     const [itensRes, medsRes, restrRes, progsRes] = obraIds.length
         ? await Promise.all([
             supabase.from('itens_orcamento').select('obra_id, valor_total_orcado').in('obra_id', obraIds),
-            supabase.from('medicoes').select('id, obra_id, tipo, valor_sinal').in('obra_id', obraIds),
+            supabase.from('medicoes').select('id, obra_id, tipo, valor_sinal, valor_direto').in('obra_id', obraIds),
             supabase.from('restricoes').select('obra_id, status').in('obra_id', obraIds),
             supabase.from('programacoes_semanais').select('id, obra_id, status_envio, semana_referente_fim').in('obra_id', obraIds),
         ])
         : [empty, empty, empty, empty]
 
     const itens = (itensRes.data ?? []) as { obra_id: string; valor_total_orcado: number | null }[]
-    const meds = (medsRes.data ?? []) as { id: string; obra_id: string; tipo?: string | null; valor_sinal?: number | null }[]
+    const meds = (medsRes.data ?? []) as { id: string; obra_id: string; tipo?: string | null; valor_sinal?: number | null; valor_direto?: number | null }[]
     const restr = (restrRes.data ?? []) as { obra_id: string; status: string | null }[]
     const progs = (progsRes.data ?? []) as { id: string; obra_id: string; status_envio: string | null; semana_referente_fim: string | null }[]
 
@@ -115,9 +115,11 @@ export default async function GlobalDashboardPage() {
 
     const enrichedObras: ObraChartData[] = obrasList.map((obra) => {
         const valorOrcado = itens.filter((i) => i.obra_id === obra.id).reduce((s, i) => s + (i.valor_total_orcado ?? 0), 0)
-        // Valor medido = itens medidos + sinais (medições tipo 'sinal' não têm itens)
+        // Valor medido = itens medidos + sinais + medições de valor direto.
+        // Sinal e valor direto não têm itens: o valor vem da própria medição.
         const valorMedido = medItens.filter((mi) => medToObra.get(mi.medicao_id) === obra.id).reduce((s, mi) => s + (mi.valor_medido ?? 0), 0)
             + meds.filter((m) => m.obra_id === obra.id && m.tipo === 'sinal').reduce((s, m) => s + Number(m.valor_sinal ?? 0), 0)
+            + meds.filter((m) => m.obra_id === obra.id && m.tipo !== 'sinal' && m.valor_direto != null).reduce((s, m) => s + Number(m.valor_direto ?? 0), 0)
 
         const restrObra = restr.filter((r) => r.obra_id === obra.id)
         const restricoesTotal = restrObra.length

@@ -7,9 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
-export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar = false, sinalTotal = 0, sinalJaAmortizado = 0 }: {
+export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar = false, sinalTotal = 0, sinalJaAmortizado = 0, anterioresDiretos = 0 }: {
     obraId: string, medicao: any, dadosTabela: any[], podeEditar?: boolean
-    sinalTotal?: number, sinalJaAmortizado?: number
+    sinalTotal?: number, sinalJaAmortizado?: number, anterioresDiretos?: number
 }) {
     const supabase = createClient()
     const router = useRouter()
@@ -26,9 +26,23 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
     const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
     const formatNumber = (val: number) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(val)
     
+    // Medição lançada pelo VALOR DIRETO: não usa a planilha, o total é o valor
+    // digitado. valor_direto NULO = medição normal, pela planilha.
+    const ehValorDireto = medicao.tipo !== 'sinal' && medicao.valor_direto != null
+    const [valorDireto, setValorDireto] = useState<number>(Number(medicao.valor_direto || 0))
+    const [valorBuf, setValorBuf] = useState<string>(
+        medicao.valor_direto != null
+            ? Number(medicao.valor_direto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+            : '')
+
     const totalOrcado = itens.reduce((acc, i) => acc + (i.valor_total_orcado || 0), 0)
-    const totalPeriodo = itens.reduce((acc, i) => acc + Number(i.atual_valor || 0), 0)
+    const totalPeriodo = ehValorDireto
+        ? valorDireto
+        : itens.reduce((acc, i) => acc + Number(i.atual_valor || 0), 0)
+    // Acumulado = itens (anterior + atual) + o que veio de medições de valor
+    // direto, que não têm itens: as anteriores e, se for o caso, esta.
     const totalMedidoAcum = itens.reduce((acc, i) => acc + Number(i.anterior_valor || 0) + Number(i.atual_valor || 0), 0)
+        + anterioresDiretos + (ehValorDireto ? valorDireto : 0)
 
     // ── Desconto do sinal (só aparece quando a obra tem sinal registrado).
     //    O sinal é adiantamento: cada medição devolve um % dele, calculado
@@ -107,6 +121,12 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
             if (upserts.length > 0) {
                 const { error } = await supabase.from('medicao_itens').upsert(upserts)
                 if (error) throw error
+            }
+
+            if (ehValorDireto) {
+                const { error: errVal } = await supabase.from('medicoes')
+                    .update({ valor_direto: valorDireto }).eq('id', medicao.id)
+                if (errVal) throw errVal
             }
 
             // O % do sinal é da medição, não dos itens — grava sempre.
@@ -269,7 +289,41 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
                 </div>
             )}
 
+            {/* Valor direto: no lugar da planilha, um campo só com o total */}
+            {ehValorDireto && (
+                <div className="glass-card" style={{ padding: '24px', borderLeft: '4px solid #10b981' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>Valor medido no período</h3>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '18px' }}>
+                        Esta medição foi lançada pelo valor total — a planilha de itens não é usada.
+                    </p>
+                    <div style={{ maxWidth: '320px' }}>
+                        <div style={{ position: 'relative' }}>
+                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '15px' }}>R$</span>
+                            <input
+                                type="text"
+                                inputMode="decimal"
+                                value={valorBuf}
+                                disabled={!podeEditar || medicao.status === 'Concluída'}
+                                onChange={e => {
+                                    const txt = e.target.value
+                                    setValorBuf(txt)
+                                    let v = parseFloat(txt.replace(/\./g, '').replace(',', '.'))
+                                    if (isNaN(v)) v = 0
+                                    if (v < 0) { toast.warning('Não é permitido valor negativo.', { id: 'vd-neg' }); v = 0; setValorBuf('') }
+                                    setValorDireto(v)
+                                    setSaved(false)
+                                }}
+                                className="input-field"
+                                style={{ paddingLeft: '38px', fontSize: '20px', fontWeight: 800 }}
+                                placeholder="0,00"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Planilha de Medição */}
+            {!ehValorDireto && (
             <div className="glass-card" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1300px' }}>
                     <thead>
@@ -400,6 +454,7 @@ export default function MedicaoClient({ obraId, medicao, dadosTabela, podeEditar
                     </tfoot>
                 </table>
             </div>
+            )}
             <style jsx>{`
                 .table-row-hover:hover {
                     background: rgba(255,255,255,0.02) !important;

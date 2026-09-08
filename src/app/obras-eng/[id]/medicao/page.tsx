@@ -40,6 +40,14 @@ export default async function MedicoesListPage({ params }: { params: Promise<{ i
             if (mid) totaisPorMedicao[mid] = (totaisPorMedicao[mid] || 0) + Number((it as { valor_medido: number | null }).valor_medido || 0)
         }
     }
+    // Medição lançada pelo VALOR DIRETO não passa pela planilha: o total dela é
+    // o valor digitado, não a soma dos itens (que é zero). Sobrescreve aqui,
+    // antes do desconto do sinal, que usa este mesmo mapa.
+    for (const m of medicoes ?? []) {
+        if (m.tipo !== 'sinal' && m.valor_direto != null) {
+            totaisPorMedicao[m.id] = Number(m.valor_direto || 0)
+        }
+    }
     // Desconto do sinal de cada medição: % da medição sobre o que ela mediu,
     // travado no saldo do sinal que ainda falta devolver (ordem cronológica).
     const sinalTotal = (medicoes ?? [])

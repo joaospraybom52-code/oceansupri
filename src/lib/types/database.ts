@@ -393,6 +393,7 @@ export type Database = {
                     tipo: string
                     valor_sinal: number | null
                     desconto_sinal_percentual: number
+                    valor_direto: number | null
                     created_at: string | null
                 }
                 Insert: {
@@ -404,6 +405,7 @@ export type Database = {
                     tipo?: string
                     valor_sinal?: number | null
                     desconto_sinal_percentual?: number
+                    valor_direto?: number | null
                     created_at?: string | null
                 }
                 Update: {
@@ -415,6 +417,7 @@ export type Database = {
                     tipo?: string
                     valor_sinal?: number | null
                     desconto_sinal_percentual?: number
+                    valor_direto?: number | null
                     created_at?: string | null
                 }
                 Relationships: []

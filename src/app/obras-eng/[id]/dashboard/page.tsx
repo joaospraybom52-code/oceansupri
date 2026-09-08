@@ -42,7 +42,7 @@ export default async function ObraDashboardPage({
     /* ── 2. Medições + Itens de Medição ── */
     const { data: medicoes, error: errMed } = await supabase
       .from('medicoes')
-      .select('id, periodo_inicio, periodo_fim, status, tipo, valor_sinal, desconto_sinal_percentual')
+      .select('id, periodo_inicio, periodo_fim, status, tipo, valor_sinal, valor_direto, desconto_sinal_percentual')
       .eq('obra_id', id)
       .order('periodo_inicio', { ascending: true })
 
@@ -75,9 +75,13 @@ export default async function ObraDashboardPage({
     let acumuladoBruto = 0   // avanço FÍSICO: o % executado da obra não leva desconto
     const medicoesChartData: MedicaoChartItem[] = (medicoes ?? []).map((m) => {
       const ehSinal = (m as { tipo?: string | null }).tipo === 'sinal'
+      // Medição de valor direto não tem itens: vale o valor digitado.
+      const direto = (m as { valor_direto?: number | null }).valor_direto
       const bruto = ehSinal
         ? Number((m as { valor_sinal?: number | null }).valor_sinal || 0)
-        : allMedicaoItens
+        : direto != null
+          ? Number(direto || 0)
+          : allMedicaoItens
             .filter((mi) => mi.medicao_id === m.id)
             .reduce((sum, mi) => sum + (Number(mi.valor_medido) || 0), 0)
 
