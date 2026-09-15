@@ -191,6 +191,7 @@ export async function updateSession(request: NextRequest) {
                 if (!papel) return semAcesso()
 
                 const ehNovaObra = caminho === '/obras-eng/nova'
+                const ehDiretoria = caminho.startsWith('/obras-eng/obras-diretoria')
                 const ehEditarObra = caminho.endsWith('/editar')
                 const ehCriarMedicao = caminho.endsWith('/medicao/nova')
                 const ehCriarProgramacao = caminho.endsWith('/programacao/nova')
@@ -198,7 +199,7 @@ export async function updateSession(request: NextRequest) {
                 const podeAdminObra = papel === 'admin'                          // criar/editar/excluir obra
                 const podeCriarMedProg = papel === 'editor' || papel === 'admin' // medição e programação
 
-                if ((ehNovaObra || ehEditarObra) && !podeAdminObra) return semAcesso()
+                if ((ehNovaObra || ehEditarObra || ehDiretoria) && !podeAdminObra) return semAcesso()
                 if ((ehCriarMedicao || ehCriarProgramacao) && !podeCriarMedProg) return semAcesso()
             }
 

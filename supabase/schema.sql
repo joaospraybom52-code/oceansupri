@@ -531,3 +531,29 @@ CREATE TABLE public.dre_sede_classificacao (
   atualizado_em timestamptz DEFAULT now()
 );
 ALTER TABLE public.dre_sede_classificacao ENABLE ROW LEVEL SECURITY;
+
+-- ============ OBRAS DIRETORIA (ES001) ============
+-- Vendas de energia do UAU (receita por cliente) e de-para item pai -> cliente.
+-- Leitura só para quem é admin em permissoes_obras (função e_admin_obras()).
+CREATE TABLE public.vendas_uau (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  obra_ven text NOT NULL,
+  num_ven integer NOT NULL,
+  origem text NOT NULL,              -- 'V' = Vendas (em aberto) | 'R' = VendasRecebidas
+  status_ven integer,                -- 0 = a receber | 3 = recebida
+  cliente text,
+  valor_tot numeric(14,2),
+  data_ven date,
+  hist_lanc text,
+  atualizado_em timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (obra_ven, origem, num_ven)
+);
+ALTER TABLE public.vendas_uau ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE public.diretoria_clientes (
+  obra_plt text NOT NULL,
+  item_plt text NOT NULL,
+  cliente text NOT NULL,
+  PRIMARY KEY (obra_plt, item_plt)
+);
+ALTER TABLE public.diretoria_clientes ENABLE ROW LEVEL SECURITY;

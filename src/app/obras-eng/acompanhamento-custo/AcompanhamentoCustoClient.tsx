@@ -1,23 +1,18 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
-import { Wallet, X, Package, FileText } from 'lucide-react'
+import { Wallet, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import SearchSelect from '@/components/ui/SearchSelect'
 import {
     montarLinhasCusto, statusCusto as status,
     type LinhaCusto as Linha, type OrcamentoCusto as Orcamento, type DisplayRow, type TipoLinhaCusto as Tipo,
 } from '@/lib/utils/custo'
+import MateriaisInsumoPanel, { type MaterialInsumo } from '@/components/obras-eng/MateriaisInsumoPanel'
 
 const ADMIN_EDIT_EMAIL = 'engjoao@constrowins.eng.br'
 
-interface Material {
-    obra_plt: string
-    item_plt: string | null
-    ins_cins: string | null
-    material: string | null
-    valor: number | null
-}
+type Material = MaterialInsumo
 
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
 
@@ -118,7 +113,6 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
             .filter(m => m.obra_plt === obraSel && (m.item_plt || '') === sel.item && (m.ins_cins || '') === sel.ins_cins)
             .sort((a, b) => Number(b.valor || 0) - Number(a.valor || 0))
     }, [materiais, obraSel, sel])
-    const totalMateriais = materiaisSel.reduce((s, m) => s + Number(m.valor || 0), 0)
 
     const { rows, atualizado } = useMemo(
         () => montarLinhasCusto(linhas, orc, obraSel),
@@ -222,32 +216,12 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
 
                     {/* Painel de materiais do insumo selecionado */}
                     {sel && (
-                        <div className="glass-card" style={{ padding: '20px', flex: '1 1 40%', minWidth: 0, maxHeight: '72vh', display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '4px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                                    <Package size={18} color="#10b981" />
-                                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Materiais do insumo</h3>
-                                </div>
-                                <button onClick={() => setSel(null)} title="Fechar" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={18} /></button>
-                            </div>
-                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>{sel.item} · {sel.descr}</p>
-                            {materiaisSel.length === 0 ? (
-                                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Sem materiais lançados para este insumo.</p>
-                            ) : (
-                                <div style={{ overflowY: 'auto', flex: 1 }}>
-                                    {materiaisSel.map((m, i) => (
-                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', minWidth: 0 }}>{m.material}</span>
-                                            <span style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(Number(m.valor || 0))}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', marginTop: '8px', paddingTop: '12px' }}>
-                                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)' }}>Total ({materiaisSel.length})</span>
-                                <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent-green)' }}>{fmt(totalMateriais)}</span>
-                            </div>
-                        </div>
+                        <MateriaisInsumoPanel
+                            item={sel.item}
+                            descricao={sel.descr}
+                            materiais={materiaisSel}
+                            onClose={() => setSel(null)}
+                        />
                     )}
                 </div>
             )}
