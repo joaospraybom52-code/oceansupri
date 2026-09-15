@@ -1,25 +1,12 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Briefcase } from 'lucide-react'
+import { Briefcase, FileText } from 'lucide-react'
 import { montarLinhasCusto, type LinhaCusto as Linha, type TipoLinhaCusto as Tipo } from '@/lib/utils/custo'
+import { agruparPorCliente, type VendaUau, type VinculoCliente } from '@/lib/utils/diretoria'
 import MateriaisInsumoPanel, { type MaterialInsumo } from './MateriaisInsumoPanel'
 
-export interface VendaUau {
-    num_ven: number
-    origem: string
-    status_ven: number | null
-    cliente: string | null
-    valor_tot: number | null
-    data_ven: string | null
-}
-export interface VinculoCliente {
-    item_plt: string
-    cliente: string
-}
-
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
-const norm = (s: string) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim()
 
 // Mesmas cores do Acompanhamento de Custo: item pai em azul escuro, serviço em
 // amarelo, insumo sem cor.
@@ -52,47 +39,8 @@ export default function ObrasDiretoriaClient({
             .sort((a, b) => Number(b.valor || 0) - Number(a.valor || 0))
     }, [materiais, sel])
 
-    // ── Resumo por cliente: cada item pai entra no grupo do cliente vinculado;
-    //    item sem vínculo vira um grupo dele mesmo (tem custo, não tem receita).
-    //    Cliente com venda e sem item vinculado também aparece, com custo zero —
-    //    assim nenhum recebimento some da conta.
-    const resumo = useMemo(() => {
-        const porItem = new Map<string, string>()
-        for (const v of vinculos) porItem.set(v.item_plt, v.cliente)
-
-        type Grupo = { chave: string; nome: string; itens: string[]; custo: number; recebido: number; aReceber: number }
-        const grupos = new Map<string, Grupo>()
-        const novo = (chave: string, nome: string): Grupo => {
-            const g = grupos.get(chave) ?? { chave, nome, itens: [], custo: 0, recebido: 0, aReceber: 0 }
-            grupos.set(chave, g)
-            return g
-        }
-
-        for (const r of rows.filter(r => r.tipo === 'raiz')) {
-            const cliente = porItem.get(r.item)
-            const g = cliente
-                ? novo(`cli:${norm(cliente)}`, cliente)
-                : novo(`item:${r.item}`, `${r.item} — ${r.descricao}`)
-            g.itens.push(r.item)
-            g.custo += r.aprov
-        }
-
-        for (const v of vendas) {
-            const g = novo(`cli:${norm(v.cliente || '')}`, v.cliente || '(sem cliente)')
-            const valor = Number(v.valor_tot || 0)
-            if (v.status_ven === 3) g.recebido += valor
-            else g.aReceber += valor
-        }
-
-        const lista = Array.from(grupos.values())
-            .map(g => ({ ...g, saldo: g.recebido - g.custo }))
-            .sort((a, b) => b.recebido - a.recebido || b.custo - a.custo)
-        const total = lista.reduce((s, g) => ({
-            custo: s.custo + g.custo, recebido: s.recebido + g.recebido,
-            aReceber: s.aReceber + g.aReceber, saldo: s.saldo + g.saldo,
-        }), { custo: 0, recebido: 0, aReceber: 0, saldo: 0 })
-        return { lista, total }
-    }, [rows, vendas, vinculos])
+    // Resumo por cliente: mesma conta usada no relatório em PDF.
+    const resumo = useMemo(() => agruparPorCliente(rows, vendas, vinculos), [rows, vendas, vinculos])
 
     const th: React.CSSProperties = { padding: '10px 12px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', textAlign: 'right', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--bg-secondary)' }
     const td: React.CSSProperties = { padding: '8px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }
@@ -100,14 +48,23 @@ export default function ObrasDiretoriaClient({
 
     return (
         <div>
-            <div style={{ marginBottom: '20px' }}>
-                <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Briefcase size={22} color="#10b981" /> Obras diretoria
-                </h1>
-                <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-                    {nomeObra} · custo por item e resultado por cliente (origem: UAU)
-                    {atualizado ? ` · atualizado em ${new Date(atualizado).toLocaleString('pt-BR')}` : ''}
-                </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                <div>
+                    <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Briefcase size={22} color="#10b981" /> Obras diretoria
+                    </h1>
+                    <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+                        {nomeObra} · custo por item e resultado por cliente (origem: UAU)
+                        {atualizado ? ` · atualizado em ${new Date(atualizado).toLocaleString('pt-BR')}` : ''}
+                    </p>
+                </div>
+                <button
+                    onClick={() => window.open('/obras-eng/obras-diretoria/relatorio', '_blank', 'noopener')}
+                    className="btn-primary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}
+                >
+                    <FileText size={16} /> Exportar PDF
+                </button>
             </div>
 
             <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
