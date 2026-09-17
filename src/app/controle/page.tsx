@@ -99,9 +99,25 @@ export default async function ControlePage() {
         .filter(r => r.obra && r.data)
         .map(r => ({ obra: r.obra as string, data: dia(r.data), valor: num(r.valor) }))
 
+    // A mesma obra chegou a ser cadastrada mais de uma vez (NES21 tinha 4 linhas),
+    // e o cadastro de medição mostrava o nome repetido na lista. Fica uma opção
+    // por CÓDIGO, preferindo a que já tem medição lançada — assim as medições
+    // novas caem na mesma obra das antigas, sem partir o histórico em duas.
+    type ObraLista = { id: string; nome: string; codigo: string | null; cidade: string | null }
+    const idsComMedicao = new Set(
+        (medicoes as { obra_id: string | null }[]).map(m => m.obra_id).filter(Boolean) as string[],
+    )
+    const porCodigo = new Map<string, ObraLista>()
+    for (const o of obras as ObraLista[]) {
+        const chave = (o.codigo || '').trim().toUpperCase() || `id:${o.id}`
+        const atual = porCodigo.get(chave)
+        if (!atual || (!idsComMedicao.has(atual.id) && idsComMedicao.has(o.id))) porCodigo.set(chave, o)
+    }
+    const obrasUnicas = Array.from(porCodigo.values()).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+
     return (
         <ControleClient
-            obras={obras as never}
+            obras={obrasUnicas as never}
             medicoesIniciais={medicoes as never}
             podeEditar={perm?.pode_editar ?? false}
             comprometido={comprometido

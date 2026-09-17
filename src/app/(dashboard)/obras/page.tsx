@@ -11,6 +11,7 @@ export default function ObrasPage() {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [form, setForm] = useState({ nome: '', codigo: '', endereco: '', engenheiro_responsavel: '' })
     const [searchTerm, setSearchTerm] = useState('')
+    const [erro, setErro] = useState('')
     const [loading, setLoading] = useState(true)
     const supabase = createClient()
 
@@ -22,16 +23,38 @@ export default function ObrasPage() {
         setLoading(false)
     }
 
+    /** Código já usado por outra obra ATIVA? Obra repetida vira nome duplicado
+     *  nas listas dos outros módulos (foi o que aconteceu com NES21 e BF01). */
+    function jaExiste(codigo: string, ignorarId?: string) {
+        const cod = codigo.trim().toUpperCase()
+        if (!cod) return null
+        return obras.find(o => o.id !== ignorarId && o.ativo && (o.codigo || '').trim().toUpperCase() === cod) ?? null
+    }
+
     async function handleCreate(e: React.FormEvent) {
         e.preventDefault()
-        await supabase.from('obras').insert({ ...form, ativo: true })
+        const repetida = jaExiste(form.codigo)
+        if (repetida) {
+            setErro(`O código ${form.codigo.trim().toUpperCase()} já está cadastrado em "${repetida.nome}". Use outro código ou edite a obra existente.`)
+            return
+        }
+        const { error } = await supabase.from('obras').insert({ ...form, ativo: true })
+        if (error) { setErro('Não deu para salvar: ' + error.message); return }
+        setErro('')
         setForm({ nome: '', codigo: '', endereco: '', engenheiro_responsavel: '' })
         setShowForm(false)
         loadObras()
     }
 
     async function handleUpdate(id: string) {
-        await supabase.from('obras').update(form).eq('id', id)
+        const repetida = jaExiste(form.codigo, id)
+        if (repetida) {
+            setErro(`O código ${form.codigo.trim().toUpperCase()} já está cadastrado em "${repetida.nome}".`)
+            return
+        }
+        const { error } = await supabase.from('obras').update(form).eq('id', id)
+        if (error) { setErro('Não deu para salvar: ' + error.message); return }
+        setErro('')
         setEditingId(null)
         setForm({ nome: '', codigo: '', endereco: '', engenheiro_responsavel: '' })
         setShowForm(false)
@@ -85,6 +108,9 @@ export default function ObrasPage() {
 
             {showForm && (
                 <div className="glass-card" style={{ padding: '20px', marginBottom: '16px' }}>
+                    {erro && (
+                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-red, #ef4444)', marginBottom: '12px' }}>{erro}</p>
+                    )}
                     <form onSubmit={editingId ? (e) => { e.preventDefault(); handleUpdate(editingId) } : handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
                         <div>
                             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Nome da Obra *</label>
@@ -107,6 +133,7 @@ export default function ObrasPage() {
                             <button type="button" onClick={() => {
                                 setShowForm(false)
                                 setEditingId(null)
+                                setErro('')
                                 setForm({ nome: '', codigo: '', endereco: '', engenheiro_responsavel: '' })
                             }} className="btn-secondary" style={{ padding: '10px 16px' }}><X size={16} /></button>
                         </div>
