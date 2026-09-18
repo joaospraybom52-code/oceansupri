@@ -242,7 +242,7 @@ export default function FechamentoBancoClient({
                         )}
                         {aba === 'fluxo' && fluxo.vencidas.qtd > 0 && (
                             <div style={{ fontSize: '10.5px', color: '#B45309' }}>
-                                Inclui {fluxo.vencidas.qtd} nota{fluxo.vencidas.qtd === 1 ? '' : 's'} vencida{fluxo.vencidas.qtd === 1 ? '' : 's'} e não recebida{fluxo.vencidas.qtd === 1 ? '' : 's'} ({brl(fluxo.vencidas.valor)}), trazida{fluxo.vencidas.qtd === 1 ? '' : 's'} para a primeira data possível — parcela 1, vencimento a partir de 2026.
+                                Inclui {fluxo.vencidas.qtd} nota{fluxo.vencidas.qtd === 1 ? '' : 's'} vencida{fluxo.vencidas.qtd === 1 ? '' : 's'} e não recebida{fluxo.vencidas.qtd === 1 ? '' : 's'} ({brl(fluxo.vencidas.valor)}), reprogramada{fluxo.vencidas.qtd === 1 ? '' : 's'} mês a mês no mesmo dia do vencimento — parcela 1, vencimento a partir de 2026.
                             </div>
                         )}
                     </div>

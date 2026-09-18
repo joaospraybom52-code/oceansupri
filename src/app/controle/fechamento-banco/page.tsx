@@ -161,16 +161,33 @@ export default async function FechamentoBancoPage({
         return { obra: cod, obraLabel: cod ? (nome ? `${cod} — ${nome}` : cod) : null }
     }
 
-    // Nota vencida e não recebida não some do fluxo: vai para o primeiro dia em
-    // que ainda pode entrar dinheiro — hoje, ou o início do período se ele for
-    // futuro — e continua andando para frente a cada dia até ser recebida.
+    // Nota vencida e não recebida não some do fluxo: pula de mês em mês, no
+    // mesmo dia do vencimento, até cair numa data que ainda não passou
+    // (ex.: venceu 25/07 → 25/08 → 25/09...). A referência é hoje, ou o início
+    // do período quando ele for futuro. Dia que não existe no mês (31 em
+    // setembro) vira o último dia daquele mês, sem perder o dia original.
     // Só a parcela 1 de 2026 em diante: as parcelas 2/3 e a carteira antiga
     // (2021-2025) são resíduo/cobrança, não recebimento previsto.
     const hoje = hojeISO()
-    const rolarPara = de > hoje ? de : hoje
+    const referencia = de > hoje ? de : hoje
     const VENCIDA_DESDE = '2026-01-01'
     const ehVencidaRolavel = (data: string, parc: string | null) =>
         !!data && data < hoje && data >= VENCIDA_DESDE && (parc ?? '').trim() === '1'
+    const somarMeses = (iso: string, n: number) => {
+        const [y, m, d] = iso.split('-').map(Number)
+        const total = (m - 1) + n
+        const ano = y + Math.floor(total / 12)
+        const mes = (total % 12) + 1
+        const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
+        return `${ano}-${String(mes).padStart(2, '0')}-${String(Math.min(d, ultimoDia)).padStart(2, '0')}`
+    }
+    const rolarMensal = (iso: string) => {
+        for (let n = 1; n <= 240; n++) {
+            const prox = somarMeses(iso, n)
+            if (prox >= referencia) return prox
+        }
+        return referencia
+    }
 
     // Linhas do relatório "Fluxo de Caixa": a pagar (Conf_Proc='DVQ') + a receber
     // (Próximas Medições), no mesmo formato.
@@ -192,7 +209,7 @@ export default async function FechamentoBancoPage({
                 numProc: null, numParc: r.num_parc_ger ? Number(r.num_parc_ger) || null : null, totalParcelas: null,
                 banco: null, conta: null,
                 contraparte: r.cliente, obs: r.hist_lanc_ven,
-                data: vencida ? rolarPara : original, valor: Number(r.valor_prc || 0),
+                data: vencida ? rolarMensal(original) : original, valor: Number(r.valor_prc || 0),
                 vencOriginal: vencida ? original : null,
             }
         }),
