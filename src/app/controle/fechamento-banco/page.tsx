@@ -161,6 +161,17 @@ export default async function FechamentoBancoPage({
         return { obra: cod, obraLabel: cod ? (nome ? `${cod} — ${nome}` : cod) : null }
     }
 
+    // Nota vencida e não recebida não some do fluxo: vai para o primeiro dia em
+    // que ainda pode entrar dinheiro — hoje, ou o início do período se ele for
+    // futuro — e continua andando para frente a cada dia até ser recebida.
+    // Só a parcela 1 de 2026 em diante: as parcelas 2/3 e a carteira antiga
+    // (2021-2025) são resíduo/cobrança, não recebimento previsto.
+    const hoje = hojeISO()
+    const rolarPara = de > hoje ? de : hoje
+    const VENCIDA_DESDE = '2026-01-01'
+    const ehVencidaRolavel = (data: string, parc: string | null) =>
+        !!data && data < hoje && data >= VENCIDA_DESDE && (parc ?? '').trim() === '1'
+
     // Linhas do relatório "Fluxo de Caixa": a pagar (Conf_Proc='DVQ') + a receber
     // (Próximas Medições), no mesmo formato.
     const aPagar = [
@@ -172,14 +183,19 @@ export default async function FechamentoBancoPage({
             contraparte: r.fornecedor, obs: r.obs_pag,
             data: r.data_pagamento ?? '', valor: Number(r.valor || 0),
         })),
-        ...aReceberRows.map(r => ({
-            tipo: 'receber' as const,
-            ...rotuloObra(r.obra),
-            numProc: null, numParc: r.num_parc_ger ? Number(r.num_parc_ger) || null : null, totalParcelas: null,
-            banco: null, conta: null,
-            contraparte: r.cliente, obs: r.hist_lanc_ven,
-            data: r.data_fim_contrato_ven ?? '', valor: Number(r.valor_prc || 0),
-        })),
+        ...aReceberRows.map(r => {
+            const original = r.data_fim_contrato_ven ?? ''
+            const vencida = ehVencidaRolavel(original, r.num_parc_ger)
+            return {
+                tipo: 'receber' as const,
+                ...rotuloObra(r.obra),
+                numProc: null, numParc: r.num_parc_ger ? Number(r.num_parc_ger) || null : null, totalParcelas: null,
+                banco: null, conta: null,
+                contraparte: r.cliente, obs: r.hist_lanc_ven,
+                data: vencida ? rolarPara : original, valor: Number(r.valor_prc || 0),
+                vencOriginal: vencida ? original : null,
+            }
+        }),
     ].sort((a, b) => a.data.localeCompare(b.data) || (a.obra || '').localeCompare(b.obra || ''))
 
     return (

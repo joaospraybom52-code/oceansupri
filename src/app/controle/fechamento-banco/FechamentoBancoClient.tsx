@@ -20,6 +20,8 @@ interface APagar {
     banco: number | null; conta: string | null
     contraparte: string | null; obs: string | null
     data: string; valor: number
+    /** Nota vencida e não recebida que foi empurrada para frente: data original. */
+    vencOriginal?: string | null
 }
 
 const brl = (v: number) =>
@@ -138,7 +140,11 @@ export default function FechamentoBancoClient({
                 || (a.numParc ?? 0) - (b.numParc ?? 0))
         const receber = linhas.filter(l => l.tipo === 'receber').reduce((s, l) => s + l.valor, 0)
         const pagar = linhas.filter(l => l.tipo === 'pagar').reduce((s, l) => s + l.valor, 0)
-        return { linhas, receber: r2(receber), pagar: r2(pagar), total: r2(receber - pagar) }
+        const vencidas = linhas.filter(l => l.vencOriginal)
+        return {
+            linhas, receber: r2(receber), pagar: r2(pagar), total: r2(receber - pagar),
+            vencidas: { qtd: vencidas.length, valor: r2(vencidas.reduce((s, l) => s + l.valor, 0)) },
+        }
     }, [aPagar, de, ate])
 
     const periodoLabel = fDe === fAte ? dmy(de) : `${dmy(de)} a ${dmy(ate)}`
@@ -232,6 +238,11 @@ export default function FechamentoBancoClient({
                                 A receber: <strong style={{ color: '#047857' }}>{brl(fluxo.receber)}</strong> ·
                                 {' '}A pagar: <strong style={{ color: '#B91C1C' }}>{brl(fluxo.pagar)}</strong> ·
                                 {' '}Saldo previsto: <strong style={corNeg(fluxo.total) ?? { color: '#047857' }}>{brlP(fluxo.total)}</strong>
+                            </div>
+                        )}
+                        {aba === 'fluxo' && fluxo.vencidas.qtd > 0 && (
+                            <div style={{ fontSize: '10.5px', color: '#B45309' }}>
+                                Inclui {fluxo.vencidas.qtd} nota{fluxo.vencidas.qtd === 1 ? '' : 's'} vencida{fluxo.vencidas.qtd === 1 ? '' : 's'} e não recebida{fluxo.vencidas.qtd === 1 ? '' : 's'} ({brl(fluxo.vencidas.valor)}), trazida{fluxo.vencidas.qtd === 1 ? '' : 's'} para a primeira data possível — parcela 1, vencimento a partir de 2026.
                             </div>
                         )}
                     </div>
@@ -385,13 +396,18 @@ export default function FechamentoBancoClient({
                                     const pagDia = r2(doDia.filter(x => x.tipo === 'pagar').reduce((s, x) => s + x.valor, 0))
                                     return (
                                         <React.Fragment key={i}>
-                                        <tr key={i} style={rec ? { background: '#f2fbf6' } : undefined}>
+                                        <tr key={i} style={l.vencOriginal ? { background: '#fffbeb' } : rec ? { background: '#f2fbf6' } : undefined}>
                                             <td style={{ ...td, textAlign: 'left' }}>{dmy(l.data)}</td>
                                             <td style={{ ...td, textAlign: 'left' }}>
                                                 <span style={{
                                                     display: 'inline-block', padding: '1px 7px', borderRadius: '9px', fontSize: '9px', fontWeight: 800,
                                                     background: rec ? '#dcfce7' : '#fee2e2', color: rec ? '#047857' : '#B91C1C',
                                                 }}>{rec ? 'RECEBER' : 'PAGAR'}</span>
+                                                {l.vencOriginal && (
+                                                    <div style={{ fontSize: '8px', fontWeight: 800, color: '#B45309', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                                                        VENCIDA {dmy(l.vencOriginal)}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obraLabel ? undefined : '#999' }}>{l.obraLabel || '—'}</td>
                                             <td style={{ ...td, textAlign: 'left' }}>{l.numProc ?? '—'}</td>
