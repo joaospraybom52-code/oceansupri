@@ -396,7 +396,12 @@ async function gravarPagoApagar(rows: any[]) {
     }
     const payload = Array.from(agg.values())
 
-    await supabase.from('controle_pago_apagar').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    // Se a exclusão falhar (o banco corta comando acima de 8s), NÃO grava: em
+    // 19/09/2026 a exclusão estourou o tempo, o erro foi ignorado e a carga nova
+    // entrou por cima da antiga — todo o Pago do Controle saiu em dobro. Lançando
+    // o erro, o ciclo cai na retentativa e tenta de novo do zero.
+    const { error: erroDel } = await supabase.from('controle_pago_apagar').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    if (erroDel) throw new Error('controle_pago_apagar delete: ' + erroDel.message)
 
     const CHUNK = 1000
     for (let i = 0; i < payload.length; i += CHUNK) {
@@ -429,7 +434,8 @@ async function gravarInsumoCliente(rows: any[]) {
         agg.set(key, cur)
     }
     const payload = Array.from(agg.values())
-    await supabase.from('controle_pago_insumo_cliente').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    const { error: erroDel } = await supabase.from('controle_pago_insumo_cliente').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    if (erroDel) throw new Error('controle_pago_insumo_cliente delete: ' + erroDel.message)
     const CHUNK = 1000
     for (let i = 0; i < payload.length; i += CHUNK) {
         const { error } = await supabase.from('controle_pago_insumo_cliente').insert(payload.slice(i, i + CHUNK))

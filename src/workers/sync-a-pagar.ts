@@ -107,7 +107,13 @@ async function gravar(rows: any[]) {
         valor: Number(r.ValPagar_proc || 0),
     }))
 
-    await supabase.from('contas_a_pagar').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    // Exclusão falhou (ex.: estourou os 8s do banco)? Não grava por cima da carga
+
+    // antiga — senão os valores saem em dobro. O erro leva à retentativa.
+
+    const { error: erroDel } = await supabase.from('contas_a_pagar').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+
+    if (erroDel) throw new Error('contas_a_pagar delete: ' + erroDel.message)
 
     const CHUNK = 1000
     for (let i = 0; i < payload.length; i += CHUNK) {

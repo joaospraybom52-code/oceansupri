@@ -66,7 +66,13 @@ async function gravarAReceber(rows: any[]) {
         cliente: r.Cliente != null ? r.Cliente.toString().trim() || null : null,
     }))
 
-    await supabase.from('controle_a_receber').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    // Exclusão falhou (ex.: estourou os 8s do banco)? Não grava por cima da carga
+
+    // antiga — senão os valores saem em dobro. O erro leva à retentativa.
+
+    const { error: erroDel } = await supabase.from('controle_a_receber').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+
+    if (erroDel) throw new Error('controle_a_receber delete: ' + erroDel.message)
 
     const CHUNK = 1000
     for (let i = 0; i < payload.length; i += CHUNK) {

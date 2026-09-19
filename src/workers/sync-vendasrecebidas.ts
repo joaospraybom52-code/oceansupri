@@ -53,7 +53,13 @@ async function gravarVendas(rows: any[]) {
         val_desconto_imposto_vrec: Number(r.ValDescontoImposto_vrec || 0),
     }))
 
-    await supabase.from('controle_vendasrecebidas').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    // Exclusão falhou (ex.: estourou os 8s do banco)? Não grava por cima da carga
+
+    // antiga — senão os valores saem em dobro. O erro leva à retentativa.
+
+    const { error: erroDel } = await supabase.from('controle_vendasrecebidas').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+
+    if (erroDel) throw new Error('controle_vendasrecebidas delete: ' + erroDel.message)
 
     const CHUNK = 1000
     for (let i = 0; i < payload.length; i += CHUNK) {

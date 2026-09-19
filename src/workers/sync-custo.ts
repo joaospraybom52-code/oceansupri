@@ -112,7 +112,10 @@ async function gravarVendas(obra: string, rows: any[]) {
         valor_tot: Number(r.valor_tot || 0), data_ven: toISODate(r.data_ven),
         hist_lanc: r.hist_lanc ? String(r.hist_lanc).trim() : null,
     }))
-    await supabase.from('vendas_uau').delete().eq('obra_ven', obra)
+    // Exclusão falhou (ex.: estourou os 8s do banco)? Não grava por cima da carga
+    // antiga — senão os valores saem em dobro. O erro leva à retentativa.
+    const { error: erroDel } = await supabase.from('vendas_uau').delete().eq('obra_ven', obra)
+    if (erroDel) throw new Error('vendas_uau delete: ' + erroDel.message)
     if (payload.length) {
         const { error } = await supabase.from('vendas_uau').insert(payload)
         if (error) throw new Error('vendas_uau insert: ' + error.message)
@@ -128,7 +131,10 @@ async function gravarCusto(obra: string, rows: any[]) {
         valor_aprov_ins: r.ValorAprovIns, saldo_vlr_vinc: r.SaldoVlrVinc, saldo_vlr_vinc_ins: r.SaldoVlrVincIns,
         data_inicial: r.DataInicial, data_final: r.DataFinal, ordem: i + 1,
     }))
-    await supabase.from('custo_uau').delete().eq('obra_plt', obra)
+    // Exclusão falhou (ex.: estourou os 8s do banco)? Não grava por cima da carga
+    // antiga — senão os valores saem em dobro. O erro leva à retentativa.
+    const { error: erroDel } = await supabase.from('custo_uau').delete().eq('obra_plt', obra)
+    if (erroDel) throw new Error('custo_uau delete: ' + erroDel.message)
     if (payload.length) {
         const { error } = await supabase.from('custo_uau').insert(payload)
         if (error) throw new Error('custo_uau insert: ' + error.message)
@@ -140,7 +146,10 @@ async function gravarMateriais(obra: string, rows: any[]) {
         obra_plt: r.obra_plt, item_plt: r.item_plt, serv_plt: r.serv_plt, ins_cins: String(r.ins_cins ?? ''),
         descr_ins: r.descr_ins, material: r.material, valor: Number(r.valor || 0),
     }))
-    await supabase.from('custo_materiais').delete().eq('obra_plt', obra)
+    // Exclusão falhou (ex.: estourou os 8s do banco)? Não grava por cima da carga
+    // antiga — senão os valores saem em dobro. O erro leva à retentativa.
+    const { error: erroDel } = await supabase.from('custo_materiais').delete().eq('obra_plt', obra)
+    if (erroDel) throw new Error('custo_materiais delete: ' + erroDel.message)
     if (payload.length) {
         const { error } = await supabase.from('custo_materiais').insert(payload)
         if (error) throw new Error('custo_materiais insert: ' + error.message)
