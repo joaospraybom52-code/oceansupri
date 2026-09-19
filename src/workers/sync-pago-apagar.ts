@@ -381,19 +381,11 @@ async function gravarPagoApagar(rows: any[]) {
     // vem por item/insumo/processo). As somas ficam idênticas.
     const agg = new Map<string, PagoAgg>()
     for (const r of rows) {
-        if (r.EmpresaResultado !== EMPRESA_CONSTROWINS) continue
-        const obraCrua = (r.Obra ?? '').toString().trim()
-        // Pagamento sem obra ou da obra DP (Departamento Pessoal): fica fora de
-        // todas as medidas por obra (regra do Power BI), mas É dinheiro que saiu.
-        // Vai com tipo próprio para o Fluxo de Caixa Diário bater com as contas
-        // pagas do UAU — conferido em 19/09/2026: eram R$ 3,03 mi em 130 dias.
-        const semObra = !obraCrua || obraCrua === 'DP'
-        if (semObra && r.TipoControle !== 'Despesas') continue
-        const obra = semObra ? (obraCrua || 'SEM OBRA') : obraCrua
+        if (r.EmpresaResultado !== EMPRESA_CONSTROWINS || r.Obra == null || r.Obra === 'DP') continue
+        const obra = r.Obra?.toString().trim() ?? null
         const data_movimento = toISODate(r.DataMovimento)
-        // Pagamento nominal ao fisco = imposto retido: sai das medidas normais
-        const tipo_controle = semObra ? 'DespesasSemObra'
-            : isImpostoRetido(r.Cliente) ? 'ImpostoRetido' : (r.TipoControle ?? null)
+        // Banco 1010 = imposto retido: sai das medidas normais
+        const tipo_controle = isImpostoRetido(r.Cliente) ? 'ImpostoRetido' : (r.TipoControle ?? null)
         const key = `${obra}|${data_movimento}|${tipo_controle}`
         const cur = agg.get(key) ?? { obra, data_movimento, tipo_controle, vlr_at_pago: 0, vlr_at_pagar: 0, vlr_comp: 0, total_receita: 0 }
         cur.vlr_at_pago += Number(r.VlrAtPago || 0)
