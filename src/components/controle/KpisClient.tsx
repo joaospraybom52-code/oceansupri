@@ -350,7 +350,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
             {/* Indicador Evolução + Balanço da Obra */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '24px', marginTop: '24px', alignItems: 'start' }}>
                 <IndicadorEvolucao valorVenda={valorVendaVGV} valorMedido={valorRecebidoBruto} valorFaturado={faturadoAReceber} />
-                <BalancoCard receita={totalRecebidoReal} despesa={totalPago + controleFinanceiroSaida + impostoSimples} />
+                <BalancoCard receita={totalRecebidoReal} despesa={totalPago + impostoSimples} />
             </div>
 
             {/* Gráfico ao lado do Próximas Medições (mesma divisão pra alinhar) */}
@@ -431,7 +431,10 @@ function MultiSelect({ options, selected, onChange, placeholder, minWidth }: {
 
 
 // Card "Balanço da Obra" (medida Margem de Contribuição).
-// Saldo = Receita (Total Recebido Real) - Despesa (Total Pago + Controle Financeiro Saída).
+// Saldo = Receita (Total Recebido Real) - Despesa (Total Pago + Imposto Simples
+// estimado). O Controle Financeiro Saída (aplicações, empréstimos e
+// transferências) saiu da conta em 20/09/2026: não é custo, é dinheiro de banco
+// indo e voltando. Ele continua no Total Comprometido Obra.
 // Verde + animação "breathe" se >= 0; vermelho + "shake" se < 0.
 function BalancoCard({ receita, despesa }: { receita: number; despesa: number }) {
     const saldo = receita - despesa
