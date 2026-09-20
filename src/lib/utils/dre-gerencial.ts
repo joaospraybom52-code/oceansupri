@@ -1,0 +1,196 @@
+import { categoriaFinanceira } from './insumos-financeiros'
+
+// DRE Gerencial (módulo Controle) — regime de CAIXA, mês a mês.
+// Estrutura definida pela diretoria em 19/09/2026 (linhas 1 a 12).
+
+/** Obras que são estrutura, não obra: entram no custo fixo, não no variável. */
+export const OBRAS_SEDE = ['SD003', 'SD004', 'SD005', 'ADMCO', 'DRT02', 'DRT03', 'DRT04']
+
+/** A série começa em jan/2026 por decisão da diretoria. */
+export const DRE_INICIO = '2026-01'
+
+export interface RecebidoRow {
+    obra_rec: string | null
+    num_vend: number | null
+    data_rec: string | null
+    tot_conf: number | null
+    tot_desc: number | null
+    tot_princ: number | null
+}
+export interface VendaRecRow {
+    obra_vrec: string | null
+    num_vend: number | null
+    val_desconto_imposto_vrec: number | null
+}
+export interface PagoInsumoRow {
+    obra: string | null
+    descrinsumo: string | null
+    data_movimento: string | null
+    vlr_at_pago: number | null
+}
+export interface ImpostoPagoRow {
+    item: string | null
+    cliente: string | null
+    data_movimento: string | null
+    valor: number | null
+}
+
+export type TipoLinhaDre = 'valor' | 'subtotal' | 'resultado'
+
+export interface LinhaDre {
+    n: number
+    rotulo: string
+    detalhe?: string
+    tipo: TipoLinhaDre
+    valores: Record<string, number>
+    total: number
+}
+
+const ym = (d: string | null | undefined) => (d ?? '').slice(0, 7)
+const norm = (s: string | null | undefined) =>
+    (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+
+/** Pagamento do Simples federal: item IMPOSTOS SIMPLES nominal ao fisco federal. */
+export const ehSimplesFederal = (r: ImpostoPagoRow) => {
+    const item = norm(r.item), cli = norm(r.cliente)
+    return item.includes('IMPOSTOS SIMPLES')
+        && (cli.includes('MINISTERIO DA FAZ') || cli.includes('REC. FEDERAL'))
+}
+
+/**
+ * ISS + INSS retidos na nota, por mês de recebimento.
+ *
+ * O imposto é da VENDA e o recebimento vem em parcelas, então ele é rateado
+ * pelo principal recebido: parcela que representa 40% do principal da venda
+ * leva 40% do imposto. Casamento por CONTRATO (obra + número da venda) — o
+ * Power BI casava por valor (TotPrinc = ValProvisaoCurto) e errava quando duas
+ * vendas tinham o mesmo valor; em 2026 a diferença era de R$ 84,5 mil.
+ */
+export function impostoRetidoPorMes(recebido: RecebidoRow[], vendas: VendaRecRow[]): Record<string, number> {
+    const chave = (obra: string | null, num: number | null) => `${(obra ?? '').trim().toUpperCase()}|${num ?? ''}`
+
+    const impostoDaVenda = new Map<string, number>()
+    for (const v of vendas) {
+        if (v.num_vend == null) continue
+        const k = chave(v.obra_vrec, v.num_vend)
+        impostoDaVenda.set(k, (impostoDaVenda.get(k) ?? 0) + Number(v.val_desconto_imposto_vrec || 0))
+    }
+
+    const principalDaVenda = new Map<string, number>()
+    for (const r of recebido) {
+        if (r.num_vend == null) continue
+        const k = chave(r.obra_rec, r.num_vend)
+        principalDaVenda.set(k, (principalDaVenda.get(k) ?? 0) + Number(r.tot_princ || 0))
+    }
+
+    const porMes: Record<string, number> = {}
+    for (const r of recebido) {
+        if (r.num_vend == null) continue
+        const k = chave(r.obra_rec, r.num_vend)
+        const imposto = impostoDaVenda.get(k)
+        const principal = principalDaVenda.get(k)
+        if (!imposto || !principal) continue
+        const mes = ym(r.data_rec)
+        if (!mes) continue
+        porMes[mes] = (porMes[mes] ?? 0) + imposto * (Number(r.tot_princ || 0) / principal)
+    }
+    return porMes
+}
+
+export interface DadosDre {
+    recebido: RecebidoRow[]
+    vendas: VendaRecRow[]
+    pagoInsumo: PagoInsumoRow[]
+    impostosPagos: ImpostoPagoRow[]
+}
+
+/** Monta as 12 linhas da DRE, uma coluna por mês (a partir de DRE_INICIO). */
+export function calcularDre({ recebido, vendas, pagoInsumo, impostosPagos }: DadosDre): {
+    meses: string[]
+    linhas: LinhaDre[]
+} {
+    const somar = (mapa: Record<string, number>, mes: string, v: number) => {
+        if (!mes || mes < DRE_INICIO) return
+        mapa[mes] = (mapa[mes] ?? 0) + v
+    }
+
+    const recebidoLiquido: Record<string, number> = {}   // TotConf + TotDesc
+    const descontos: Record<string, number> = {}         // TotDesc (antecipação)
+    for (const r of recebido) {
+        const mes = ym(r.data_rec)
+        somar(recebidoLiquido, mes, Number(r.tot_conf || 0) + Number(r.tot_desc || 0))
+        somar(descontos, mes, Number(r.tot_desc || 0))
+    }
+
+    const retido = impostoRetidoPorMes(recebido, vendas)
+
+    const custoVariavel: Record<string, number> = {}
+    const custoFixo: Record<string, number> = {}
+    const juros: Record<string, number> = {}
+    for (const p of pagoInsumo) {
+        const mes = ym(p.data_movimento)
+        const valor = Number(p.vlr_at_pago || 0)
+        const categoria = categoriaFinanceira(p.descrinsumo)
+        if (categoria === 'juros') { somar(juros, mes, valor); continue }
+        if (categoria) continue                       // empréstimo, tarifa e consórcio não são custo
+        const obra = (p.obra ?? '').trim().toUpperCase()
+        somar(OBRAS_SEDE.includes(obra) ? custoFixo : custoVariavel, mes, valor)
+    }
+
+    const simplesFederal: Record<string, number> = {}
+    for (const i of impostosPagos) {
+        if (!ehSimplesFederal(i)) continue
+        somar(simplesFederal, ym(i.data_movimento), Number(i.valor || 0))
+    }
+
+    // Só meses com movimento: a tabela do pago carrega parcelas a vencer lá na
+    // frente (com pago zerado) e elas criariam colunas vazias até 2028.
+    const fontes = [recebidoLiquido, custoVariavel, custoFixo, juros, simplesFederal, retido, descontos]
+    const meses = Array.from(new Set(fontes.flatMap(f => Object.keys(f))))
+        .filter(m => m >= DRE_INICIO && fontes.some(f => Math.abs(f[m] ?? 0) > 0.005))
+        .sort()
+
+    const porMes = (f: (mes: string) => number): Record<string, number> => {
+        const out: Record<string, number> = {}
+        for (const m of meses) out[m] = f(m)
+        return out
+    }
+    const v = (mapa: Record<string, number>) => (mes: string) => mapa[mes] ?? 0
+
+    // 1 — o bruto devolve o imposto retido na nota (e o desconto dado)
+    const faturamento = porMes(m => (recebidoLiquido[m] ?? 0) + (retido[m] ?? 0))
+    const custosVariaveis = porMes(v(custoVariavel))
+    const impostos = porMes(m => (retido[m] ?? 0) + (simplesFederal[m] ?? 0))
+    const margem = porMes(m => faturamento[m] - custosVariaveis[m] - impostos[m])
+    const fixo = porMes(v(custoFixo))
+    const ebitda = porMes(m => margem[m] - fixo[m])
+    const depreciacao = porMes(() => 0)
+    const operacional = porMes(m => ebitda[m] - depreciacao[m])
+    const financeiras = porMes(m => (juros[m] ?? 0) + (descontos[m] ?? 0))
+    const antesIR = porMes(m => operacional[m] - financeiras[m])
+    const irpj = porMes(() => 0)
+    const lucro = porMes(m => antesIR[m] - irpj[m])
+
+    const linha = (n: number, rotulo: string, tipo: TipoLinhaDre, valores: Record<string, number>, detalhe?: string): LinhaDre => ({
+        n, rotulo, tipo, valores, detalhe,
+        total: meses.reduce((s, m) => s + (valores[m] ?? 0), 0),
+    })
+
+    return {
+        meses,
+        linhas: [
+            linha(1, 'FATURAMENTO BRUTO', 'subtotal', faturamento, 'Recebido no caixa, com o imposto retido devolvido'),
+            linha(2, '(−) Custos variáveis diretos', 'valor', custosVariaveis, 'Pago das obras, sem as obras de estrutura e sem financeiros'),
+            linha(3, '(−) Impostos sobre faturamento', 'valor', impostos, 'ISS + INSS retidos na nota e Simples federal pago'),
+            linha(4, '= MARGEM DE CONTRIBUIÇÃO', 'subtotal', margem),
+            linha(5, '(−) Custo fixo (sede)', 'valor', fixo, OBRAS_SEDE.join(', ')),
+            linha(6, '= EBITDA', 'subtotal', ebitda),
+            linha(7, '(−) Depreciação e amortização', 'valor', depreciacao, 'Sem informação por enquanto'),
+            linha(8, '= RESULTADO OPERACIONAL', 'subtotal', operacional),
+            linha(9, '(−) Despesas financeiras', 'valor', financeiras, 'Juros e taxas de antecipação (tarifas bancárias ainda fora)'),
+            linha(10, '= RESULTADO ANTES DO IR', 'subtotal', antesIR),
+            linha(11, '(−) IRPJ e CSLL', 'valor', irpj, 'Sem informação por enquanto'),
+            linha(12, '= LUCRO LÍQUIDO', 'resultado', lucro),
+        ],
+    }
+}

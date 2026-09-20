@@ -33,7 +33,7 @@ const sqlConfig: sql.config = {
 
 
 const queryVendas = `
-SELECT Obra_VRec, Data_VRec, ValProvisaoCurto_Vrec, ValDescontoImposto_vrec
+SELECT Obra_VRec, Num_VRec, ValorTot_VRec, Data_VRec, ValProvisaoCurto_Vrec, ValDescontoImposto_vrec
 FROM VendasRecebidas WITH(NOLOCK)
 WHERE Data_VRec > '2024-11-30' AND Obra_VRec <> 'DP'
 `
@@ -48,6 +48,8 @@ function toISODate(d: any): string | null {
 async function gravarVendas(rows: any[]) {
     const payload = rows.map(r => ({
         obra_vrec: r.Obra_VRec?.toString().trim() ?? null,
+        num_vend: r.Num_VRec != null ? Number(r.Num_VRec) : null,
+        valor_tot: Number(r.ValorTot_VRec || 0),
         data_vrec: toISODate(r.Data_VRec),
         val_provisao_curto_vrec: Number(r.ValProvisaoCurto_Vrec || 0),
         val_desconto_imposto_vrec: Number(r.ValDescontoImposto_vrec || 0),

@@ -465,6 +465,36 @@ async function executarConsulta(): Promise<any[]> {
     }
 }
 
+// Pagamentos ao FISCO, que as outras tabelas descartam. Aqui eles ficam com o
+// ITEM (ex.: 'IN0001 - IMPOSTOS SIMPLES') e o FAVORECIDO (ex.: 'MINISTERIO DA
+// FAZ./ SEC. DA REC. FEDERAL'), que a consulta traz e ninguém guardava — é o que
+// permite a DRE Gerencial separar o Simples federal do ISSQN da prefeitura.
+async function gravarImpostosPagos(rows: any[]) {
+    const agg = new Map<string, { obra: string | null; data_movimento: string | null; item: string | null; cliente: string | null; valor: number }>()
+    for (const r of rows) {
+        if (r.EmpresaResultado !== EMPRESA_CONSTROWINS) continue
+        if (r.TipoControle !== 'Despesas' || !isImpostoRetido(r.Cliente)) continue
+        const dm = toISODate(r.DataMovimento)
+        const data_movimento = dm ? `${dm.slice(0, 7)}-01` : null   // grão mensal
+        const obra = r.Obra != null ? r.Obra.toString().trim() : null
+        const item = r.Item != null ? r.Item.toString().trim() : null
+        const cliente = r.Cliente != null ? r.Cliente.toString().trim() : null
+        const key = `${obra}|||${data_movimento}|||${item}|||${cliente}`
+        const cur = agg.get(key) ?? { obra, data_movimento, item, cliente, valor: 0 }
+        cur.valor += Number(r.VlrAtPago || 0)
+        agg.set(key, cur)
+    }
+    const payload = Array.from(agg.values()).filter(x => x.valor !== 0)
+    const { error: erroDel } = await supabase.from('controle_impostos_pagos').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    if (erroDel) throw new Error('controle_impostos_pagos delete: ' + erroDel.message)
+    const CHUNK = 1000
+    for (let i = 0; i < payload.length; i += CHUNK) {
+        const { error } = await supabase.from('controle_impostos_pagos').insert(payload.slice(i, i + CHUNK))
+        if (error) throw new Error('controle_impostos_pagos insert: ' + error.message)
+    }
+    return payload.length
+}
+
 async function ciclo() {
     console.log(`[PAGO] [${new Date().toISOString()}] Iniciando atualização...`)
     const MAX = 3
@@ -474,7 +504,8 @@ async function ciclo() {
             const rows = await executarConsulta()
             const n = await gravarPagoApagar(rows)
             const nic = await gravarInsumoCliente(rows)
-            console.log(`[PAGO] OK: ${rows.length} lidas, ${n} pago_apagar, ${nic} insumo_cliente (Empresa 4 / Obra válida).`)
+            const nimp = await gravarImpostosPagos(rows)
+            console.log(`[PAGO] OK: ${rows.length} lidas, ${n} pago_apagar, ${nic} insumo_cliente, ${nimp} impostos_pagos (Empresa 4 / Obra válida).`)
             return
         } catch (e: any) {
             ultimoErro = e
