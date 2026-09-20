@@ -5,6 +5,7 @@ import { CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react'
 import { LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import MultiSearchSelect from '@/components/ui/MultiSearchSelect'
 import { ehInsumoFinanceiro } from '@/lib/utils/insumos-financeiros'
+import { impostoRetidoDeRecebimentos } from '@/lib/utils/dre-gerencial'
 
 interface Obra {
     id: string
@@ -15,6 +16,7 @@ interface Obra {
 
 interface RecebidoRow {
     obra_rec: string | null
+    num_vend: number | null
     tot_conf: number | null
     data_rec: string | null // YYYY-MM-DD
     tot_desc: number | null
@@ -22,6 +24,8 @@ interface RecebidoRow {
 }
 
 interface VendasRecRow {
+    obra_vrec: string | null
+    num_vend: number | null
     val_provisao_curto_vrec: number | null
     val_desconto_imposto_vrec: number | null
 }
@@ -155,20 +159,17 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     const descontos = useMemo(() => recebidoFiltrado
         .reduce((s, r) => s + Number(r.tot_desc || 0), 0), [recebidoFiltrado])
 
-    // Valor Recebido Bruto =
-    //   ( SUM(TotConf) + SUM(TotDesc) )
-    //   + CALCULATE( SUM(vendasrecebidas[ValDescontoImposto_vrec]),
-    //               TREATAS( VALUES(recebido[TotPrinc]), vendasrecebidas[ValProvisaoCurto_Vrec] ) )
-    // O TREATAS soma o desconto de imposto das vendas cujo ValProvisaoCurto
-    // coincide (valor) com algum TotPrinc do recebido no contexto atual.
+    // Valor Recebido Bruto = ( SUM(TotConf) + SUM(TotDesc) ) + imposto retido na nota.
+    //
+    // O imposto vem da VENDA e é ligado ao recebimento por CONTRATO — obra +
+    // número da venda —, rateado entre as parcelas pelo principal recebido. O
+    // Power BI ligava por VALOR (TREATAS de TotPrinc com ValProvisaoCurto), o que
+    // errava quando duas vendas tinham o mesmo valor: em 2026 faltavam R$ 84,5 mil.
+    // O mês continua sendo o do recebimento, igual ao Total Recebido Real.
     const valorRecebidoBruto = useMemo(() => {
         const somaRecebido = recebidoFiltrado.reduce((s, r) => s + Number(r.tot_conf || 0) + Number(r.tot_desc || 0), 0)
-        const setTotPrinc = new Set(recebidoFiltrado.map(r => Number(r.tot_princ || 0).toFixed(2)))
-        const somaDescImposto = vendasrec
-            .filter(v => setTotPrinc.has(Number(v.val_provisao_curto_vrec || 0).toFixed(2)))
-            .reduce((s, v) => s + Number(v.val_desconto_imposto_vrec || 0), 0)
-        return somaRecebido + somaDescImposto
-    }, [recebidoFiltrado, vendasrec])
+        return somaRecebido + impostoRetidoDeRecebimentos(recebidoFiltrado, recebido, vendasrec)
+    }, [recebidoFiltrado, recebido, vendasrec])
 
     // pagoIC = o pago aberto por INSUMO, filtrado por obra + período.
     const pagoICFiltrado = useMemo(() => pagoIC.filter(r =>

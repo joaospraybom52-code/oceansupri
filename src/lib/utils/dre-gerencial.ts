@@ -66,33 +66,59 @@ export const ehSimplesFederal = (r: ImpostoPagoRow) => {
  * Power BI casava por valor (TotPrinc = ValProvisaoCurto) e errava quando duas
  * vendas tinham o mesmo valor; em 2026 a diferença era de R$ 84,5 mil.
  */
-export function impostoRetidoPorMes(recebido: RecebidoRow[], vendas: VendaRecRow[]): Record<string, number> {
-    const chave = (obra: string | null, num: number | null) => `${(obra ?? '').trim().toUpperCase()}|${num ?? ''}`
+const chaveVenda = (obra: string | null | undefined, num: number | null | undefined) =>
+    `${(obra ?? '').trim().toUpperCase()}|${num ?? ''}`
 
+/**
+ * Quanto de imposto retido cabe a CADA parcela recebida.
+ *
+ * `recebidoCompleto` é sempre a lista inteira, mesmo quando só um pedaço
+ * interessa: o rateio precisa do principal TOTAL da venda, senão uma venda com
+ * parcela fora do filtro levaria imposto demais.
+ */
+export function impostoRetidoPorParcela(
+    recebidoCompleto: RecebidoRow[], vendas: VendaRecRow[],
+): (r: RecebidoRow) => number {
     const impostoDaVenda = new Map<string, number>()
     for (const v of vendas) {
         if (v.num_vend == null) continue
-        const k = chave(v.obra_vrec, v.num_vend)
+        const k = chaveVenda(v.obra_vrec, v.num_vend)
         impostoDaVenda.set(k, (impostoDaVenda.get(k) ?? 0) + Number(v.val_desconto_imposto_vrec || 0))
     }
 
     const principalDaVenda = new Map<string, number>()
-    for (const r of recebido) {
+    for (const r of recebidoCompleto) {
         if (r.num_vend == null) continue
-        const k = chave(r.obra_rec, r.num_vend)
+        const k = chaveVenda(r.obra_rec, r.num_vend)
         principalDaVenda.set(k, (principalDaVenda.get(k) ?? 0) + Number(r.tot_princ || 0))
     }
 
-    const porMes: Record<string, number> = {}
-    for (const r of recebido) {
-        if (r.num_vend == null) continue
-        const k = chave(r.obra_rec, r.num_vend)
+    return (r: RecebidoRow) => {
+        if (r.num_vend == null) return 0
+        const k = chaveVenda(r.obra_rec, r.num_vend)
         const imposto = impostoDaVenda.get(k)
         const principal = principalDaVenda.get(k)
-        if (!imposto || !principal) continue
+        if (!imposto || !principal) return 0
+        return imposto * (Number(r.tot_princ || 0) / principal)
+    }
+}
+
+/** Soma do imposto retido das parcelas escolhidas (ex.: as do filtro da KPI'S). */
+export function impostoRetidoDeRecebimentos(
+    recebidoSelecionado: RecebidoRow[], recebidoCompleto: RecebidoRow[], vendas: VendaRecRow[],
+): number {
+    const daParcela = impostoRetidoPorParcela(recebidoCompleto, vendas)
+    return recebidoSelecionado.reduce((s, r) => s + daParcela(r), 0)
+}
+
+export function impostoRetidoPorMes(recebido: RecebidoRow[], vendas: VendaRecRow[]): Record<string, number> {
+    const daParcela = impostoRetidoPorParcela(recebido, vendas)
+    const porMes: Record<string, number> = {}
+    for (const r of recebido) {
         const mes = ym(r.data_rec)
-        if (!mes) continue
-        porMes[mes] = (porMes[mes] ?? 0) + imposto * (Number(r.tot_princ || 0) / principal)
+        const v = daParcela(r)
+        if (!mes || !v) continue
+        porMes[mes] = (porMes[mes] ?? 0) + v
     }
     return porMes
 }

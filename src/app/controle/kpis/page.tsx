@@ -4,6 +4,7 @@ import KpisClient from '@/components/controle/KpisClient'
 export const dynamic = 'force-dynamic'
 
 interface RecebidoRow {
+    num_vend: number | null
     obra_rec: string | null
     tot_conf: number | null
     data_rec: string | null
@@ -12,6 +13,8 @@ interface RecebidoRow {
 }
 
 interface VendasRecRow {
+    obra_vrec: string | null
+    num_vend: number | null
     val_provisao_curto_vrec: number | null
     val_desconto_imposto_vrec: number | null
 }
@@ -85,9 +88,9 @@ export default async function KpisPage() {
     // Obras + tabelas-fato espelhadas do UAU — tudo em paralelo.
     const [obrasRes, recebido, pago, vendasrec, areceber, vgv, pagoIC] = await Promise.all([
         supabase.from('obras').select('id, nome, codigo, cidade').eq('ativo', true).order('nome', { ascending: true }),
-        fetchAll<RecebidoRow>(supabase, 'controle_recebido', 'obra_rec, tot_conf, data_rec, tot_desc, tot_princ'),
+        fetchAll<RecebidoRow>(supabase, 'controle_recebido', 'obra_rec, num_vend, tot_conf, data_rec, tot_desc, tot_princ'),
         fetchAll<PagoRow>(supabase, 'controle_pago_apagar', 'obra, data_movimento, tipo_controle, vlr_at_pago, vlr_at_pagar, vlr_comp, total_receita'),
-        fetchAll<VendasRecRow>(supabase, 'controle_vendasrecebidas', 'val_provisao_curto_vrec, val_desconto_imposto_vrec'),
+        fetchAll<VendasRecRow>(supabase, 'controle_vendasrecebidas', 'obra_vrec, num_vend, val_provisao_curto_vrec, val_desconto_imposto_vrec'),
         fetchAll<AReceberRow>(supabase, 'controle_a_receber', 'obra, data_prc, num_parc_ger, val_provisao_curto_ven, val_desconto_imposto_ven, valor_prc, data_fim_contrato_ven, hist_lanc_ven, data_ven'),
         fetchAll<VgvRow>(supabase, 'controle_vgv', 'codigo_obra, ano, valor_venda'),
         fetchAll<PagoICRow>(supabase, 'controle_pago_insumo_cliente', 'obra, descrinsumo, cliente, data_movimento, vlr_at_pagar, vlr_at_pago'),
