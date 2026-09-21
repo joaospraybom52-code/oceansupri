@@ -230,8 +230,9 @@ export function calcularDre({ recebido, vendas, pagoInsumo, impostosPagos, pagoM
     const operacional = porMes(m => ebitda[m] - depreciacao[m])
     const financeiras = porMes(m => (juros[m] ?? 0) + (descontos[m] ?? 0))
     const antesIR = porMes(m => operacional[m] - financeiras[m])
-    const irpj = porMes(() => 0)
-    const lucro = porMes(m => antesIR[m] - irpj[m])
+    // Sem linha de IRPJ/CSLL: no Simples eles já estão dentro do DAS, que entra
+    // na linha 3 (decisão da diretoria, 21/09/2026). Lucro = resultado antes do IR.
+    const lucro = porMes(m => antesIR[m])
 
     const linha = (n: number, rotulo: string, tipo: TipoLinhaDre, valores: Record<string, number>, detalhe?: string): LinhaDre => ({
         n, rotulo, tipo, valores, detalhe,
@@ -251,8 +252,7 @@ export function calcularDre({ recebido, vendas, pagoInsumo, impostosPagos, pagoM
             linha(8, '= RESULTADO OPERACIONAL', 'subtotal', operacional),
             linha(9, '(−) Despesas financeiras', 'valor', financeiras, 'Juros (pelo item) e taxas de antecipação — tarifas bancárias ainda fora'),
             linha(10, '= RESULTADO ANTES DO IR', 'subtotal', antesIR),
-            linha(11, '(−) IRPJ e CSLL', 'valor', irpj, 'Sem informação por enquanto'),
-            linha(12, '= LUCRO LÍQUIDO', 'resultado', lucro),
+            linha(11, '= LUCRO LÍQUIDO', 'resultado', lucro),
         ],
     }
 }

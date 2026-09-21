@@ -479,7 +479,7 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px', lineHeight: 1.6 }}>
                 Clique numa linha para ver o detalhe do ano, ou num valor para ver só aquele mês.
                 As linhas de dedução aparecem em vermelho e já entram subtraindo nos subtotais.
-                Depreciação (7) e IRPJ/CSLL (11) estão zeradas por falta de informação, e as tarifas
+                Depreciação (7) está zerada por falta de informação; IRPJ e CSLL já estão dentro do Simples (linha 3). As tarifas
                 bancárias ainda não entram nas despesas financeiras (9).
             </p>
         </div>
