@@ -1,9 +1,9 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
-import { BarChart3, Wallet, X, RotateCcw } from 'lucide-react'
+import { BarChart3, Wallet, X, RotateCcw, Gauge } from 'lucide-react'
 import {
-    CICLO_PADRAO, custoDiarioMedio, diasDoCiclo,
+    CICLO_PADRAO, custoDiarioMedio, diasDoCiclo, calcularGao, gaoPorMes,
     type CicloNcg, type LinhaDre,
 } from '@/lib/utils/dre-gerencial'
 
@@ -40,6 +40,16 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
     const base = useMemo(() => custoDiarioMedio(linhas, mesesAno), [linhas, mesesAno])
     const dias = diasDoCiclo(ciclo)
     const ncg = dias * base.custoDiario
+
+    const [showGao, setShowGao] = useState(false)
+    const gao = useMemo(() => calcularGao(linhas, mesesAno), [linhas, mesesAno])
+    const gaoMeses = useMemo(() => gaoPorMes(linhas, mesesAno), [linhas, mesesAno])
+    const custoFixoAno = useMemo(
+        () => mesesAno.reduce((s, m) => s + (linhas.find(l => l.n === 5)?.valores[m] ?? 0), 0),
+        [linhas, mesesAno])
+    // Perto de 1 é folgado; quanto mais alto, mais a sede come a margem.
+    const corGao = (v: number | null) => v == null ? 'var(--text-muted)' : v <= 2 ? '#10b981' : v <= 4 ? '#f59e0b' : '#ef4444'
+    const num = (v: number, casas = 2) => v.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 
     const th: React.CSSProperties = {
         padding: '10px 12px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
@@ -210,6 +220,116 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
                                 <RotateCcw size={14} /> Voltar ao padrão ({CICLO_PADRAO.execucao}/{CICLO_PADRAO.recebimento}/{CICLO_PADRAO.pagamento})
                             </button>
                             <button onClick={() => setShowNcg(false)} className="btn-primary" style={{ padding: '8px 16px', fontSize: '13px' }}>Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* GAO — grau de alavancagem operacional */}
+            <div
+                onClick={() => setShowGao(true)}
+                className="glass-card"
+                style={{ marginTop: '16px', padding: '20px 24px', cursor: 'pointer', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}
+                title="Clique para entender o indicador"
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Gauge size={22} color={corGao(gao.gao)} />
+                    <div>
+                        <div style={{ fontSize: '15px', fontWeight: 700 }}>GAO — Grau de Alavancagem Operacional</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {gao.gao == null
+                                ? `Resultado operacional negativo em ${ano} — o indicador não se aplica`
+                                : `Margem de contribuição ÷ resultado operacional · faturamento pode cair ${num(gao.margemSeguranca! * 100, 1)}% antes do prejuízo`}
+                        </div>
+                    </div>
+                </div>
+                <div style={{ fontSize: '26px', fontWeight: 800, color: corGao(gao.gao) }}>
+                    {gao.gao == null ? '—' : num(gao.gao)}
+                </div>
+            </div>
+
+            {showGao && (
+                <div
+                    onClick={() => setShowGao(false)}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}
+                >
+                    <div onClick={e => e.stopPropagation()} className="glass-card" style={{ padding: '24px', width: '620px', maxWidth: '100%', maxHeight: '86vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '6px' }}>
+                            <h3 style={{ fontSize: '17px', fontWeight: 800, margin: 0 }}>GAO — Grau de Alavancagem Operacional</h3>
+                            <button onClick={() => setShowGao(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={18} /></button>
+                        </div>
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 12px' }}>
+                            Mostra quanto do que a empresa ganha nas obras sobra depois de pagar a estrutura.
+                            É a <b>margem de contribuição dividida pelo resultado operacional</b>.
+                        </p>
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 12px' }}>
+                            <b>Quanto mais perto de 1, melhor.</b> Perto de 1, quase toda a margem das obras vira
+                            resultado. Quando o número sobe, é sinal de que se fatura muito, gasta-se muito com a
+                            estrutura e sobra pouco lucro operacional — a empresa fica frágil, porque uma queda pequena
+                            no faturamento derruba o resultado rápido.
+                        </p>
+
+                        <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '14px 16px', fontSize: '13px', lineHeight: 1.9, marginBottom: '14px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>Margem de contribuição em {ano}</span>
+                                <span><b>{fmt(gao.mc)}</b></span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>(−) Custo fixo da sede</span>
+                                <span><b>{fmt(custoFixoAno)}</b> <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({gao.mc ? num(custoFixoAno / gao.mc * 100, 0) : '—'}% da margem)</span></span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)' }}>= Resultado operacional</span>
+                                <span><b>{fmt(gao.ro)}</b></span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-glass)', marginTop: '8px', paddingTop: '8px' }}>
+                                <span style={{ fontWeight: 700 }}>GAO</span>
+                                <span style={{ fontWeight: 800, fontSize: '17px', color: corGao(gao.gao) }}>
+                                    {gao.gao == null ? '—' : num(gao.gao)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {gao.gao != null && (
+                            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 14px' }}>
+                                Hoje cada 1% a mais de faturamento aumenta o resultado operacional em cerca de{' '}
+                                <b>{num(gao.gao, 1)}%</b> — e cada 1% a menos derruba na mesma proporção. Na prática, o
+                                faturamento pode cair até <b>{num(gao.margemSeguranca! * 100, 1)}%</b> antes de a empresa
+                                entrar no prejuízo operacional.
+                            </p>
+                        )}
+
+                        <div style={{ fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Mês a mês</div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr>
+                                    <th style={{ ...th, textAlign: 'left', position: 'static' }}>Mês</th>
+                                    <th style={{ ...th, position: 'static' }}>Margem de contrib.</th>
+                                    <th style={{ ...th, position: 'static' }}>Result. operacional</th>
+                                    <th style={{ ...th, position: 'static', width: '70px' }}>GAO</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {gaoMeses.map(g => (
+                                    <tr key={g.mes} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <td style={{ ...td, textAlign: 'left' }}>{mesLabel(g.mes)}</td>
+                                        <td style={{ ...td, color: g.mc >= 0 ? undefined : '#ef4444' }}>{fmt(g.mc)}</td>
+                                        <td style={{ ...td, color: g.ro >= 0 ? undefined : '#ef4444' }}>{fmt(g.ro)}</td>
+                                        <td style={{ ...td, fontWeight: 700, color: corGao(g.gao) }}>
+                                            {g.gao == null ? '—' : num(g.gao)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '10px 0 0' }}>
+                            O traço aparece nos meses em que o resultado operacional foi negativo: ali o indicador não
+                            tem leitura, porque margem e resultado negativos se cancelam e o número sairia bonito num
+                            mês de prejuízo.
+                        </p>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+                            <button onClick={() => setShowGao(false)} className="btn-primary" style={{ padding: '8px 16px', fontSize: '13px' }}>Fechar</button>
                         </div>
                     </div>
                 </div>

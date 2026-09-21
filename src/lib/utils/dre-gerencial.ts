@@ -252,3 +252,34 @@ export function custoDiarioMedio(linhas: LinhaDre[], meses: string[], hoje = new
     const total = mesesUsados.reduce((s, m) => s + doCusto.reduce((t, l) => t + (l.valores[m] ?? 0), 0), 0)
     return { custoDiario: dias ? total / dias : 0, dias, total, mesesUsados }
 }
+
+// ── GAO (Grau de Alavancagem Operacional) ────────────────────────────────────
+// GAO = Margem de contribuição (linha 4) / Resultado operacional (linha 8).
+// Como RO = MC − custo fixo, o indicador mede o peso do custo fixo sobre a
+// margem: perto de 1 o custo fixo é leve e quase toda a margem vira resultado;
+// alto, a sede come a margem e o resultado fica apertado (mais risco).
+// A margem de segurança é 1/GAO — o quanto o faturamento pode cair antes do
+// prejuízo operacional.
+//
+// Só faz sentido com resultado operacional POSITIVO: no prejuízo os dois
+// números ficam negativos, o sinal se cancela e o indicador engana (março/2026
+// daria 0,20, parecendo ótimo, num mês de quase R$ 1 milhão de prejuízo).
+export interface Gao {
+    mc: number
+    ro: number
+    gao: number | null
+    margemSeguranca: number | null
+}
+
+const somaLinha = (linhas: LinhaDre[], n: number, meses: string[]) =>
+    meses.reduce((s, m) => s + (linhas.find(l => l.n === n)?.valores[m] ?? 0), 0)
+
+export function calcularGao(linhas: LinhaDre[], meses: string[]): Gao {
+    const mc = somaLinha(linhas, 4, meses)
+    const ro = somaLinha(linhas, 8, meses)
+    const valido = ro > 0 && mc > 0
+    return { mc, ro, gao: valido ? mc / ro : null, margemSeguranca: valido ? ro / mc : null }
+}
+
+export const gaoPorMes = (linhas: LinhaDre[], meses: string[]): (Gao & { mes: string })[] =>
+    meses.map(m => ({ mes: m, ...calcularGao(linhas, [m]) }))
