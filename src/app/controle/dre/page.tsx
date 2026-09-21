@@ -30,6 +30,7 @@ export default async function DreSedePage() {
         const { data: rows } = await supabase
             .from('controle_recebido')
             .select('obra_rec, data_rec, tot_conf')
+            .order('id', { ascending: true })   // sem ordem, as páginas repetem/pulam linhas
             .range(from, from + PAGE - 1)
         if (!rows || rows.length === 0) break
         for (const r of rows as any[]) {
@@ -50,6 +51,7 @@ export default async function DreSedePage() {
             .from('controle_pago_insumo_cliente')
             .select('descrinsumo, cliente, data_movimento, vlr_at_pago')
             .eq('obra', 'ADMCO')
+            .order('id', { ascending: true })   // sem ordem, as páginas repetem/pulam linhas
             .range(from, from + PAGE - 1)
         if (!rows || rows.length === 0) break
         custos.push(...(rows as any[]))

@@ -67,7 +67,11 @@ async function fetchAll<T>(
     const PAGE = 1000
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = supabase as any
-    const first = await client.from(table).select(columns, { count: 'exact' }).range(0, PAGE - 1)
+    // Ordem estável obrigatória: sem ela o Postgres devolve as linhas em ordem
+    // arbitrária e cada página pode repetir ou pular registros — os cards mudavam
+    // a cada carregamento (corrigido em 21/09/2026).
+    const first = await client.from(table).select(columns, { count: 'exact' })
+        .order('id', { ascending: true }).range(0, PAGE - 1)
     if (first.error || !first.data) return []
     const out: T[] = [...(first.data as T[])]
     const total: number = first.count ?? out.length
@@ -76,7 +80,7 @@ async function fetchAll<T>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const promises: Promise<any>[] = []
     for (let from = PAGE; from < total; from += PAGE) {
-        promises.push(client.from(table).select(columns).range(from, from + PAGE - 1))
+        promises.push(client.from(table).select(columns).order('id', { ascending: true }).range(from, from + PAGE - 1))
     }
     const results = await Promise.all(promises)
     for (const r of results) if (r.data) out.push(...(r.data as T[]))

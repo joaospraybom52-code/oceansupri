@@ -23,8 +23,10 @@ async function buscarTudo<T>(
     const client = supabase as any
     const out: T[] = []
     for (let from = 0; ; from += PAGE) {
-        let q = client.from(tabela).select(colunas).range(from, from + PAGE - 1)
+        let q = client.from(tabela).select(colunas)
         if (filtro) q = q.eq(filtro.coluna, filtro.valor)
+        // Ordem estável: sem ela as páginas repetem ou pulam linhas.
+        q = q.order('id', { ascending: true }).range(from, from + PAGE - 1)
         const { data, error } = await q
         if (error || !data || data.length === 0) break
         out.push(...(data as T[]))
