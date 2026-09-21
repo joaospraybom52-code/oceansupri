@@ -141,11 +141,30 @@ export default function FechamentoBancoClient({
         const receber = linhas.filter(l => l.tipo === 'receber').reduce((s, l) => s + l.valor, 0)
         const pagar = linhas.filter(l => l.tipo === 'pagar').reduce((s, l) => s + l.valor, 0)
         const vencidas = linhas.filter(l => l.vencOriginal)
+
+        // O fluxo parte do saldo REAL dos bancos no dia anterior ao início do
+        // período — o mesmo "Saldo Atual" da Posição de Bancos daquele dia (soma
+        // do saldo anterior das contas) — e vai acumulando dia a dia.
+        const saldoInicial = conciliacao.inicial
+        const acumuladoNoDia = new Map<string, number>()
+        let acc = saldoInicial
+        for (const l of linhas) {
+            acc += l.tipo === 'receber' ? l.valor : -l.valor
+            acumuladoNoDia.set(l.data, r2(acc))
+        }
         return {
             linhas, receber: r2(receber), pagar: r2(pagar), total: r2(receber - pagar),
             vencidas: { qtd: vencidas.length, valor: r2(vencidas.reduce((s, l) => s + l.valor, 0)) },
+            saldoInicial, acumuladoNoDia, saldoFinal: r2(saldoInicial + receber - pagar),
         }
-    }, [aPagar, de, ate])
+    }, [aPagar, de, ate, conciliacao.inicial])
+
+    // Dia anterior ao início do período (a data do saldo bancário de partida).
+    const diaAnterior = (() => {
+        const d = new Date(de + 'T12:00:00Z')
+        d.setUTCDate(d.getUTCDate() - 1)
+        return d.toISOString().slice(0, 10)
+    })()
 
     const periodoLabel = fDe === fAte ? dmy(de) : `${dmy(de)} a ${dmy(ate)}`
     const geradoEm = new Date().toLocaleString('pt-BR')
@@ -237,7 +256,13 @@ export default function FechamentoBancoClient({
                             <div style={{ fontSize: '11px', color: '#555' }}>
                                 A receber: <strong style={{ color: '#047857' }}>{brl(fluxo.receber)}</strong> ·
                                 {' '}A pagar: <strong style={{ color: '#B91C1C' }}>{brl(fluxo.pagar)}</strong> ·
-                                {' '}Saldo previsto: <strong style={corNeg(fluxo.total) ?? { color: '#047857' }}>{brlP(fluxo.total)}</strong>
+                                {' '}Saldo do período: <strong style={corNeg(fluxo.total) ?? { color: '#047857' }}>{brlP(fluxo.total)}</strong>
+                            </div>
+                        )}
+                        {aba === 'fluxo' && (
+                            <div style={{ fontSize: '11px', color: '#555' }}>
+                                Saldo em bancos em {dmy(diaAnterior)}: <strong style={corNeg(fluxo.saldoInicial) ?? { color: '#047857' }}>{brlP(fluxo.saldoInicial)}</strong> ·
+                                {' '}Saldo previsto acumulado: <strong style={corNeg(fluxo.saldoFinal) ?? { color: '#047857' }}>{brlP(fluxo.saldoFinal)}</strong>
                             </div>
                         )}
                         {aba === 'fluxo' && fluxo.vencidas.qtd > 0 && (
@@ -423,6 +448,8 @@ export default function FechamentoBancoClient({
                                             <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
                                                 <td style={{ ...td, textAlign: 'left' }} colSpan={7}>
                                                     Total do dia {dmy(l.data)} ({doDia.length} lançamento{doDia.length === 1 ? '' : 's'})
+                                                    {' · '}Saldo acumulado:{' '}
+                                                    <span style={corNeg(fluxo.acumuladoNoDia.get(l.data) ?? 0)}>{brlP(fluxo.acumuladoNoDia.get(l.data) ?? 0)}</span>
                                                 </td>
                                                 <td style={{ ...td, textAlign: 'right', fontSize: '9.5px' }}>
                                                     <span style={{ color: '#047857' }}>A receber {brl(recDia)}</span>
@@ -438,6 +465,10 @@ export default function FechamentoBancoClient({
                             </tbody>
                             <tfoot className="total-final">
                                 <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
+                                    <td style={{ ...td, textAlign: 'right' }} colSpan={8}>Saldo em bancos em {dmy(diaAnterior)} (Posição de Bancos):</td>
+                                    <td style={{ ...td, ...corNeg(fluxo.saldoInicial) }}>{brlP(fluxo.saldoInicial)}</td>
+                                </tr>
+                                <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
                                     <td style={{ ...td, textAlign: 'right' }} colSpan={8}>Total a receber:</td>
                                     <td style={{ ...td, color: '#047857' }}>{brl(fluxo.receber)}</td>
                                 </tr>
@@ -447,9 +478,15 @@ export default function FechamentoBancoClient({
                                 </tr>
                                 <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
                                     <td style={{ ...td, textAlign: 'left' }} colSpan={8}>
-                                        SALDO PREVISTO DO PERÍODO ({fluxo.linhas.length} lançamentos)
+                                        SALDO DO PERÍODO ({fluxo.linhas.length} lançamentos)
                                     </td>
                                     <td style={{ ...td, ...corNeg(fluxo.total, true) }}>{brlP(fluxo.total)}</td>
+                                </tr>
+                                <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
+                                    <td style={{ ...td, textAlign: 'left' }} colSpan={8}>
+                                        SALDO PREVISTO ACUMULADO (saldo em bancos + saldo do período)
+                                    </td>
+                                    <td style={{ ...td, ...corNeg(fluxo.saldoFinal, true) }}>{brlP(fluxo.saldoFinal)}</td>
                                 </tr>
                             </tfoot>
                         </table>
