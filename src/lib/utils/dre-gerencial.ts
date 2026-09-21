@@ -220,3 +220,35 @@ export function calcularDre({ recebido, vendas, pagoInsumo, impostosPagos }: Dad
         ],
     }
 }
+
+// ── NCG (Necessidade de Capital de Giro) ─────────────────────────────────────
+// NCG = ciclo financeiro (dias) x custo diário médio.
+// Ciclo = execução + recebimento − pagamento ao fornecedor.
+// Prazos padrão definidos com a diretoria em 20/09/2026: 30 dias para executar,
+// 48 da nota até o dinheiro entrar e 15 para pagar o fornecedor (a MEDIANA do
+// UAU — a média é maior só por causa da cauda de pagamentos com mais de 90 dias,
+// que é atraso, não prazo negociado).
+export const CICLO_PADRAO = { execucao: 30, recebimento: 48, pagamento: 15 }
+export interface CicloNcg { execucao: number; recebimento: number; pagamento: number }
+export const diasDoCiclo = (c: CicloNcg) => c.execucao + c.recebimento - c.pagamento
+
+/**
+ * Custo diário médio: linhas 2 (custos variáveis), 3 (impostos) e 5 (custo fixo)
+ * divididas pelos dias corridos dos meses FECHADOS.
+ *
+ * As despesas financeiras (linha 9) ficam de fora de propósito: elas são a
+ * consequência de financiar o ciclo, não o que precisa ser financiado — contá-las
+ * seria somar o custo do dinheiro dentro da necessidade de dinheiro.
+ * O mês corrente também fica fora: só tem parte do mês e derrubaria a média.
+ */
+export function custoDiarioMedio(linhas: LinhaDre[], meses: string[], hoje = new Date()): {
+    custoDiario: number; dias: number; total: number; mesesUsados: string[]
+} {
+    const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`
+    const mesesUsados = meses.filter(m => m < mesAtual)
+    const diasNoMes = (m: string) => new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0).getDate()
+    const dias = mesesUsados.reduce((s, m) => s + diasNoMes(m), 0)
+    const doCusto = linhas.filter(l => [2, 3, 5].includes(l.n))
+    const total = mesesUsados.reduce((s, m) => s + doCusto.reduce((t, l) => t + (l.valores[m] ?? 0), 0), 0)
+    return { custoDiario: dias ? total / dias : 0, dias, total, mesesUsados }
+}
