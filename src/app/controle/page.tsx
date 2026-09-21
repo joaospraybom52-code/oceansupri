@@ -29,11 +29,15 @@ interface LinhaMes { obra: string | null; ym: string | null; valor: number | str
  */
 async function buscarTudo<T>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase: any, view: string, colunas: string,
+    supabase: any, view: string, colunas: string, ordem: string[] = ['obra', 'data'],
 ): Promise<T[]> {
     const PAGE = 1000
-    const { data, count, error } = await supabase
-        .from(view).select(colunas, { count: 'exact' }).range(0, PAGE - 1)
+    // A ordem é obrigatória: sem ela cada página pode repetir ou pular linhas e
+    // o total muda a cada carregamento (aconteceu na DRE em 20/09/2026).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const comOrdem = (q: any) => ordem.reduce((acc: any, col: string) => acc.order(col, { ascending: true }), q)
+    const { data, count, error } = await comOrdem(
+        supabase.from(view).select(colunas, { count: 'exact' })).range(0, PAGE - 1)
     if (error || !data) return []
     const total = count ?? data.length
     if (total <= PAGE) return data as T[]
@@ -41,7 +45,7 @@ async function buscarTudo<T>(
     const paginas: Promise<T[]>[] = []
     for (let from = PAGE; from < total; from += PAGE) {
         paginas.push(
-            supabase.from(view).select(colunas).range(from, from + PAGE - 1)
+            comOrdem(supabase.from(view).select(colunas)).range(from, from + PAGE - 1)
                 .then((r: { data: T[] | null }) => r.data ?? []),
         )
     }
@@ -88,7 +92,7 @@ export default async function ControlePage() {
             return data ?? []
         })(), LIMITE_MS, []),
 
-        comLimite(buscarTudo<LinhaMes>(supabase, 'vw_controle_comprometido_mes', 'obra, ym, valor, pago'), LIMITE_MS, []),
+        comLimite(buscarTudo<LinhaMes>(supabase, 'vw_controle_comprometido_mes', 'obra, ym, valor, pago', ['obra', 'ym']), LIMITE_MS, []),
         comLimite(buscarTudo<LinhaDia>(supabase, 'vw_controle_pago_dia', 'obra, data, valor'), LIMITE_MS, []),
         comLimite(buscarTudo<LinhaDia>(supabase, 'vw_controle_recebido_dia', 'obra, data, valor'), LIMITE_MS, []),
         comLimite(buscarTudo<LinhaDia>(supabase, 'vw_controle_apagar_dia', 'obra, data, valor'), LIMITE_MS, []),

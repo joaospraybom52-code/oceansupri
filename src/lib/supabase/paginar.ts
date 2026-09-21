@@ -19,15 +19,24 @@ export interface OpcoesPaginar {
     /** Ajusta a consulta (filtros, ordenação). Aplicado em todas as páginas. */
     ajuste?: (q: any) => any
     limiteMs?: number
+    /**
+     * Colunas que dão ORDEM ESTÁVEL às páginas. Sem ordem, o Postgres devolve as
+     * linhas em ordem arbitrária e cada página pode repetir ou pular registros —
+     * o total sai diferente a cada carregamento. Aconteceu na DRE Gerencial em
+     * 20/09/2026, quando a tabela de pagos passou de 16 mil para 31 mil linhas.
+     * O padrão é `id`; views sem id precisam passar a chave do agrupamento.
+     */
+    ordem?: string[]
 }
 
 export async function paginarTudo<T>(
     supabase: any, tabela: string, colunas: string, opcoes: OpcoesPaginar = {},
 ): Promise<T[]> {
-    const { ajuste, limiteMs = LIMITE_PADRAO_MS } = opcoes
+    const { ajuste, limiteMs = LIMITE_PADRAO_MS, ordem = ['id'] } = opcoes
     const monta = (from: number, comContagem = false) => {
         let q = supabase.from(tabela).select(colunas, comContagem ? { count: 'exact' } : undefined)
         if (ajuste) q = ajuste(q)
+        for (const col of ordem) q = q.order(col, { ascending: true })
         return q.range(from, from + PAGE - 1)
     }
 

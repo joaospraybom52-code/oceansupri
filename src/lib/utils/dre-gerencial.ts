@@ -127,15 +127,25 @@ export function impostoRetidoPorMes(recebido: RecebidoRow[], vendas: VendaRecRow
     return porMes
 }
 
+/** Pago já somado por mês e categoria (view vw_dre_pago_mes). */
+export interface PagoMesRow {
+    mes: string | null
+    categoria: string | null
+    valor: number | null
+}
+
 export interface DadosDre {
     recebido: RecebidoRow[]
     vendas: VendaRecRow[]
+    /** Linhas cruas do pago — usadas no detalhe de cada linha. */
     pagoInsumo: PagoInsumoRow[]
     impostosPagos: ImpostoPagoRow[]
+    /** Soma pronta do banco. Quando vem, a DRE usa ela no lugar do pagoInsumo. */
+    pagoMes?: PagoMesRow[]
 }
 
 /** Monta as 12 linhas da DRE, uma coluna por mês (a partir de DRE_INICIO). */
-export function calcularDre({ recebido, vendas, pagoInsumo, impostosPagos }: DadosDre): {
+export function calcularDre({ recebido, vendas, pagoInsumo, impostosPagos, pagoMes }: DadosDre): {
     meses: string[]
     linhas: LinhaDre[]
 } {
@@ -157,14 +167,25 @@ export function calcularDre({ recebido, vendas, pagoInsumo, impostosPagos }: Dad
     const custoVariavel: Record<string, number> = {}
     const custoFixo: Record<string, number> = {}
     const juros: Record<string, number> = {}
-    for (const p of pagoInsumo) {
-        const mes = ym(p.data_movimento)
-        const valor = Number(p.vlr_at_pago || 0)
-        const categoria = categoriaFinanceira(p.descrinsumo)
-        if (categoria === 'juros') { somar(juros, mes, valor); continue }
-        if (categoria) continue                       // empréstimo, tarifa e consórcio não são custo
-        const obra = (p.obra ?? '').trim().toUpperCase()
-        somar(OBRAS_SEDE.includes(obra) ? custoFixo : custoVariavel, mes, valor)
+    if (pagoMes) {
+        // Caminho normal: soma pronta do banco (view vw_dre_pago_mes).
+        for (const p of pagoMes) {
+            const destino = p.categoria === 'variavel' ? custoVariavel
+                : p.categoria === 'fixo' ? custoFixo
+                : p.categoria === 'juros' ? juros
+                : null                                 // empréstimo, tarifa e consórcio ficam fora
+            if (destino) somar(destino, ym(p.mes), Number(p.valor || 0))
+        }
+    } else {
+        for (const p of pagoInsumo) {
+            const mes = ym(p.data_movimento)
+            const valor = Number(p.vlr_at_pago || 0)
+            const categoria = categoriaFinanceira(p.descrinsumo)
+            if (categoria === 'juros') { somar(juros, mes, valor); continue }
+            if (categoria) continue                    // empréstimo, tarifa e consórcio não são custo
+            const obra = (p.obra ?? '').trim().toUpperCase()
+            somar(OBRAS_SEDE.includes(obra) ? custoFixo : custoVariavel, mes, valor)
+        }
     }
 
     const simplesFederal: Record<string, number> = {}
