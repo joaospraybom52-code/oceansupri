@@ -36,7 +36,7 @@ const sqlConfig: sql.config = {
 // subconsulta e, no nível externo, projetamos só as 3 colunas que a tabela
 // espelho guarda, aplicando os mesmos filtros do Power Query.
 const queryRecebido = `
-SELECT R.Obra_Rec, R.NumVend_Rec, R.TotConf, R.Data_Rec, R.TotDesc, R.TotPrinc
+SELECT R.Obra_Rec, R.NumVend_Rec, R.Cliente, R.TotConf, R.Data_Rec, R.TotDesc, R.TotPrinc
 FROM (
     -- Uma linha por parcela recebida (sem DISTINCT: não colapsa parcelas
     -- distintas que tenham o mesmo valor/obra/data).
@@ -50,7 +50,8 @@ FROM (
             ((Recebidas.VlDesconto_Rec + Recebidas.VlDescontoConf_Rec) + (Recebidas.ValDescontoCondicional_rec + Recebidas.ValDescontoCondicionalConf_rec)) AS TotDesc,
             (Recebidas.Valor_Rec + Recebidas.ValorConf_Rec) AS TotPrinc,
 
-            Recebidas.Obra_Rec, Recebidas.NumVend_Rec, Recebidas.Data_Rec, Recebidas.DtIdxParc_Rec
+            Recebidas.Obra_Rec, Recebidas.NumVend_Rec, Recebidas.Data_Rec, Recebidas.DtIdxParc_Rec,
+            Pessoas.nome_pes AS Cliente
 
         FROM VendasRecebidas WITH(NOLOCK)
         INNER JOIN Recebidas WITH(NOLOCK)
@@ -87,6 +88,7 @@ async function gravarRecebido(rows: any[]) {
         // Número da venda: permite casar o recebimento com a venda (e o imposto
         // retido dela) por contrato, em vez de por valor, como fazia o Power BI.
         num_vend: r.NumVend_Rec != null ? Number(r.NumVend_Rec) : null,
+        cliente: r.Cliente != null ? r.Cliente.toString().trim() || null : null,
         tot_conf: Number(r.TotConf || 0),
         data_rec: toISODate(r.Data_Rec),
         tot_desc: Number(r.TotDesc || 0),

@@ -411,10 +411,12 @@ async function gravarPagoApagar(rows: any[]) {
     return payload.length
 }
 
-interface InsumoClienteAgg { obra: string | null; descrinsumo: string | null; cliente: string | null; data_movimento: string | null; vlr_at_pagar: number; vlr_at_pago: number }
+interface InsumoClienteAgg { obra: string | null; item: string | null; descrinsumo: string | null; cliente: string | null; data_movimento: string | null; vlr_at_pagar: number; vlr_at_pago: number }
 
-// Agregação por (Obra, DescrInsumo, Cliente, mês) só das Despesas — para as
-// tabelas drill-down insumo x cliente (com obra e mês para os filtros do topo).
+// Agregação por (Obra, Item, DescrInsumo, Cliente, mês) só das Despesas — para as
+// tabelas drill-down insumo x cliente e para o detalhe de cada linha da DRE
+// Gerencial. O ITEM entrou em 20/09/2026 e levou o grão de ~16,8 mil para ~32 mil
+// linhas; as somas por insumo/cliente continuam idênticas.
 async function gravarInsumoCliente(rows: any[]) {
     const agg = new Map<string, InsumoClienteAgg>()
     for (const r of rows) {
@@ -422,13 +424,14 @@ async function gravarInsumoCliente(rows: any[]) {
         if (r.TipoControle !== 'Despesas') continue
         if (isImpostoRetido(r.Cliente)) continue // fora das tabelas Insumos x Clientes
         const obra = r.Obra?.toString().trim() ?? null
+        const item = r.Item != null ? r.Item.toString().trim() : null
         const descrinsumo = r.DescrInsumo != null ? r.DescrInsumo.toString().trim() : null
         const cliente = r.Cliente != null ? r.Cliente.toString().trim() : null
         const dm = toISODate(r.DataMovimento)
         const ym = dm ? dm.slice(0, 7) : null
         const data_movimento = ym ? `${ym}-01` : null
-        const key = `${obra}|||${descrinsumo}|||${cliente}|||${ym}`
-        const cur = agg.get(key) ?? { obra, descrinsumo, cliente, data_movimento, vlr_at_pagar: 0, vlr_at_pago: 0 }
+        const key = `${obra}|||${item}|||${descrinsumo}|||${cliente}|||${ym}`
+        const cur = agg.get(key) ?? { obra, item, descrinsumo, cliente, data_movimento, vlr_at_pagar: 0, vlr_at_pago: 0 }
         cur.vlr_at_pagar += Number(r.VlrAtPagar || 0)
         cur.vlr_at_pago += Number(r.VlrAtPago || 0)
         agg.set(key, cur)

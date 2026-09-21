@@ -3,9 +3,10 @@
 import { useMemo, useState, useEffect } from 'react'
 import { BarChart3, Wallet, X, RotateCcw, Gauge } from 'lucide-react'
 import {
-    CICLO_PADRAO, custoDiarioMedio, diasDoCiclo, calcularGao, gaoPorMes,
-    type CicloNcg, type LinhaDre,
+    CICLO_PADRAO, custoDiarioMedio, diasDoCiclo, calcularGao, gaoPorMes, LINHAS_COM_DETALHE,
+    type CicloNcg, type LinhaDre, type LinhaDetalhe,
 } from '@/lib/utils/dre-gerencial'
+import { detalheDaLinha } from '@/app/controle/dre-gerencial/actions'
 
 const CHAVE_CICLO = 'dre-ncg-ciclo'
 
@@ -69,6 +70,23 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
         return v >= 0 ? 'var(--accent-green, #10b981)' : '#ef4444'
     }
 
+    // Detalhe da linha (obra, item, insumo, cliente, valor), buscado sob demanda.
+    const [detalhe, setDetalhe] = useState<{ n: number; titulo: string; periodo: string; linhas: LinhaDetalhe[]; total: number } | null>(null)
+    const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
+    async function abrirDetalhe(l: LinhaDre, mes?: string) {
+        if (!LINHAS_COM_DETALHE.includes(l.n)) return
+        const alvo = mes ? [mes] : mesesAno
+        if (alvo.length === 0) return
+        setCarregandoDetalhe(true)
+        setDetalhe({ n: l.n, titulo: l.rotulo, periodo: mes ? mesLabel(mes) : `Ano de ${ano}`, linhas: [], total: 0 })
+        try {
+            const r = await detalheDaLinha(l.n, alvo)
+            setDetalhe(d => d ? { ...d, ...r } : d)
+        } finally {
+            setCarregandoDetalhe(false)
+        }
+    }
+
     const campos: [keyof CicloNcg, string, string][] = [
         ['execucao', 'Dias para executar', 'Da mobilização até faturar a medição'],
         ['recebimento', 'Dias para receber', 'Da emissão da nota até o dinheiro entrar'],
@@ -116,8 +134,14 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
                         <tbody>
                             {linhas.map(l => {
                                 const total = totalAno(l)
+                                const temDetalhe = LINHAS_COM_DETALHE.includes(l.n)
                                 return (
-                                    <tr key={l.n} style={{ ...estilo(l), borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <tr
+                                        key={l.n}
+                                        onClick={() => abrirDetalhe(l)}
+                                        style={{ ...estilo(l), borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: temDetalhe ? 'pointer' : 'default' }}
+                                        title={temDetalhe ? 'Clique para ver obra, item, cliente e valor' : undefined}
+                                    >
                                         <td style={{ ...td, textAlign: 'left', color: 'var(--text-muted)' }}>{l.n}</td>
                                         <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>
                                             {l.rotulo}
@@ -127,7 +151,14 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
                                         </td>
                                         {mesesAno.map(m => {
                                             const v = l.valores[m] ?? 0
-                                            return <td key={m} style={{ ...td, color: cor(l, v) }}>{fmt(v)}</td>
+                                            return (
+                                                <td
+                                                    key={m}
+                                                    onClick={temDetalhe ? e => { e.stopPropagation(); abrirDetalhe(l, m) } : undefined}
+                                                    style={{ ...td, color: cor(l, v) }}
+                                                    title={temDetalhe ? `Detalhe de ${mesLabel(m)}` : undefined}
+                                                >{fmt(v)}</td>
+                                            )
                                         })}
                                         <td style={{ ...td, fontWeight: 800, color: cor(l, total) }}>{fmt(total)}</td>
                                     </tr>
@@ -137,6 +168,67 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
                     </table>
                 </div>
             </div>
+
+            {/* Detalhe da linha clicada: obra, item, insumo, cliente e valor */}
+            {detalhe && (
+                <div
+                    onClick={() => setDetalhe(null)}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}
+                >
+                    <div onClick={e => e.stopPropagation()} className="glass-card" style={{ padding: '24px', width: '920px', maxWidth: '100%', maxHeight: '86vh', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '4px' }}>
+                            <div>
+                                <h3 style={{ fontSize: '17px', fontWeight: 800, margin: 0 }}>{detalhe.titulo}</h3>
+                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '3px 0 0' }}>{detalhe.periodo}</p>
+                            </div>
+                            <button onClick={() => setDetalhe(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={18} /></button>
+                        </div>
+
+                        <div style={{ overflowY: 'auto', marginTop: '12px', flex: 1 }}>
+                            {carregandoDetalhe ? (
+                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '24px 0', textAlign: 'center' }}>Carregando…</p>
+                            ) : detalhe.linhas.length === 0 ? (
+                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '24px 0', textAlign: 'center' }}>Nada lançado neste período.</p>
+                            ) : (
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ ...th, textAlign: 'left', width: '80px' }}>Obra</th>
+                                            {detalhe.n !== 1 && <th style={{ ...th, textAlign: 'left' }}>Item</th>}
+                                            {detalhe.n !== 1 && <th style={{ ...th, textAlign: 'left' }}>Insumo</th>}
+                                            {detalhe.n !== 1 && <th style={{ ...th, textAlign: 'left' }}>Cliente / Fornecedor</th>}
+                                            <th style={{ ...th, width: '140px' }}>Valor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {detalhe.linhas.map((l, i) => (
+                                            <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{l.obra}</td>
+                                                {detalhe.n !== 1 && <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.item}</td>}
+                                                {detalhe.n !== 1 && <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.insumo}</td>}
+                                                {detalhe.n !== 1 && <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.cliente}</td>}
+                                                <td style={{ ...td, fontWeight: 600 }}>{fmt(l.valor)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                            <td style={{ ...td, textAlign: 'left', fontWeight: 800 }} colSpan={detalhe.n === 1 ? 1 : 4}>
+                                                TOTAL ({detalhe.linhas.length} {detalhe.linhas.length === 1 ? 'linha' : 'linhas'})
+                                            </td>
+                                            <td style={{ ...td, fontWeight: 800 }}>{fmt(detalhe.total)}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '14px' }}>
+                            <button onClick={() => setDetalhe(null)} className="btn-primary" style={{ padding: '8px 16px', fontSize: '13px' }}>Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* NCG — clique abre a explicação e a simulação do ciclo */}
             <div
@@ -336,6 +428,7 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
             )}
 
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px', lineHeight: 1.6 }}>
+                Clique numa linha para ver o detalhe do ano, ou num valor para ver só aquele mês.
                 As linhas de dedução aparecem em vermelho e já entram subtraindo nos subtotais.
                 Depreciação (7) e IRPJ/CSLL (11) estão zeradas por falta de informação, e as tarifas
                 bancárias ainda não entram nas despesas financeiras (9).

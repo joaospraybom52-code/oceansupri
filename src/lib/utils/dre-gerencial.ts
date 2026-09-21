@@ -12,6 +12,7 @@ export const DRE_INICIO = '2026-01'
 export interface RecebidoRow {
     obra_rec: string | null
     num_vend: number | null
+    cliente?: string | null
     data_rec: string | null
     tot_conf: number | null
     tot_desc: number | null
@@ -24,11 +25,14 @@ export interface VendaRecRow {
 }
 export interface PagoInsumoRow {
     obra: string | null
+    item?: string | null
+    cliente?: string | null
     descrinsumo: string | null
     data_movimento: string | null
     vlr_at_pago: number | null
 }
 export interface ImpostoPagoRow {
+    obra?: string | null
     item: string | null
     cliente: string | null
     data_movimento: string | null
@@ -283,3 +287,94 @@ export function calcularGao(linhas: LinhaDre[], meses: string[]): Gao {
 
 export const gaoPorMes = (linhas: LinhaDre[], meses: string[]): (Gao & { mes: string })[] =>
     meses.map(m => ({ mes: m, ...calcularGao(linhas, [m]) }))
+
+// ── Detalhe de cada linha da DRE (drill-down) ────────────────────────────────
+export interface LinhaDetalhe {
+    obra: string
+    item: string
+    insumo: string
+    cliente: string
+    valor: number
+}
+
+/** Linhas que têm detalhe: 1 (faturamento), 2, 3, 5 e 9. */
+export const LINHAS_COM_DETALHE = [1, 2, 3, 5, 9]
+
+const soma = (mapa: Map<string, LinhaDetalhe>, chave: string, base: LinhaDetalhe) => {
+    const cur = mapa.get(chave) ?? { ...base, valor: 0 }
+    cur.valor += base.valor
+    mapa.set(chave, cur)
+}
+
+/**
+ * Detalhe de uma linha da DRE nos meses escolhidos.
+ *
+ * `recebidoCompleto` entra inteiro porque o rateio do imposto retido precisa do
+ * principal total da venda, que pode ter parcela fora do período.
+ */
+export function montarDetalhe(
+    n: number,
+    { recebido, vendas, pagoInsumo, impostosPagos }: DadosDre,
+    meses: string[],
+    recebidoCompleto: RecebidoRow[] = recebido,
+): { linhas: LinhaDetalhe[]; total: number } {
+    const mapa = new Map<string, LinhaDetalhe>()
+    const noPeriodo = (d: string | null) => meses.includes(ym(d))
+    const daParcela = impostoRetidoPorParcela(recebidoCompleto, vendas)
+    const obraDe = (o: string | null | undefined) => (o ?? '').trim().toUpperCase() || '—'
+    const txt = (v: string | null | undefined) => (v ?? '').trim() || '—'
+
+    const dosPagos = (filtro: (p: PagoInsumoRow) => boolean) => {
+        for (const p of pagoInsumo) {
+            if (!noPeriodo(p.data_movimento) || !filtro(p)) continue
+            const base: LinhaDetalhe = {
+                obra: obraDe(p.obra), item: txt(p.item), insumo: txt(p.descrinsumo),
+                cliente: txt(p.cliente), valor: Number(p.vlr_at_pago || 0),
+            }
+            soma(mapa, `${base.obra}|${base.item}|${base.insumo}|${base.cliente}`, base)
+        }
+    }
+
+    if (n === 1) {
+        // Faturamento: só o somatório por obra (decisão da diretoria em 20/09/2026).
+        for (const r of recebido) {
+            if (!noPeriodo(r.data_rec)) continue
+            const obra = obraDe(r.obra_rec)
+            soma(mapa, obra, {
+                obra, item: '—', insumo: '—', cliente: '—',
+                valor: Number(r.tot_conf || 0) + Number(r.tot_desc || 0) + daParcela(r),
+            })
+        }
+    } else if (n === 2) {
+        dosPagos(p => !categoriaFinanceira(p.descrinsumo) && !OBRAS_SEDE.includes(obraDe(p.obra)))
+    } else if (n === 5) {
+        dosPagos(p => !categoriaFinanceira(p.descrinsumo) && OBRAS_SEDE.includes(obraDe(p.obra)))
+    } else if (n === 3) {
+        // ISS/INSS retido na nota: não tem item nem fornecedor — o item vai como
+        // 'ISS/INSS' e o cliente é quem reteve.
+        for (const r of recebido) {
+            if (!noPeriodo(r.data_rec)) continue
+            const v = daParcela(r)
+            if (!v) continue
+            const base: LinhaDetalhe = { obra: obraDe(r.obra_rec), item: 'ISS/INSS', insumo: 'Retido na nota', cliente: txt(r.cliente), valor: v }
+            soma(mapa, `${base.obra}|${base.item}|${base.cliente}`, base)
+        }
+        for (const i of impostosPagos) {
+            if (!ehSimplesFederal(i) || !noPeriodo(i.data_movimento)) continue
+            const base: LinhaDetalhe = { obra: obraDe(i.obra), item: txt(i.item), insumo: 'Imposto pago', cliente: txt(i.cliente), valor: Number(i.valor || 0) }
+            soma(mapa, `${base.obra}|${base.item}|${base.cliente}`, base)
+        }
+    } else if (n === 9) {
+        dosPagos(p => categoriaFinanceira(p.descrinsumo) === 'juros')
+        for (const r of recebido) {
+            if (!noPeriodo(r.data_rec)) continue
+            const v = Number(r.tot_desc || 0)
+            if (!v) continue
+            const obra = obraDe(r.obra_rec)
+            soma(mapa, `${obra}|antecipacao`, { obra, item: 'Antecipação', insumo: 'Desconto no recebimento', cliente: txt(r.cliente), valor: v })
+        }
+    }
+
+    const linhas = Array.from(mapa.values()).filter(l => Math.abs(l.valor) > 0.005).sort((a, b) => b.valor - a.valor)
+    return { linhas, total: linhas.reduce((s, l) => s + l.valor, 0) }
+}
