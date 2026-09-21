@@ -10,6 +10,9 @@ import { detalheDaLinha } from '@/app/controle/dre-gerencial/actions'
 
 const CHAVE_CICLO = 'dre-ncg-ciclo'
 
+const semAcento = (v: string) =>
+    (v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
 const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0)
 const mesLabel = (ym: string) => {
     const [a, m] = ym.split('-')
@@ -58,6 +61,11 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
         position: 'sticky', top: 0, background: 'var(--bg-secondary)',
     }
     const td: React.CSSProperties = { padding: '9px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }
+    const thFiltro: React.CSSProperties = { padding: '6px 8px', background: 'var(--bg-secondary)', position: 'sticky', top: '34px' }
+    const inputFiltro: React.CSSProperties = {
+        width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)',
+        borderRadius: '6px', color: 'var(--text-primary)', padding: '5px 8px', fontSize: '12px', boxSizing: 'border-box',
+    }
 
     // Subtotal em azul, resultado final em verde/vermelho, linhas de conta neutras.
     const estilo = (l: LinhaDre): React.CSSProperties => {
@@ -73,11 +81,25 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
     // Detalhe da linha (obra, item, insumo, cliente, valor), buscado sob demanda.
     const [detalhe, setDetalhe] = useState<{ n: number; titulo: string; periodo: string; linhas: LinhaDetalhe[]; total: number } | null>(null)
     const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
+    const SEM_FILTRO = { obra: '', item: '', insumo: '', cliente: '' }
+    const [filtros, setFiltros] = useState(SEM_FILTRO)
+    const temFiltro = Object.values(filtros).some(v => v.trim() !== '')
+    // Compara sem acento e sem caixa: "concreto" acha "CONCRETO USINADO".
+    const combina = (valor: string, busca: string) =>
+        !busca.trim() || semAcento(valor).includes(semAcento(busca))
+    const detalheFiltrado = useMemo(() => {
+        if (!detalhe) return { linhas: [] as LinhaDetalhe[], total: 0 }
+        const linhas = detalhe.linhas.filter(l =>
+            combina(l.obra, filtros.obra) && combina(l.item, filtros.item)
+            && combina(l.insumo, filtros.insumo) && combina(l.cliente, filtros.cliente))
+        return { linhas, total: linhas.reduce((soma, l) => soma + l.valor, 0) }
+    }, [detalhe, filtros])
     async function abrirDetalhe(l: LinhaDre, mes?: string) {
         if (!LINHAS_COM_DETALHE.includes(l.n)) return
         const alvo = mes ? [mes] : mesesAno
         if (alvo.length === 0) return
         setCarregandoDetalhe(true)
+        setFiltros(SEM_FILTRO)
         setDetalhe({ n: l.n, titulo: l.rotulo, periodo: mes ? mesLabel(mes) : `Ano de ${ano}`, linhas: [], total: 0 })
         try {
             const r = await detalheDaLinha(l.n, alvo)
@@ -199,9 +221,31 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
                                             {detalhe.n !== 1 && <th style={{ ...th, textAlign: 'left' }}>Cliente / Fornecedor</th>}
                                             <th style={{ ...th, width: '140px' }}>Valor</th>
                                         </tr>
+                                        <tr>
+                                            {(detalhe.n === 1
+                                                ? [['obra', 'Filtrar obra']]
+                                                : [['obra', 'Filtrar obra'], ['item', 'Filtrar item'], ['insumo', 'Filtrar insumo'], ['cliente', 'Filtrar cliente']]
+                                            ).map(([campo, dica]) => (
+                                                <th key={campo} style={thFiltro}>
+                                                    <input
+                                                        value={filtros[campo as keyof typeof filtros]}
+                                                        onChange={e => setFiltros({ ...filtros, [campo]: e.target.value })}
+                                                        placeholder={dica}
+                                                        style={inputFiltro}
+                                                    />
+                                                </th>
+                                            ))}
+                                            <th style={{ ...thFiltro, textAlign: 'right' }}>
+                                                {temFiltro && (
+                                                    <button onClick={() => setFiltros(SEM_FILTRO)} className="btn-secondary" style={{ padding: '4px 10px', fontSize: '11px' }}>
+                                                        Limpar
+                                                    </button>
+                                                )}
+                                            </th>
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                        {detalhe.linhas.map((l, i) => (
+                                        {detalheFiltrado.linhas.map((l, i) => (
                                             <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                                 <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{l.obra}</td>
                                                 {detalhe.n !== 1 && <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.item}</td>}
@@ -214,9 +258,14 @@ export default function DreGerencialClient({ meses, linhas }: { meses: string[];
                                     <tfoot>
                                         <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
                                             <td style={{ ...td, textAlign: 'left', fontWeight: 800 }} colSpan={detalhe.n === 1 ? 1 : 4}>
-                                                TOTAL ({detalhe.linhas.length} {detalhe.linhas.length === 1 ? 'linha' : 'linhas'})
+                                                TOTAL ({detalheFiltrado.linhas.length} {detalheFiltrado.linhas.length === 1 ? 'linha' : 'linhas'})
+                                                {temFiltro && (
+                                                    <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>
+                                                        {' '}· filtrado de {detalhe.linhas.length} · sem filtro {fmt(detalhe.total)}
+                                                    </span>
+                                                )}
                                             </td>
-                                            <td style={{ ...td, fontWeight: 800 }}>{fmt(detalhe.total)}</td>
+                                            <td style={{ ...td, fontWeight: 800 }}>{fmt(detalheFiltrado.total)}</td>
                                         </tr>
                                     </tfoot>
                                 </table>
