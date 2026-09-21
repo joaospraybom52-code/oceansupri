@@ -46,18 +46,25 @@ const sqlConfig: sql.config = {
     requestTimeout: 300000,
 }
 
-const FILTRO_INSUMO = `(
-       UPPER(DescInsPl_Des) LIKE '%EMPREST%'
-    OR UPPER(DescInsPl_Des) LIKE '%EMPRÉST%'
-    OR UPPER(DescInsPl_Des) LIKE '%JURO%'
-    OR UPPER(DescInsPl_Des) LIKE '%TARIFA%'
-    OR UPPER(DescInsPl_Des) LIKE '%CONSORCIO%'
-    OR UPPER(DescInsPl_Des) LIKE '%CONSÓRCIO%'
+// Financeiro pelo ITEM ou pelo insumo. A categoria é decidida pelo item primeiro
+// (regra da diretoria, 21/09/2026): o UAU marca o mesmo pagamento de um jeito no
+// item e de outro no insumo — ex.: item "IN5494 - JUROS" com insumo "TARIFAS
+// BANCARIAS", ou item "PAGAMENTO EMPRESTIMOS" com insumo "CONSUMO ENERGIA".
+// Por isso o filtro olha as duas colunas.
+const financeiro = (col: string) => `(
+       UPPER(${col}) LIKE '%EMPREST%'
+    OR UPPER(${col}) LIKE '%EMPRÉST%'
+    OR UPPER(${col}) LIKE '%JURO%'
+    OR UPPER(${col}) LIKE '%TARIFA%'
+    OR UPPER(${col}) LIKE '%CONSORCIO%'
+    OR UPPER(${col}) LIKE '%CONSÓRCIO%'
 )`
+const FILTRO_FINANCEIRO = `(${financeiro('DescInsPl_Des')} OR ${financeiro('DescItemProc_Des')})`
 
 const query = `
 SELECT
     Obra_Des        AS obra,
+    CAST(ItemProc_Des AS VARCHAR) + ' - ' + DescItemProc_Des AS item,
     DescInsPl_Des   AS descrinsumo,
     NominalProc_Des AS cliente,
     CONVERT(date, DATEADD(day, 1 - DAY(DtPgto_Des), DtPgto_Des)) AS mes,
@@ -67,9 +74,9 @@ SELECT
 FROM VwDesembolso
 WHERE DtPgto_Des BETWEEN '01/01/2023' AND '12/01/2050'
   AND StatusParc_Des IN (1, 2)
-  AND ${FILTRO_INSUMO}
+  AND ${FILTRO_FINANCEIRO}
 GROUP BY
-    Obra_Des, DescInsPl_Des, NominalProc_Des,
+    Obra_Des, ItemProc_Des, DescItemProc_Des, DescInsPl_Des, NominalProc_Des,
     CONVERT(date, DATEADD(day, 1 - DAY(DtPgto_Des), DtPgto_Des))
 `
 
@@ -85,6 +92,7 @@ function toISODate(d: any): string | null {
 async function gravar(rows: any[]) {
     const payload = rows.map(r => ({
         obra: txt(r.obra),
+        item: txt(r.item),
         descrinsumo: txt(r.descrinsumo),
         cliente: txt(r.cliente),
         mes: toISODate(r.mes),

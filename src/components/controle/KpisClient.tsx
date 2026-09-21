@@ -4,7 +4,7 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import { CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react'
 import { LineChart as RLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import MultiSearchSelect from '@/components/ui/MultiSearchSelect'
-import { ehInsumoFinanceiro } from '@/lib/utils/insumos-financeiros'
+import { categoriaPeloItem } from '@/lib/utils/insumos-financeiros'
 import { impostoRetidoDeRecebimentos } from '@/lib/utils/dre-gerencial'
 
 interface Obra {
@@ -49,6 +49,7 @@ interface VgvRow {
 }
 
 interface PagoICRow {
+    item: string | null
     obra: string | null
     descrinsumo: string | null
     cliente: string | null
@@ -178,8 +179,13 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
 
     // Só o custo de obra — empréstimo, juros, tarifa e consórcio ficam de fora
     // de TODAS as medidas desta aba e vivem na aba Empréstimos e Encargos.
+    // Base do gráfico de evolução: todas as obras (o gráfico tem o próprio filtro
+    // de ano), sem financeiros — a mesma regra dos cards.
+    const pagoICTodosSemFinanceiro = useMemo(
+        () => pagoIC.filter(r => !categoriaPeloItem(r.item, r.descrinsumo)), [pagoIC])
+
     const pagoICSemFinanceiro = useMemo(
-        () => pagoICFiltrado.filter(r => !ehInsumoFinanceiro(r.descrinsumo)), [pagoICFiltrado])
+        () => pagoICFiltrado.filter(r => !categoriaPeloItem(r.item, r.descrinsumo)), [pagoICFiltrado])
 
     // pago já filtrado por obra + período (dimensões); as medidas abaixo só
     // aplicam o filtro de TipoControle por cima.
@@ -214,8 +220,10 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         .filter(p => p.tipo_controle === 'DespSaida')
         .reduce((s, p) => s + Number(p.total_receita || 0), 0), [pagoFiltrado])
 
-    // Total Comprometido Obra = Total Pago + Total A Pagar + Controle Financeiro Saída
-    const totalComprometidoObra = totalPago + totalAPagar + controleFinanceiroSaida
+    // Total Comprometido Obra = Total Pago + Total A Pagar. O Controle Financeiro
+    // Saída (aplicações, empréstimos e transferências) saiu em 21/09/2026, como
+    // já tinha saído do Balanço da Obra: não é custo de obra.
+    const totalComprometidoObra = totalPago + totalAPagar
 
     // A_receber filtrado por obra + período (dimensões)
     const areceberFiltrado = useMemo(() => areceber.filter(a =>
@@ -355,7 +363,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
 
             {/* Gráfico ao lado do Próximas Medições (mesma divisão pra alinhar) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '24px', marginTop: '24px', alignItems: 'start' }}>
-                <GraficoEvolucao recebido={recebido} pago={pago} />
+                <GraficoEvolucao recebido={recebido} comprometidos={pagoICTodosSemFinanceiro} />
                 <ProximasMedicoes rows={areceberFiltrado} />
             </div>
 
@@ -498,13 +506,17 @@ function BalancoCard({ receita, despesa }: { receita: number; despesa: number })
 // Gráfico de linhas: Total Recebido Real x Total Comprometido Obra por mês.
 // Tem filtro de ano PRÓPRIO (independente do filtro do topo), default 2026.
 const MESES_ABREV = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-function GraficoEvolucao({ recebido, pago }: { recebido: RecebidoRow[]; pago: PagoRow[] }) {
+// O "Total Comprometido Obra" do gráfico usa a MESMA base dos cards: pago + a
+// pagar por insumo, sem empréstimo/juros/tarifa/consórcio e sem o Controle
+// Financeiro Saída. Antes lia a tabela sem insumo e somava tudo isso junto
+// (em 2026, R$ 10,5 mi de financeiros + R$ 4,3 mi de controle financeiro).
+function GraficoEvolucao({ recebido, comprometidos }: { recebido: RecebidoRow[]; comprometidos: PagoICRow[] }) {
     const anosDisp = useMemo(() => {
         const s = new Set<string>(['2026'])
         recebido.forEach(r => { if (r.data_rec) s.add(r.data_rec.slice(0, 4)) })
-        pago.forEach(p => { if (p.data_movimento) s.add(p.data_movimento.slice(0, 4)) })
+        comprometidos.forEach(p => { if (p.data_movimento) s.add(p.data_movimento.slice(0, 4)) })
         return Array.from(s).filter(Boolean).sort((a, b) => b.localeCompare(a))
-    }, [recebido, pago])
+    }, [recebido, comprometidos])
 
     const [ano, setAno] = useState('2026')
 
@@ -514,14 +526,13 @@ function GraficoEvolucao({ recebido, pago }: { recebido: RecebidoRow[]; pago: Pa
             if (!r.data_rec || r.data_rec.slice(0, 4) !== ano) continue
             meses[parseInt(r.data_rec.slice(5, 7)) - 1].recebido += Number(r.tot_conf || 0)
         }
-        for (const p of pago) {
+        for (const p of comprometidos) {
             if (!p.data_movimento || p.data_movimento.slice(0, 4) !== ano) continue
             const i = parseInt(p.data_movimento.slice(5, 7)) - 1
-            if (p.tipo_controle === 'Despesas') meses[i].comprometido += Number(p.vlr_at_pago || 0) + Number(p.vlr_at_pagar || 0)
-            else if (p.tipo_controle === 'DespSaida') meses[i].comprometido += Number(p.total_receita || 0)
+            meses[i].comprometido += Number(p.vlr_at_pago || 0) + Number(p.vlr_at_pagar || 0)
         }
         return meses.map(m => ({ ...m, diferenca: m.recebido - m.comprometido }))
-    }, [recebido, pago, ano])
+    }, [recebido, comprometidos, ano])
 
     return (
         <div className="ge-card">

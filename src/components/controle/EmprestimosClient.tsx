@@ -6,7 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import MultiSelect from '@/components/ui/MultiSelect'
 import MultiSearchSelect from '@/components/ui/MultiSearchSelect'
 import {
-    categoriaFinanceira, ROTULO_CATEGORIA, CORES_CATEGORIA, CATEGORIAS,
+    categoriaPeloItem, ROTULO_CATEGORIA, CORES_CATEGORIA, CATEGORIAS,
     type CategoriaFinanceira,
 } from '@/lib/utils/insumos-financeiros'
 import type { InsumoFinRow } from '@/app/controle/emprestimos/page'
@@ -74,7 +74,7 @@ export default function EmprestimosClient({ obras, linhas, atualizadoEm }: {
         const m = new Map<CategoriaFinanceira, InsumoFinRow[]>()
         CATEGORIAS.forEach(c => m.set(c, []))
         for (const r of filtradas) {
-            const c = categoriaFinanceira(r.descrinsumo)
+            const c = categoriaPeloItem(r.item, r.descrinsumo)
             if (c) m.get(c)!.push(r)
         }
         return m
@@ -122,7 +122,7 @@ export default function EmprestimosClient({ obras, linhas, atualizadoEm }: {
     const porCliente = useMemo<LinhaCliente[]>(() => {
         const m = new Map<string, LinhaCliente>()
         for (const r of filtradas) {
-            const cat = categoriaFinanceira(r.descrinsumo)
+            const cat = categoriaPeloItem(r.item, r.descrinsumo)
             if (!cat) continue
             const k = (r.cliente ?? '').trim() || '— sem cliente —'
             const cur = m.get(k) ?? { cliente: k, n: 0, pago: zeros(), aPagar: zeros(), totalPago: 0, totalAPagar: 0 }
@@ -151,7 +151,7 @@ export default function EmprestimosClient({ obras, linhas, atualizadoEm }: {
         for (const r of filtradas) {
             if (!r.mes) continue
             const i = Number(r.mes.slice(5, 7)) - 1
-            const c = categoriaFinanceira(r.descrinsumo)
+            const c = categoriaPeloItem(r.item, r.descrinsumo)
             if (i < 0 || i > 11 || !c) continue
             meses[i][ROTULO_CATEGORIA[c]] = Number(meses[i][ROTULO_CATEGORIA[c]]) + Number(r.vlr_pago || 0)
         }

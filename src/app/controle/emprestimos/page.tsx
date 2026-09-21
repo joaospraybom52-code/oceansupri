@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export interface InsumoFinRow {
     obra: string | null
+    item: string | null
     descrinsumo: string | null
     cliente: string | null
     mes: string | null          // 1º dia do mês do desembolso
@@ -24,7 +25,7 @@ export default async function EmprestimosPage() {
     const [obrasRes, linhas, atualizado] = await Promise.all([
         supabase.from('obras').select('codigo, nome').eq('ativo', true),
         paginarTudo<InsumoFinRow>(supabase, 'emprestimos_encargos',
-            'obra, descrinsumo, cliente, mes, vlr_emissao, vlr_pago, qtd'),
+            'obra, item, descrinsumo, cliente, mes, vlr_emissao, vlr_pago, qtd'),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase as any).from('emprestimos_encargos')
             .select('atualizado_em').order('atualizado_em', { ascending: false }).limit(1),

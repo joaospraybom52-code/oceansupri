@@ -1,4 +1,4 @@
-import { categoriaFinanceira } from './insumos-financeiros'
+import { categoriaFinanceira, categoriaPeloItem } from './insumos-financeiros'
 
 // DRE Gerencial (módulo Controle) — regime de CAIXA, mês a mês.
 // Estrutura definida pela diretoria em 19/09/2026 (linhas 1 a 12).
@@ -60,7 +60,7 @@ const ym = (d: string | null | undefined) => (d ?? '').slice(0, 7)
  * Mesma regra da view vw_dre_pago_mes.
  */
 export function categoriaDre(item: string | null | undefined, descrinsumo: string | null | undefined) {
-    return categoriaFinanceira(item) ?? categoriaFinanceira(descrinsumo)
+    return categoriaPeloItem(item, descrinsumo)
 }
 const norm = (s: string | null | undefined) =>
     (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()

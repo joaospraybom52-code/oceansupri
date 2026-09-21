@@ -44,6 +44,19 @@ export function categoriaFinanceira(descrinsumo: string | null | undefined): Cat
     return null
 }
 
+/**
+ * Categoria pelo ITEM primeiro, insumo depois. O UAU marca o mesmo pagamento de
+ * um jeito no item e de outro no insumo (ex.: item "IN5494 - JUROS" com insumo
+ * "TARIFAS BANCARIAS"). Regra da diretoria (21/09/2026): se o item diz juros, é
+ * juros; o insumo só decide quando o item não diz nada financeiro. Vale na DRE,
+ * na KPI'S e na aba Empréstimos e Encargos — e na view vw_dre_pago_mes.
+ */
+export function categoriaPeloItem(
+    item: string | null | undefined, descrinsumo: string | null | undefined,
+): CategoriaFinanceira | null {
+    return categoriaFinanceira(item) ?? categoriaFinanceira(descrinsumo)
+}
+
 /** Atalho: este insumo é financeiro (logo, fora das medidas de obra)? */
 export const ehInsumoFinanceiro = (descrinsumo: string | null | undefined) =>
     categoriaFinanceira(descrinsumo) !== null
