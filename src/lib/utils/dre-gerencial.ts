@@ -51,6 +51,17 @@ export interface LinhaDre {
 }
 
 const ym = (d: string | null | undefined) => (d ?? '').slice(0, 7)
+
+/**
+ * Categoria financeira na DRE: o ITEM manda. O UAU marca o mesmo pagamento de
+ * um jeito no item e de outro no insumo (ex.: item "IN5494 - JUROS" com insumo
+ * "TARIFAS BANCARIAS"). Regra da diretoria (21/09/2026): se o item diz juros, é
+ * juros — o insumo só decide quando o item não diz nada financeiro.
+ * Mesma regra da view vw_dre_pago_mes.
+ */
+export function categoriaDre(item: string | null | undefined, descrinsumo: string | null | undefined) {
+    return categoriaFinanceira(item) ?? categoriaFinanceira(descrinsumo)
+}
 const norm = (s: string | null | undefined) =>
     (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
 
@@ -180,7 +191,7 @@ export function calcularDre({ recebido, vendas, pagoInsumo, impostosPagos, pagoM
         for (const p of pagoInsumo) {
             const mes = ym(p.data_movimento)
             const valor = Number(p.vlr_at_pago || 0)
-            const categoria = categoriaFinanceira(p.descrinsumo)
+            const categoria = categoriaDre(p.item, p.descrinsumo)
             if (categoria === 'juros') { somar(juros, mes, valor); continue }
             if (categoria) continue                    // empréstimo, tarifa e consórcio não são custo
             const obra = (p.obra ?? '').trim().toUpperCase()
@@ -238,7 +249,7 @@ export function calcularDre({ recebido, vendas, pagoInsumo, impostosPagos, pagoM
             linha(6, '= EBITDA', 'subtotal', ebitda),
             linha(7, '(−) Depreciação e amortização', 'valor', depreciacao, 'Sem informação por enquanto'),
             linha(8, '= RESULTADO OPERACIONAL', 'subtotal', operacional),
-            linha(9, '(−) Despesas financeiras', 'valor', financeiras, 'Juros e taxas de antecipação (tarifas bancárias ainda fora)'),
+            linha(9, '(−) Despesas financeiras', 'valor', financeiras, 'Juros (pelo item) e taxas de antecipação — tarifas bancárias ainda fora'),
             linha(10, '= RESULTADO ANTES DO IR', 'subtotal', antesIR),
             linha(11, '(−) IRPJ e CSLL', 'valor', irpj, 'Sem informação por enquanto'),
             linha(12, '= LUCRO LÍQUIDO', 'resultado', lucro),
@@ -367,9 +378,9 @@ export function montarDetalhe(
             })
         }
     } else if (n === 2) {
-        dosPagos(p => !categoriaFinanceira(p.descrinsumo) && !OBRAS_SEDE.includes(obraDe(p.obra)))
+        dosPagos(p => !categoriaDre(p.item, p.descrinsumo) && !OBRAS_SEDE.includes(obraDe(p.obra)))
     } else if (n === 5) {
-        dosPagos(p => !categoriaFinanceira(p.descrinsumo) && OBRAS_SEDE.includes(obraDe(p.obra)))
+        dosPagos(p => !categoriaDre(p.item, p.descrinsumo) && OBRAS_SEDE.includes(obraDe(p.obra)))
     } else if (n === 3) {
         // ISS/INSS retido na nota: não tem item nem fornecedor — o item vai como
         // 'ISS/INSS' e o cliente é quem reteve.
@@ -386,7 +397,7 @@ export function montarDetalhe(
             soma(mapa, `${base.obra}|${base.item}|${base.cliente}`, base)
         }
     } else if (n === 9) {
-        dosPagos(p => categoriaFinanceira(p.descrinsumo) === 'juros')
+        dosPagos(p => categoriaDre(p.item, p.descrinsumo) === 'juros')
         for (const r of recebido) {
             if (!noPeriodo(r.data_rec)) continue
             const v = Number(r.tot_desc || 0)
