@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Landmark, ChevronDown, ChevronRight } from 'lucide-react'
+import { Landmark } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import MultiSelect from '@/components/ui/MultiSelect'
 import MultiSearchSelect from '@/components/ui/MultiSearchSelect'
@@ -40,7 +40,6 @@ export default function EmprestimosClient({ obras, linhas, atualizadoEm }: {
     const [filtroObras, setFiltroObras] = useState<string[]>([])
     const [filtroAnos, setFiltroAnos] = useState<string[]>([])
     const [filtroMeses, setFiltroMeses] = useState<string[]>([])
-    const [aberta, setAberta] = useState<CategoriaFinanceira | null>(null)
 
     // A tabela já vem só com os insumos financeiros (o worker filtra na origem);
     // o categoriaFinanceira aqui é só para separar em Empréstimos/Juros/etc.
@@ -82,17 +81,6 @@ export default function EmprestimosClient({ obras, linhas, atualizadoEm }: {
 
     const total = soma(filtradas)
 
-    // Detalhe por insumo dentro de uma categoria (o UAU tem 3 nomes p/ empréstimo)
-    const detalhe = (cat: CategoriaFinanceira) => {
-        const m = new Map<string, { insumo: string; pago: number; aPagar: number; n: number }>()
-        for (const r of porCategoria.get(cat) ?? []) {
-            const k = r.descrinsumo ?? '—'
-            const cur = m.get(k) ?? { insumo: k, pago: 0, aPagar: 0, n: 0 }
-            cur.pago += Number(r.vlr_pago || 0); cur.aPagar += Number(r.vlr_emissao || 0); cur.n += Number(r.qtd || 0)
-            m.set(k, cur)
-        }
-        return Array.from(m.values()).sort((a, b) => b.pago - a.pago)
-    }
 
     const porObra = useMemo(() => {
         const nome = new Map(obras.filter(o => o.codigo).map(o => [o.codigo as string, o.nome]))
@@ -206,76 +194,6 @@ export default function EmprestimosClient({ obras, linhas, atualizadoEm }: {
                     <div style={{ fontSize: '24px', fontWeight: 800, marginTop: '4px' }}>{brl(total.pago + total.aPagar)}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{filtradas.length} lançamentos</div>
                 </div>
-            </div>
-
-            {/* Por categoria, com drill por insumo */}
-            <div className="glass-card" style={{ padding: 0, overflow: 'hidden', marginBottom: '24px' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-glass)' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: 700 }}>Por categoria</h3>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Clique para ver os insumos de cada uma — o UAU tem mais de um nome para empréstimo.
-                    </p>
-                </div>
-                {CATEGORIAS.map(cat => {
-                    const s = soma(porCategoria.get(cat) ?? [])
-                    const n = (porCategoria.get(cat) ?? []).length
-                    const itens = aberta === cat ? detalhe(cat) : []
-                    return (
-                        <div key={cat}>
-                            <div
-                                onClick={() => setAberta(aberta === cat ? null : cat)}
-                                style={{
-                                    display: 'grid', gridTemplateColumns: '26px 1fr auto auto', gap: '16px', alignItems: 'center',
-                                    padding: '14px 20px', cursor: 'pointer', borderBottom: '1px solid var(--border-glass)',
-                                }}
-                            >
-                                <span style={{ color: 'var(--text-muted)' }}>
-                                    {aberta === cat ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                                </span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: CORES_CATEGORIA[cat], flexShrink: 0 }} />
-                                    <span style={{ fontWeight: 600, fontSize: '14px' }}>{ROTULO_CATEGORIA[cat]}</span>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{n} lanç.</span>
-                                </div>
-                                <div style={{ textAlign: 'right', minWidth: '150px' }}>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Pago</div>
-                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#ef4444' }}>{brl(s.pago)}</div>
-                                </div>
-                                <div style={{ textAlign: 'right', minWidth: '150px' }}>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Em emissão</div>
-                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#f59e0b' }}>{brl(s.aPagar)}</div>
-                                </div>
-                            </div>
-                            {aberta === cat && (
-                                <div style={{ background: 'rgba(0,0,0,0.18)' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                        <thead>
-                                            <tr>
-                                                <th style={th}>Insumo (nome no UAU)</th>
-                                                <th style={{ ...th, textAlign: 'right', width: '90px' }}>Lanç.</th>
-                                                <th style={{ ...th, textAlign: 'right', width: '170px' }}>Pago</th>
-                                                <th style={{ ...th, textAlign: 'right', width: '170px' }}>Em emissão</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {itens.length === 0 && (
-                                                <tr><td style={{ ...td, color: 'var(--text-muted)' }} colSpan={4}>Nada no filtro.</td></tr>
-                                            )}
-                                            {itens.map(it => (
-                                                <tr key={it.insumo}>
-                                                    <td style={td}>{it.insumo}</td>
-                                                    <td style={{ ...td, textAlign: 'right', color: 'var(--text-muted)' }}>{it.n}</td>
-                                                    <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{brl(it.pago)}</td>
-                                                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: 'var(--text-secondary)' }}>{brl(it.aPagar)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
-                    )
-                })}
             </div>
 
             {/* Evolução mensal */}
