@@ -167,10 +167,17 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // Power BI ligava por VALOR (TREATAS de TotPrinc com ValProvisaoCurto), o que
     // errava quando duas vendas tinham o mesmo valor: em 2026 faltavam R$ 84,5 mil.
     // O mês continua sendo o do recebimento, igual ao Total Recebido Real.
+    // ISS e INSS retidos na nota (ValDescontoImposto_VRec das vendas recebidas),
+    // já rateado pelas parcelas recebidas. É o mesmo valor que entra no Valor
+    // Recebido Bruto — por isso sai daqui, e não de alíquota estimada.
+    const issInssRetidos = useMemo(
+        () => impostoRetidoDeRecebimentos(recebidoFiltrado, recebido, vendasrec),
+        [recebidoFiltrado, recebido, vendasrec])
+
     const valorRecebidoBruto = useMemo(() => {
         const somaRecebido = recebidoFiltrado.reduce((s, r) => s + Number(r.tot_conf || 0) + Number(r.tot_desc || 0), 0)
-        return somaRecebido + impostoRetidoDeRecebimentos(recebidoFiltrado, recebido, vendasrec)
-    }, [recebidoFiltrado, recebido, vendasrec])
+        return somaRecebido + issInssRetidos
+    }, [recebidoFiltrado, issInssRetidos])
 
     // pagoIC = o pago aberto por INSUMO, filtrado por obra + período.
     const pagoICFiltrado = useMemo(() => pagoIC.filter(r =>
@@ -236,19 +243,15 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         .reduce((s, a) => s + Number(a.val_provisao_curto_ven || 0) + Number(a.val_desconto_imposto_ven || 0), 0),
         [areceberFiltrado])
 
-    // Impostos ESTIMADOS sobre a receita, ambos sobre a mesma base
-    // (Valor Recebido Bruto + Faturado a Receber). Não confundir com os
-    // pagamentos ao fisco (tipo_controle='ImpostoRetido'), que entram só nas
-    // Saídas (Pago) do Balanço da Obra.
+    // Imposto Simples ESTIMADO sobre a receita (Valor Recebido Bruto + Faturado
+    // a Receber). Não confundir com os pagamentos ao fisco
+    // (tipo_controle='ImpostoRetido'), que entram só nas Saídas (Pago) do
+    // Balanço da Obra. O ISS e o INSS deixaram de ser estimados por alíquota em
+    // 24/09/2026: agora é um card só, "ISS e INSS Retidos", com o valor real
+    // retido na nota (issInssRetidos).
     const ALIQUOTA_IMPOSTO_SIMPLES = 0.0783   // era 11,33% até 31/08/2026
-    const ALIQUOTA_IMPOSTO_ISS = 0.05
-    const ALIQUOTA_IMPOSTO_INSS = 0.035
     const baseImpostos = valorRecebidoBruto + faturadoAReceber
     const impostoSimples = baseImpostos * ALIQUOTA_IMPOSTO_SIMPLES
-    const impostoIss = baseImpostos * ALIQUOTA_IMPOSTO_ISS
-    // INSS: mesma base e mesmo papel do ISS — card informativo, NÃO entra nas
-    // Saídas do Balanço. Só o Simples entra lá.
-    const impostoInss = baseImpostos * ALIQUOTA_IMPOSTO_INSS
 
     // Retenções = SUM(A_receber[Valor_Prc]) onde VALUE(NumParcGer_Prc) >= 2
     const retencoes = useMemo(() => areceberFiltrado
@@ -351,8 +354,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
                 <KpiCard label="Controle Financeiro Saída" value={formatCurrency(controleFinanceiroSaida)} />
                 <KpiCard label="Total Comprometido Obra" value={formatCurrency(totalComprometidoObra)} />
                 <KpiCard label="Imposto Simples" value={formatCurrency(impostoSimples)} />
-                <KpiCard label="Imposto ISS" value={formatCurrency(impostoIss)} />
-                <KpiCard label="Imposto INSS" value={formatCurrency(impostoInss)} />
+                <KpiCard label="ISS e INSS Retidos" value={formatCurrency(issInssRetidos)} />
             </div>
 
             {/* Indicador Evolução + Balanço da Obra */}
