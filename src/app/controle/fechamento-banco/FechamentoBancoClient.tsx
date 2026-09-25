@@ -249,7 +249,8 @@ export default function FechamentoBancoClient({
                         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Período: {periodoLabel}</div>
                         {aba === 'conciliacao' && (
                             <div style={{ fontSize: '11px', color: '#555' }}>
-                                Saldo real inicial: <strong style={corNeg(conciliacao.inicial)}>{brlP(conciliacao.inicial)}</strong> · Moeda: R$ REAL
+                                Saldo real inicial: <strong style={corNeg(conciliacao.inicial)}>{brlP(conciliacao.inicial)}</strong> ·
+                                {' '}Saldo em bancos em {dmy(ate)}: <strong style={corNeg(posicao.total.atual)}>{brlP(posicao.total.atual)}</strong> · Moeda: R$ REAL
                             </div>
                         )}
                         {aba === 'fluxo' && (
@@ -277,33 +278,35 @@ export default function FechamentoBancoClient({
                     </div>
                 </div>
 
-                {/* Detalhamento do saldo inicial: como cada conta entrou no período */}
+                {/* Saldo de cada conta no FIM do período (o mesmo "Saldo Atual" da
+                    Posição de Bancos). Antes mostrava o saldo anterior, ou seja, o
+                    fechamento do dia anterior — pedido do usuário em 25/09/2026. */}
                 {aba === 'conciliacao' && (
                     <div style={{ marginBottom: '14px' }}>
                         <div style={{ fontSize: '11px', fontWeight: 800, color: '#2B2E34', marginBottom: '5px' }}>
-                            Detalhamento de saldo inicial:
+                            Saldo dos bancos em {dmy(ate)}:
                         </div>
                         <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #d5d8dc' }}>
                             <thead>
                                 <tr>
                                     <th style={{ ...th, textAlign: 'left' }}>Banco</th>
                                     <th style={{ ...th, textAlign: 'left', width: '260px' }}>Conta</th>
-                                    <th style={{ ...th, width: '150px' }}>Saldo inicial</th>
+                                    <th style={{ ...th, width: '150px' }}>Saldo final</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {contas.map(c => (
-                                    <tr key={`${c.banco}|${c.conta}`}>
-                                        <td style={{ ...td, textAlign: 'left' }}>{c.banco} - {c.nomeBanco || `BANCO ${c.banco}`}</td>
-                                        <td style={{ ...td, textAlign: 'left' }}>{c.conta}</td>
-                                        <td style={{ ...td, ...corNeg(c.saldoAnterior) }}>{brlP(c.saldoAnterior)}</td>
+                                {posicao.linhas.map(l => (
+                                    <tr key={`${l.banco}|${l.conta}`}>
+                                        <td style={{ ...td, textAlign: 'left' }}>{l.banco} - {l.nomeBanco}</td>
+                                        <td style={{ ...td, textAlign: 'left' }}>{l.conta}</td>
+                                        <td style={{ ...td, ...corNeg(l.atual) }}>{brlP(l.atual)}</td>
                                     </tr>
                                 ))}
                             </tbody>
                             <tfoot>
                                 <tr style={{ background: '#eef0f2', fontWeight: 800 }}>
                                     <td style={{ ...td, textAlign: 'right' }} colSpan={2}>Total:</td>
-                                    <td style={{ ...td, ...corNeg(conciliacao.inicial) }}>{brlP(conciliacao.inicial)}</td>
+                                    <td style={{ ...td, ...corNeg(posicao.total.atual) }}>{brlP(posicao.total.atual)}</td>
                                 </tr>
                             </tfoot>
                         </table>
