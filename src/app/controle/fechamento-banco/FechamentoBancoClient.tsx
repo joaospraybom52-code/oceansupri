@@ -249,8 +249,7 @@ export default function FechamentoBancoClient({
                         <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>Período: {periodoLabel}</div>
                         {aba === 'conciliacao' && (
                             <div style={{ fontSize: '11px', color: '#555' }}>
-                                Saldo real inicial: <strong style={corNeg(conciliacao.inicial)}>{brlP(conciliacao.inicial)}</strong> ·
-                                {' '}Saldo em bancos em {dmy(ate)}: <strong style={corNeg(posicao.total.atual)}>{brlP(posicao.total.atual)}</strong> · Moeda: R$ REAL
+                                Saldo real final em {dmy(ate)}: <strong style={corNeg(posicao.total.atual)}>{brlP(posicao.total.atual)}</strong> · Moeda: R$ REAL
                             </div>
                         )}
                         {aba === 'fluxo' && (
