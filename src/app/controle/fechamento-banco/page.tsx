@@ -140,18 +140,62 @@ export default async function FechamentoBancoPage({
         if (!atual || (!atual.obra && d.obra)) mapaDetalhe.set(k, { hist: d.hist, obra: d.obra })
     }
 
+    // ── 2ª tentativa: conta + data + FORNECEDOR. O UAU agrupa valores de um jeito
+    //    no extrato bancário e de outro no desembolso — o mesmo pagamento aparece
+    //    dividido num e somado no outro (CREA-SC: 4 débitos no banco, 1 no
+    //    desembolso) ou rateado entre obras (Zurich: 12 obras num débito só). Nesses
+    //    casos o valor nunca bate e a obra ficava vazia. Casando pelo nome do
+    //    fornecedor no mesmo dia e conta, o pagamento recupera a(s) obra(s).
+    const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
+    const normHist = (s: string | null | undefined) =>
+        semAcento((s ?? '').trim().toUpperCase()).replace(/\s+/g, ' ')
+    const chaveHist = (banco: number, conta: string, data: string, hist: string | null | undefined) =>
+        `${banco}|${conta}|${data}|${normHist(hist)}`
+
+    // fornecedor -> obras rateadas (do maior valor para o menor)
+    const porFornecedor = new Map<string, Map<string, number>>()
+    for (const d of detalhe) {
+        const cod = d.obra?.trim().toUpperCase()
+        if (!cod || !normHist(d.hist)) continue
+        const k = chaveHist(d.banco, d.conta, d.data, d.hist)
+        const obras = porFornecedor.get(k) ?? new Map<string, number>()
+        const valor = Math.abs(Number(d.debito || 0)) + Math.abs(Number(d.credito || 0))
+        obras.set(cod, (obras.get(cod) ?? 0) + valor)
+        porFornecedor.set(k, obras)
+    }
+
+    const rotuloCodigo = (cod: string) => {
+        const nome = nomeObra.get(cod)
+        return nome ? `${cod} — ${nome}` : cod
+    }
+
     const movimentosEnriquecidos = movimentos.map(m => {
         const det = mapaDetalhe.get(chave(m.banco, m.conta, m.data, Number(m.credito || 0), Number(m.debito || 0)))
+        const historico = (m.historico && m.historico.trim()) ? m.historico : (det?.hist ?? null)
         const cod = det?.obra?.trim().toUpperCase() || null
-        const nome = cod ? nomeObra.get(cod) : undefined
+
+        let obra: string | null = cod ? rotuloCodigo(cod) : null
+        if (!obra) {
+            // Pagamento rateado ou agrupado: mostra a obra pelo fornecedor do dia.
+            const rateio = porFornecedor.get(chaveHist(m.banco, m.conta, m.data, historico))
+            if (rateio?.size) {
+                const codigos = [...rateio.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c)
+                // Rateio com muitas obras (seguro, por exemplo, pega a frota toda):
+                // lista as 4 maiores e resume o resto, senão a célula vira um parágrafo.
+                obra = codigos.length === 1
+                    ? rotuloCodigo(codigos[0])
+                    : `Rateio: ${codigos.slice(0, 4).join(', ')}${codigos.length > 4 ? ` +${codigos.length - 4}` : ''}`
+            }
+        }
+
         return {
             banco: m.banco, conta: m.conta, nomeBanco: m.nome_banco, data: m.data,
             // histórico vazio herda a descrição do extrato detalhado
-            historico: (m.historico && m.historico.trim()) ? m.historico : (det?.hist ?? null),
+            historico,
             lanct: m.lanct, cheque: m.cheque,
             credito: Number(m.credito || 0), debito: Number(m.debito || 0),
             tipoLanc: m.tipo_lanc,
-            obra: cod ? (nome ? `${cod} — ${nome}` : cod) : null,
+            obra,
         }
     })
 
