@@ -941,6 +941,7 @@ export type Database = {
                     nome_obra: string | null
                     cliente: string | null
                     valor_venda: number | null
+                    observacoes: string | null
                     created_at: string | null
                 }
                 Insert: {
@@ -950,6 +951,7 @@ export type Database = {
                     nome_obra?: string | null
                     cliente?: string | null
                     valor_venda?: number | null
+                    observacoes?: string | null
                     created_at?: string | null
                 }
                 Update: {
@@ -959,6 +961,7 @@ export type Database = {
                     nome_obra?: string | null
                     cliente?: string | null
                     valor_venda?: number | null
+                    observacoes?: string | null
                     created_at?: string | null
                 }
                 Relationships: []

@@ -19,7 +19,7 @@ export default async function CadastroVendaPage() {
 
     const { data: vendas } = await supabase
         .from('controle_vgv')
-        .select('id, codigo_obra, ano, nome_obra, cliente, valor_venda')
+        .select('id, codigo_obra, ano, nome_obra, cliente, valor_venda, observacoes')
         .order('codigo_obra', { ascending: true })
 
     return <CadastroVendaClient vendasIniciais={(vendas as any) ?? []} podeEditar={podeEditar} />

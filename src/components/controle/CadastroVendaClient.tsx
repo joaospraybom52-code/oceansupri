@@ -12,6 +12,7 @@ interface Venda {
     nome_obra: string | null
     cliente: string | null
     valor_venda: number | null
+    observacoes: string | null
 }
 
 const formatCurrency = (v: number) =>
@@ -24,7 +25,7 @@ const iconBtnStyle: React.CSSProperties = {
     cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0,
 }
 
-const formVazio = { codigo_obra: '', ano: String(new Date().getFullYear()), nome_obra: '', cliente: '', valor_venda: '' }
+const formVazio = { codigo_obra: '', ano: String(new Date().getFullYear()), nome_obra: '', cliente: '', valor_venda: '', observacoes: '' }
 
 export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { vendasIniciais: Venda[]; podeEditar: boolean }) {
     const supabase = createClient()
@@ -50,6 +51,7 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
             nome_obra: v.nome_obra ?? '',
             cliente: v.cliente ?? '',
             valor_venda: v.valor_venda != null ? String(v.valor_venda) : '',
+            observacoes: v.observacoes ?? '',
         })
         setShowModal(true)
     }
@@ -75,8 +77,9 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
             nome_obra: form.nome_obra || null,
             cliente: form.cliente || null,
             valor_venda: Number(form.valor_venda),
+            observacoes: form.observacoes.trim() || null,
         }
-        const sel = 'id, codigo_obra, ano, nome_obra, cliente, valor_venda'
+        const sel = 'id, codigo_obra, ano, nome_obra, cliente, valor_venda, observacoes'
         if (editId) {
             const { data, error } = await supabase.from('controle_vgv').update(payload).eq('id', editId).select(sel).single()
             if (error) toast.error('Erro ao salvar: ' + error.message)
@@ -95,7 +98,8 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
         return vendas.filter(v =>
             (v.codigo_obra ?? '').toLowerCase().includes(q) ||
             (v.nome_obra ?? '').toLowerCase().includes(q) ||
-            (v.cliente ?? '').toLowerCase().includes(q),
+            (v.cliente ?? '').toLowerCase().includes(q) ||
+            (v.observacoes ?? '').toLowerCase().includes(q),
         )
     }, [vendas, busca])
 
@@ -164,7 +168,14 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                                     <tr key={v.id} style={{ borderTop: '1px solid var(--border-glass)' }}>
                                         <td style={{ padding: '10px', fontWeight: 700 }}>{v.codigo_obra}</td>
                                         <td style={{ padding: '10px', color: 'var(--text-secondary)' }}>{v.ano ?? '—'}</td>
-                                        <td style={{ padding: '10px' }}>{v.nome_obra ?? '—'}</td>
+                                        <td style={{ padding: '10px' }}>
+                                            {v.nome_obra ?? '—'}
+                                            {v.observacoes && (
+                                                <div title={v.observacoes} style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', maxWidth: '320px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {v.observacoes}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td style={{ padding: '10px', color: 'var(--text-secondary)' }}>{v.cliente ?? '—'}</td>
                                         <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-green)', whiteSpace: 'nowrap' }}>{formatCurrency(Number(v.valor_venda))}</td>
                                         {podeEditar && (
@@ -206,6 +217,7 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                             <div><label style={lbl}>Nome da obra</label><input value={form.nome_obra} onChange={e => setForm({ ...form, nome_obra: e.target.value })} className="input-field" placeholder="Descrição da obra" /></div>
                             <div><label style={lbl}>Cliente</label><input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} className="input-field" placeholder="Nome do cliente" /></div>
                             <div><label style={lbl}>Valor de venda *</label><input type="number" step="0.01" min="0" value={form.valor_venda} onChange={e => setForm({ ...form, valor_venda: e.target.value })} className="input-field" placeholder="0,00" required /></div>
+                            <div><label style={lbl}>Observações</label><textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} className="input-field" rows={4} placeholder="Escopo, condição de pagamento, pendências com o cliente..." style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.45 }} /></div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
                                 <button type="button" onClick={fechar} className="btn-secondary">Cancelar</button>
