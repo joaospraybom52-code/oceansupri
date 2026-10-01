@@ -333,6 +333,14 @@ export default function FechamentoBancoClient({
                                 </tr>
                             </thead>
                             <tbody>
+                                {/* Saldo de onde o extrato parte: fechamento do dia anterior ao período */}
+                                <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
+                                    <td style={{ ...td, textAlign: 'left' }}>{dmy(diaAnterior)}</td>
+                                    <td style={{ ...td, textAlign: 'left' }} colSpan={5}>SALDO ANTERIOR (fechamento de {dmy(diaAnterior)})</td>
+                                    <td style={td}>0,00</td>
+                                    <td style={td}>0,00</td>
+                                    <td style={{ ...td, fontWeight: 800, ...corNeg(conciliacao.inicial) }}>{brlP(conciliacao.inicial)}</td>
+                                </tr>
                                 {conciliacao.linhas.map((l, i) => (
                                     <tr key={i}>
                                         <td style={{ ...td, textAlign: 'left' }}>{dmy(l.data)}</td>
