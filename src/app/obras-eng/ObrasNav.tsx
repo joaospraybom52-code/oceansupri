@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { HardHat, LayoutDashboard, ArrowLeftRight, LogOut, List, Wallet, Briefcase } from 'lucide-react'
+import { HardHat, LayoutDashboard, ArrowLeftRight, LogOut, List, Wallet, Briefcase, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Toaster } from 'sonner'
@@ -19,6 +19,7 @@ const navItems: ItemMenu[] = [
 // também confere o papel no servidor — esconder o link não é a proteção.
 const navAdmin: ItemMenu[] = [
     { href: '/obras-eng/obras-diretoria', label: 'Obras diretoria', icon: Briefcase },
+    { href: '/obras-eng/usuarios', label: 'Cadastro de usuários', icon: Users },
 ]
 
 export default function ObrasNav({ isAdmin, children }: { isAdmin: boolean; children: React.ReactNode }) {

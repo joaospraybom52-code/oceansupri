@@ -933,6 +933,48 @@ export type Database = {
                 }
                 Relationships: []
             }
+            usuarios_app: {
+                Row: {
+                    id: string
+                    nome: string
+                    email: string
+                    perfil: string
+                    ativo: boolean
+                    auth_user_id: string | null
+                    observacoes: string | null
+                    criado_por: string | null
+                    criado_em: string | null
+                    desativado_por: string | null
+                    desativado_em: string | null
+                }
+                Insert: {
+                    id?: string
+                    nome: string
+                    email: string
+                    perfil: string
+                    ativo?: boolean
+                    auth_user_id?: string | null
+                    observacoes?: string | null
+                    criado_por?: string | null
+                    criado_em?: string | null
+                    desativado_por?: string | null
+                    desativado_em?: string | null
+                }
+                Update: {
+                    id?: string
+                    nome?: string
+                    email?: string
+                    perfil?: string
+                    ativo?: boolean
+                    auth_user_id?: string | null
+                    observacoes?: string | null
+                    criado_por?: string | null
+                    criado_em?: string | null
+                    desativado_por?: string | null
+                    desativado_em?: string | null
+                }
+                Relationships: []
+            }
             controle_vgv: {
                 Row: {
                     id: string
