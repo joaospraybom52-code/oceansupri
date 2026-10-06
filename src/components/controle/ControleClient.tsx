@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import {
     LineChart as RLineChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, CalendarDays } from 'lucide-react'
+import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, CalendarDays, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
@@ -231,6 +231,28 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
         setLoading(false)
     }
 
+    /**
+     * Devolve uma nota recebida para "A receber": limpa o % recebido e o mês real.
+     * O valor volta a ser o LÍQUIDO cadastrado (bruto − ISS − INSS), que é como a
+     * aba "A receber" sempre calcula — nada do cadastro da nota é alterado.
+     */
+    async function handleVoltarAReceber(m: Medicao) {
+        const liquido = formatCurrency(valorLiquido(m))
+        if (!window.confirm(`Devolver esta nota para "A receber"?\n\n${m.obra?.nome ?? ''}${m.nota_fiscal ? ` · NF ${m.nota_fiscal}` : ''}\nEla volta com o valor líquido de ${liquido} e sai da lista de recebidas.`)) return
+        setLoading(true)
+        const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at'
+        const { data, error } = await supabase.from('controle_medicoes')
+            .update({ percentual_recebido: null, mes_recebimento_real: null })
+            .eq('id', m.id).select(sel).single()
+        if (error) toast.error('Erro ao devolver a nota: ' + error.message)
+        else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setMedicoes(medicoes.map(x => x.id === m.id ? { ...(data as any), obra: m.obra } : x))
+            toast.success(`Nota devolvida para "A receber" por ${liquido}.`)
+        }
+        setLoading(false)
+    }
+
     const medicoesFiltradas = useMemo(() => medicoes.filter(m => {
         if (filtroCodigo && m.obra?.codigo !== filtroCodigo) return false
         const refYm = isRecebida(m) ? toYm(m.mes_recebimento_real) : toYm(m.mes_recebimento)
@@ -444,6 +466,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                                             {podeEditar && (
                                                 <>
                                                     <button onClick={() => abrirRecebimento(m)} title={isRecebida(m) ? 'Ajustar recebimento' : 'Confirmar recebimento'} style={{ ...iconBtnStyle, color: '#10b981' }}><CheckCircle2 size={14} /></button>
+                                                    {isRecebida(m) && (
+                                                        <button onClick={() => handleVoltarAReceber(m)} disabled={loading} title={`Devolver para "A receber" (${formatCurrency(valorLiquido(m))})`} style={{ ...iconBtnStyle, color: '#f59e0b' }}><Undo2 size={14} /></button>
+                                                    )}
                                                     <button onClick={() => abrirEdicao(m)} title="Editar" style={iconBtnStyle}><Pencil size={14} /></button>
                                                     <button onClick={() => handleExcluir(m)} title="Excluir" style={{ ...iconBtnStyle, color: 'var(--accent-red, #ef4444)' }}><Trash2 size={14} /></button>
                                                 </>
