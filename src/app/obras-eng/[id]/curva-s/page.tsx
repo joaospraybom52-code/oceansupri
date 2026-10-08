@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import CurvaSClient from './CurvaSClient'
-import { getPapelObras, podeCriarMedProg } from '@/lib/utils/obras-access'
+import { getPapelObras, podeCriarMedProg, podeEditarLinhaBase as checarLinhaBase } from '@/lib/utils/obras-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,10 +16,10 @@ export default async function CurvaSPage({ params }: { params: Promise<{ id: str
 
     const podeEditar = podeCriarMedProg(await getPapelObras())
 
-    // Linha de Base: só estes usuários podem preencher/alterar
-    const EDITORES_LINHA_BASE = ['engjoao@constrowins.eng.br', 'planejamento@constrowins.eng.br']
-    const { data: { user } } = await supabase.auth.getUser()
-    const podeEditarLinhaBase = podeEditar && EDITORES_LINHA_BASE.includes((user?.email || '').toLowerCase())
+    // Linha de Base: segue o NÍVEL DE ACESSO (admin ou Planejamento), e não uma
+    // lista de e-mails — assim basta cadastrar a pessoa como Planejamento na aba
+    // Cadastro de usuários.
+    const podeEditarLinhaBase = await checarLinhaBase()
 
     return <CurvaSClient obraId={id} initialSemanas={semanas || []} podeEditar={podeEditar} podeEditarLinhaBase={podeEditarLinhaBase} />
 }
