@@ -90,17 +90,12 @@ export default function LauncherPage() {
         }}>
             {/* Logo & Title */}
             <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-                <div style={{
-                    width: 64, height: 64, borderRadius: '18px',
-                    background: 'var(--gradient-accent)', margin: '0 auto 20px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 0 40px rgba(99, 102, 241, 0.25)',
-                }}>
-                    <span style={{ fontSize: '28px', fontWeight: 800, color: 'white' }}>CW</span>
-                </div>
-                <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>
-                    Constrowins
-                </h1>
+                {/* Logo da marca (mesma dos relatórios do Controle), em versão clara */}
+                <img
+                    src="/logo-constrowins-branca.png"
+                    alt="Constrowins Engenharia"
+                    style={{ width: '280px', maxWidth: '72vw', margin: '0 auto 22px', display: 'block' }}
+                />
                 <p style={{ fontSize: '15px', color: 'var(--text-muted)', maxWidth: '400px' }}>
                     Selecione o módulo que deseja acessar
                 </p>

@@ -18,7 +18,8 @@ export default function ControleLayout({ children }: { children: React.ReactNode
     return (
         <div style={{ display: 'flex', minHeight: '100vh' }}>
             <aside className="sidebar">
-                <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border-glass)' }}>
+                <div style={{ padding: '18px 20px 16px', borderBottom: '1px solid var(--border-glass)' }}>
+                    <img src="/logo-constrowins-branca.png" alt="Constrowins" style={{ height: '22px', marginBottom: '14px', display: 'block' }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
                             width: 36, height: 36, borderRadius: '10px',

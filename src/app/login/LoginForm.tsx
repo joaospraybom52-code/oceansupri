@@ -109,6 +109,11 @@ export default function LoginForm() {
                 </button>
 
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+                    <img
+                        src="/logo-constrowins-branca.png"
+                        alt="Constrowins Engenharia"
+                        style={{ width: '200px', maxWidth: '62vw', margin: '0 auto 26px', display: 'block' }}
+                    />
                     <div style={{
                         width: 56, height: 56, borderRadius: '16px',
                         background: moduleConfig.gradient, margin: '0 auto 16px',
