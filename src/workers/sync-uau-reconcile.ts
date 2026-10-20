@@ -45,6 +45,74 @@ const JANELA_DIAS = 7;                   // últimos 7 dias
 
 const log = (...args: unknown[]) => console.log(`[RECONCILE]`, ...args);
 
+/** Religa à obra certa os pedidos que ficaram com obra_id nulo, pelo codigo_uau. */
+async function religarPedidosSemObra(): Promise<number> {
+    const { data: orfaos, error } = await supabase
+        .from('pedidos_compra')
+        .select('id, codigo_uau')
+        .is('obra_id', null)
+        .not('codigo_uau', 'is', null)
+        .limit(500);
+    if (error) { log('Erro ao buscar pedidos sem obra:', error.message); return 0; }
+    if (!orfaos?.length) return 0;
+
+    const { data: obras } = await supabase.from('obras').select('id, codigo');
+    const porCodigo = new Map((obras || []).map((o: any) => [(o.codigo || '').trim().toUpperCase(), o.id]));
+
+    let n = 0;
+    for (const p of orfaos as any[]) {
+        const id = porCodigo.get((p.codigo_uau || '').trim().toUpperCase());
+        if (!id) continue;
+        const { error: e } = await supabase.from('pedidos_compra').update({ obra_id: id }).eq('id', p.id);
+        if (!e) n++;
+    }
+    return n;
+}
+
+/**
+ * Devolve o id da obra pelo código, criando se faltar.
+ *
+ * O jeito antigo ("procura; se não achar, insere") duplicava obra de dois modos:
+ * quando a consulta falhava por rede (o erro era ignorado) e quando este robô e o
+ * do NAS criavam a mesma obra ao mesmo tempo. Deu 9 obras repetidas até 10/2026 —
+ * NES21 apareceu 4 vezes na lista.
+ *
+ * Agora: a busca é por código normalizado (maiúsculas, sem espaço), o erro da
+ * consulta interrompe em vez de virar "não existe", e a corrida é resolvida pelo
+ * índice único do banco — se o insert bater nele, basta buscar de novo.
+ */
+async function resolverObra(codigoBruto: string, nome?: string | null): Promise<string | null> {
+    const codigo = codigoBruto.trim().toUpperCase();
+    if (!codigo) return null;
+
+    const procurar = async () => {
+        const { data, error } = await supabase.from('obras').select('id, codigo').ilike('codigo', codigo).limit(5);
+        if (error) throw new Error('consulta de obra falhou: ' + error.message);
+        const achou = (data || []).find((o: any) => (o.codigo || '').trim().toUpperCase() === codigo);
+        return achou?.id ?? null;
+    };
+
+    try {
+        const existente = await procurar();
+        if (existente) return existente;
+
+        const { data: nova, error } = await supabase
+            .from('obras')
+            .insert({ codigo, nome: nome?.trim() || `Obra ${codigo}`, ativo: true })
+            .select('id')
+            .single();
+        if (nova) return nova.id;
+
+        // Índice único: outro processo criou primeiro — é só pegar o id dele.
+        if (error && /duplicate key|obras_codigo_unico|23505/i.test(error.message)) return await procurar();
+        log('Erro ao criar obra', error?.message);
+        return null;
+    } catch (e: any) {
+        log('Erro ao resolver obra', codigo, e?.message);
+        return null; // sem obra agora; o passo de religar conserta no próximo ciclo
+    }
+}
+
 async function syncData() {
     log(`[${new Date().toISOString()}] Iniciando reconciliação (janela ${JANELA_DIAS} dias)...`);
 
@@ -99,23 +167,7 @@ async function syncData() {
             let obraId = null;
 
             if (obraCodigo) {
-                const { data: existingObras } = await supabase
-                    .from('obras')
-                    .select('id')
-                    .eq('codigo', obraCodigo)
-                    .limit(1);
-
-                if (existingObras && existingObras.length > 0) {
-                    obraId = existingObras[0].id;
-                } else {
-                    const { data: novaObra, error: insertObraError } = await supabase
-                        .from('obras')
-                        .insert({ codigo: obraCodigo, nome: obraNome || `Obra ${obraCodigo}`, ativo: true })
-                        .select('id')
-                        .single();
-                    if (novaObra) obraId = novaObra.id;
-                    else log('Erro ao criar obra', insertObraError?.message);
-                }
+                obraId = await resolverObra(obraCodigo, obraNome);
             }
 
             // 2. Deduplicação: numero_pedido + codigo_uau + descricao_insumo
@@ -165,7 +217,12 @@ async function syncData() {
             }
         }
 
-        log(`Reconciliação concluída. ${insertedCount} pedidos recuperados.`);
+        // Pedido sem obra: pode acontecer quando o robô do NAS não conseguiu
+        // resolver a obra (consulta de rede falhou). Como o código da obra fica
+        // gravado no próprio pedido (codigo_uau), dá para religar aqui — antes
+        // isso virava obra duplicada.
+        const religados = await religarPedidosSemObra();
+        log(`Reconciliação concluída. ${insertedCount} pedidos recuperados${religados ? `, ${religados} religados à obra` : ''}.`);
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);
         log('Erro no ciclo (será tentado de novo no próximo intervalo):', msg);

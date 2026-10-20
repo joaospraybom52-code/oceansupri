@@ -23,23 +23,33 @@ export default function ObrasPage() {
         setLoading(false)
     }
 
-    /** Código já usado por outra obra ATIVA? Obra repetida vira nome duplicado
-     *  nas listas dos outros módulos (foi o que aconteceu com NES21 e BF01). */
+    /** Código já usado por outra obra? Vale também para obra inativa: o banco
+     *  tem índice único por código, então repetir dá erro na gravação. */
     function jaExiste(codigo: string, ignorarId?: string) {
         const cod = codigo.trim().toUpperCase()
         if (!cod) return null
-        return obras.find(o => o.id !== ignorarId && o.ativo && (o.codigo || '').trim().toUpperCase() === cod) ?? null
+        return obras.find(o => o.id !== ignorarId && (o.codigo || '').trim().toUpperCase() === cod) ?? null
     }
+
+    /** O código é a chave da obra em todo o app — guardar sempre em maiúsculas e sem espaço. */
+    const normalizar = (f: typeof form) => ({ ...f, codigo: f.codigo.trim().toUpperCase(), nome: f.nome.trim() })
+
+    /** Erro de índice único vira recado em português. */
+    const mensagemErro = (msg: string, cod: string) =>
+        /duplicate key|obras_codigo_unico|23505/i.test(msg)
+            ? `O código ${cod} já está cadastrado em outra obra.`
+            : 'Não deu para salvar: ' + msg
 
     async function handleCreate(e: React.FormEvent) {
         e.preventDefault()
-        const repetida = jaExiste(form.codigo)
+        const dados = normalizar(form)
+        const repetida = jaExiste(dados.codigo)
         if (repetida) {
-            setErro(`O código ${form.codigo.trim().toUpperCase()} já está cadastrado em "${repetida.nome}". Use outro código ou edite a obra existente.`)
+            setErro(`O código ${dados.codigo} já está cadastrado em "${repetida.nome}"${repetida.ativo ? '' : ' (obra inativa)'}. Use outro código ou edite a obra existente.`)
             return
         }
-        const { error } = await supabase.from('obras').insert({ ...form, ativo: true })
-        if (error) { setErro('Não deu para salvar: ' + error.message); return }
+        const { error } = await supabase.from('obras').insert({ ...dados, ativo: true })
+        if (error) { setErro(mensagemErro(error.message, dados.codigo)); return }
         setErro('')
         setForm({ nome: '', codigo: '', endereco: '', engenheiro_responsavel: '' })
         setShowForm(false)
@@ -47,13 +57,14 @@ export default function ObrasPage() {
     }
 
     async function handleUpdate(id: string) {
-        const repetida = jaExiste(form.codigo, id)
+        const dados = normalizar(form)
+        const repetida = jaExiste(dados.codigo, id)
         if (repetida) {
-            setErro(`O código ${form.codigo.trim().toUpperCase()} já está cadastrado em "${repetida.nome}".`)
+            setErro(`O código ${dados.codigo} já está cadastrado em "${repetida.nome}"${repetida.ativo ? '' : ' (obra inativa)'}.`)
             return
         }
-        const { error } = await supabase.from('obras').update(form).eq('id', id)
-        if (error) { setErro('Não deu para salvar: ' + error.message); return }
+        const { error } = await supabase.from('obras').update(dados).eq('id', id)
+        if (error) { setErro(mensagemErro(error.message, dados.codigo)); return }
         setErro('')
         setEditingId(null)
         setForm({ nome: '', codigo: '', endereco: '', engenheiro_responsavel: '' })
