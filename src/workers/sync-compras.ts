@@ -106,15 +106,31 @@ async function ciclo() {
             }
         }
 
-        // 3. Pedidos do app
-        const { data: pedidos, error } = await supabase
-            .from('pedidos_compra')
-            .select('id, codigo_uau, numero_pedido, descricao_insumo, status_fsm, categoria_cap, numero_ordem_compra, grupo_cotacao_id, valor_fechado, qtd_pedido, preco_unitario, comprador_uau, data_em_cotacao, data_ordem_gerada')
-        if (error) throw new Error('pedidos_compra select: ' + error.message)
+        // 3. Pedidos do app — PAGINADO.
+        //
+        // O Supabase devolve no máximo 1000 linhas por requisição. Como a tabela
+        // passou de 2,4 mil cards, o robô só enxergava os 1000 primeiros e os
+        // demais nunca eram avaliados: ficavam parados em "Pedido confirmado"
+        // mesmo com cotação no UAU (em 20/10/2026 eram ~900 cards travados, e o
+        // log repetia "1000 cards" todo ciclo).
+        const COLUNAS = 'id, codigo_uau, numero_pedido, descricao_insumo, status_fsm, categoria_cap, numero_ordem_compra, grupo_cotacao_id, valor_fechado, qtd_pedido, preco_unitario, comprador_uau, data_em_cotacao, data_ordem_gerada'
+        const PAGINA = 1000
+        const pedidos: any[] = []
+        for (let de = 0; ; de += PAGINA) {
+            const { data, error } = await supabase
+                .from('pedidos_compra')
+                .select(COLUNAS)
+                .order('created_at', { ascending: true })
+                .order('id', { ascending: true })
+                .range(de, de + PAGINA - 1)
+            if (error) throw new Error('pedidos_compra select: ' + error.message)
+            pedidos.push(...(data ?? []))
+            if (!data || data.length < PAGINA) break
+        }
 
         // 4. Match + alvo + avanço (só os campos que mudaram)
         const updates: { id: string; patch: any }[] = []
-        for (const p of pedidos ?? []) {
+        for (const p of pedidos) {
             const key = `${norm(p.codigo_uau)}||${norm(p.numero_pedido)}||${norm(p.descricao_insumo)}`
             const m = mapa.get(key)
             if (!m) continue
@@ -168,7 +184,7 @@ async function ciclo() {
             ))
         }
 
-        console.log(`[COMPRAS] OK: ${rows.length} linhas UAU, ${pedidos?.length ?? 0} cards, ${updates.length} movidos.`)
+        console.log(`[COMPRAS] OK: ${rows.length} linhas UAU, ${pedidos.length} cards, ${updates.length} movidos.`)
     } catch (e: any) {
         console.log(`[COMPRAS] ERRO: ${(e?.message || e).toString().slice(0, 150)}`)
     } finally {
