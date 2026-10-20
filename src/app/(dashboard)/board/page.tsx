@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { paginarTudo } from '@/lib/supabase/paginar'
 import { PedidoCompra } from '@/lib/types/database'
 import KanbanBoard from '@/components/board/KanbanBoard'
 import TimelineView from '@/components/board/TimelineView'
@@ -66,13 +67,17 @@ export default function BoardPage() {
         setLoading(true)
         setErrorMsg(null)
         try {
-            const { data, error } = await supabase
-                .from('pedidos_compra')
-                .select('*, obra:obras(*), comprador:compradores(*)')
-                .order('created_at', { ascending: false })
-            
-            if (error) throw error
-            if (data) setPedidos(data as unknown as PedidoCompra[])
+            // O Supabase devolve no máximo 1000 linhas por requisição. Sem paginar,
+            // o board só via os 1000 pedidos MAIS RECENTES — as colunas do fim do
+            // fluxo (Ordem Gerada) apareciam zeradas mesmo com 1.184 registros no
+            // banco (20/10/2026). Agora busca tudo, em páginas paralelas.
+            const dados = await paginarTudo<PedidoCompra>(
+                supabase, 'pedidos_compra', '*, obra:obras(*), comprador:compradores(*)',
+                { ordem: ['created_at', 'id'] },
+            )
+            // A lista chega em ordem crescente (a paginação exige ordem estável);
+            // o board mostra do mais novo para o mais antigo.
+            setPedidos([...dados].reverse())
         } catch (err: any) {
             console.error('Erro loadPedidos:', err)
             setErrorMsg(err.message || 'Erro desconhecido ao carregar pedidos')

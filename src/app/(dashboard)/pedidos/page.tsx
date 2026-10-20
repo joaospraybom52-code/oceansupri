@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { paginarTudo } from '@/lib/supabase/paginar'
 import { PedidoCompra } from '@/lib/types/database'
 import { STATUS_LABELS, STATUS_COLORS, formatCurrency, calcSavingAbsoluto, formatPercent, calcSavingPercentual } from '@/lib/utils/kpi-calculations'
 import { formatDate, timeAgo } from '@/lib/utils/date-helpers'
@@ -19,11 +20,13 @@ export default function PedidosPage() {
     useEffect(() => { loadPedidos() }, [])
 
     async function loadPedidos() {
-        const { data } = await supabase
-            .from('pedidos_compra')
-            .select('*, obra:obras(*), comprador:compradores(*)')
-            .order('created_at', { ascending: false })
-        if (data) setPedidos(data as unknown as PedidoCompra[])
+        // Paginado: o Supabase corta em 1000 linhas por requisição e a lista
+        // passava de 2,4 mil pedidos — os mais antigos sumiam.
+        const dados = await paginarTudo<PedidoCompra>(
+            supabase, 'pedidos_compra', '*, obra:obras(*), comprador:compradores(*)',
+            { ordem: ['created_at', 'id'] },
+        )
+        setPedidos([...dados].reverse())
         setLoading(false)
     }
 

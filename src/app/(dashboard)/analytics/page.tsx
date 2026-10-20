@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { paginarTudo } from '@/lib/supabase/paginar'
 import { PedidoCompra } from '@/lib/types/database'
 import { formatCurrency, formatPercent, calcSavingAbsoluto, calcSavingPercentual, calcLeadTimeDays } from '@/lib/utils/kpi-calculations'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
@@ -27,10 +28,12 @@ export default function AnalyticsPage() {
     useEffect(() => { loadData() }, [])
 
     async function loadData() {
-        const { data } = await supabase
-            .from('pedidos_compra')
-            .select('*, obra:obras(*), comprador:compradores(*)')
-        if (data) setPedidos(data as unknown as PedidoCompra[])
+        // Paginado: sem isso os indicadores somavam só os 1000 primeiros pedidos.
+        const dados = await paginarTudo<PedidoCompra>(
+            supabase, 'pedidos_compra', '*, obra:obras(*), comprador:compradores(*)',
+            { ordem: ['created_at', 'id'] },
+        )
+        setPedidos(dados)
         // Apenas compradores cadastrados e ativos (vinculados aos e-mails)
         const { data: comps } = await supabase
             .from('compradores')
