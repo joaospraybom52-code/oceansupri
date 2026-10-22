@@ -25,6 +25,10 @@ export interface OrcamentoCusto {
     item_plt: string
     insumo: string
     valor_planejado: number | null
+    /** Por que o planejado foi alterado — anotação do admin. */
+    observacao?: string | null
+    alterado_por?: string | null
+    alterado_em?: string | null
 }
 
 export interface DisplayRow {

@@ -23,7 +23,7 @@ export default async function AcompanhamentoCustoPage() {
             'obra_plt, obra, item_plt, serv_plt, servico, insumo, ins_cins, unid_ins, valor_aprov, saldo_vlr_vinc, ordem, atualizado_em',
             // A ordem da planilha (obra + ordem) é o que monta a hierarquia na tela.
             { ajuste: semObrasDiretoria, ordem: ['obra_plt', 'ordem'] }),
-        paginarTudo(supabase, 'custo_orcamento', 'id, obra_plt, item_plt, insumo, valor_planejado',
+        paginarTudo(supabase, 'custo_orcamento', 'id, obra_plt, item_plt, insumo, valor_planejado, observacao, alterado_por, alterado_em',
             { ajuste: semObrasDiretoria }),
         paginarTudo(supabase, 'custo_materiais', 'obra_plt, item_plt, ins_cins, material, valor',
             { ajuste: semObrasDiretoria }),

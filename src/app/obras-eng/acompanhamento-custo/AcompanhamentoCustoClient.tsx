@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useEffect } from 'react'
-import { Wallet, FileText } from 'lucide-react'
+import { Wallet, FileText, StickyNote } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import SearchSelect from '@/components/ui/SearchSelect'
 import {
@@ -61,30 +61,36 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
     // Grava o PLANEJADO de um insumo. Atualiza a linha existente do orçamento
     // (casando por item + insumo normalizado) ou insere uma nova. As somas das
     // linhas amarelas (serviço) e azuis (raiz/subtotal) recalculam sozinhas.
-    async function salvarPlanejado(item: string, insumoNome: string, raw: string) {
+    async function salvarPlanejado(item: string, insumoNome: string, raw: string, observacao?: string) {
         // Aceita formato pt-BR: "167.392,50" -> 167392.50 (ponto = milhar, vírgula = decimal)
         const valor = parseFloat(String(raw).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'))
         if (isNaN(valor) || valor < 0) return
         const insumoUpper = insumoNome.trim().toUpperCase()
         const chave = `${item}|${insumoUpper}`
         const existente = orc.find(o => o.obra_plt === obraSel && (o.item_plt || '') === item && (o.insumo || '').trim().toUpperCase() === insumoUpper)
-        if (existente && Number(existente.valor_planejado || 0) === valor) return
+        const obs = (observacao ?? '').trim() || null
+        // Nada mudou (nem valor, nem observação)? não grava.
+        if (existente && Number(existente.valor_planejado || 0) === valor && (existente.observacao ?? null) === obs) return
+        const quem = (await supabase.auth.getUser()).data.user?.email ?? null
+        const agora = new Date().toISOString()
         setSalvando(chave)
         try {
             if (existente) {
-                const anterior = existente.valor_planejado
-                setOrc(prev => prev.map(o => o.id === existente.id ? { ...o, valor_planejado: valor } : o))
-                const { error } = await supabase.from('custo_orcamento').update({ valor_planejado: valor, atualizado_em: new Date().toISOString() }).eq('id', existente.id)
+                const antes = { valor: existente.valor_planejado, obs: existente.observacao }
+                setOrc(prev => prev.map(o => o.id === existente.id ? { ...o, valor_planejado: valor, observacao: obs, alterado_por: quem, alterado_em: agora } : o))
+                const { error } = await supabase.from('custo_orcamento')
+                    .update({ valor_planejado: valor, observacao: obs, alterado_por: quem, alterado_em: agora, atualizado_em: agora })
+                    .eq('id', existente.id)
                 if (error) {
-                    setOrc(prev => prev.map(o => o.id === existente.id ? { ...o, valor_planejado: anterior } : o))
+                    setOrc(prev => prev.map(o => o.id === existente.id ? { ...o, valor_planejado: antes.valor, observacao: antes.obs } : o))
                     throw error
                 }
             } else {
                 const { data, error } = await supabase.from('custo_orcamento')
-                    .insert({ obra_plt: obraSel, item_plt: item, insumo: insumoNome, valor_planejado: valor })
+                    .insert({ obra_plt: obraSel, item_plt: item, insumo: insumoNome, valor_planejado: valor, observacao: obs, alterado_por: quem, alterado_em: agora })
                     .select('id').single()
                 if (error) throw error
-                setOrc(prev => [...prev, { id: (data as any).id, obra_plt: obraSel, item_plt: item, insumo: insumoNome, valor_planejado: valor }])
+                setOrc(prev => [...prev, { id: (data as any).id, obra_plt: obraSel, item_plt: item, insumo: insumoNome, valor_planejado: valor, observacao: obs, alterado_por: quem, alterado_em: agora }])
             }
         } catch (e) {
             console.error('Erro ao salvar planejado:', e)
@@ -97,15 +103,26 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
     // Modal de confirmação de alteração do planejado.
     const [editando, setEditando] = useState<{ item: string; descricao: string; ins_cins: string; atual: number } | null>(null)
     const [novoValor, setNovoValor] = useState('')
+    const [novaObs, setNovaObs] = useState('')
+
+    /** Linha do orçamento de um insumo (para ler a observação já salva). */
+    const linhaOrc = (item: string, insumoNome: string) =>
+        orc.find(o => o.obra_plt === obraSel && (o.item_plt || '') === item
+            && (o.insumo || '').trim().toUpperCase() === insumoNome.trim().toUpperCase()) ?? null
+
     function abrirEdicao(r: DisplayRow) {
         setEditando({ item: r.item, descricao: r.descricao, ins_cins: r.ins_cins, atual: r.planej })
         setNovoValor(r.planej ? r.planej.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '')
+        setNovaObs(linhaOrc(r.item, r.descricao)?.observacao ?? '')
     }
     async function confirmarEdicao() {
         if (!editando) return
-        await salvarPlanejado(editando.item, editando.descricao, novoValor)
+        await salvarPlanejado(editando.item, editando.descricao, novoValor, novaObs)
         setEditando(null)
     }
+
+    /** dd/mm/aaaa da última alteração, para o rodapé da observação. */
+    const quando = (iso?: string | null) => iso ? new Date(iso).toLocaleDateString('pt-BR') : ''
 
     const materiaisSel = useMemo(() => {
         if (!sel) return []
@@ -190,15 +207,28 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                                                     {clicavel && <span style={{ color: 'var(--accent-blue, #818cf8)', marginRight: '6px' }}>›</span>}{r.descricao}
                                                 </td>
                                                 <td style={td}>
-                                                    {r.tipo === 'insumo' && canEdit ? (
-                                                        <span
-                                                            onClick={e => { e.stopPropagation(); abrirEdicao(r) }}
-                                                            title="Clique para alterar o planejado (admin)"
-                                                            style={{ cursor: 'pointer', borderBottom: '1px dashed rgba(129,140,248,0.7)', paddingBottom: '1px' }}
-                                                        >
-                                                            {fmt(r.planej)}
-                                                        </span>
-                                                    ) : fmt(r.planej)}
+                                                    {(() => {
+                                                        const oc = r.tipo === 'insumo' ? linhaOrc(r.item, r.descricao) : null
+                                                        const nota = oc?.observacao?.trim()
+                                                        const marca = nota ? (
+                                                            // Observação da alteração: ícone com o texto no hover.
+                                                            <span
+                                                                title={`${nota}${oc?.alterado_por ? `\n— ${oc.alterado_por}${oc.alterado_em ? ' em ' + quando(oc.alterado_em) : ''}` : ''}`}
+                                                                style={{ color: '#f59e0b', marginRight: '6px', verticalAlign: 'middle', display: 'inline-flex' }}
+                                                            >
+                                                                <StickyNote size={13} />
+                                                            </span>
+                                                        ) : null
+                                                        return r.tipo === 'insumo' && canEdit ? (
+                                                            <span
+                                                                onClick={e => { e.stopPropagation(); abrirEdicao(r) }}
+                                                                title="Clique para alterar o planejado (admin)"
+                                                                style={{ cursor: 'pointer', borderBottom: '1px dashed rgba(129,140,248,0.7)', paddingBottom: '1px' }}
+                                                            >
+                                                                {marca}{fmt(r.planej)}
+                                                            </span>
+                                                        ) : <>{marca}{fmt(r.planej)}</>
+                                                    })()}
                                                 </td>
                                                 <td style={td}>{fmt(r.aprov)}</td>
                                                 <td style={td}>{fmt(r.vinc)}</td>
@@ -245,6 +275,22 @@ export default function AcompanhamentoCustoClient({ linhas, orcamento, materiais
                             placeholder="0,00"
                             style={{ width: '100%', textAlign: 'right', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)', borderRadius: '8px', color: 'var(--text-primary)', padding: '10px 12px', fontSize: '16px', fontWeight: 700, boxSizing: 'border-box' }}
                         />
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', margin: '14px 0 6px' }}>
+                            Observação <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(por que mudou — fica salvo)</span>
+                        </label>
+                        <textarea
+                            value={novaObs}
+                            onChange={e => setNovaObs(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') setEditando(null) }}
+                            rows={3}
+                            placeholder="Ex.: aditivo aprovado em 20/10, remanejamento de verba da alvenaria..."
+                            style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)', borderRadius: '8px', color: 'var(--text-primary)', padding: '10px 12px', fontSize: '13px', fontFamily: 'inherit', lineHeight: 1.45, resize: 'vertical', boxSizing: 'border-box' }}
+                        />
+                        {editando && linhaOrc(editando.item, editando.descricao)?.alterado_em && (
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                                Última alteração por {linhaOrc(editando.item, editando.descricao)?.alterado_por ?? '—'} em {quando(linhaOrc(editando.item, editando.descricao)?.alterado_em)}.
+                            </p>
+                        )}
                         <p style={{ fontSize: '14px', fontWeight: 700, color: '#f59e0b', margin: '18px 0 16px' }}>⚠️ Tem certeza da alteração?</p>
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                             <button onClick={() => setEditando(null)} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }}>Cancelar</button>
