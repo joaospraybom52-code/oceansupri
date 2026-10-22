@@ -267,6 +267,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
             if (ym) anos.add(ym.slice(0, 4))
         }
         for (const c of comprometido) if (c.ym) anos.add(c.ym.slice(0, 4))
+        for (const d of [...fluxoPago, ...fluxoAPagar]) if (d.data) anos.add(d.data.slice(0, 4))
         return Array.from(anos).sort()
     }, [medicoes, comprometido])
 
@@ -283,14 +284,18 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
             else if (m.tipo === 'emitida') add(toYm(m.mes_recebimento), 'emitida', valorLiquido(m))
             else add(toYm(m.mes_recebimento), 'previsto', valorLiquido(m))
         }
-        // Comprometido (UAU) respeita os mesmos filtros de obra e período
-        for (const c of comprometido) {
-            if (filtroCodigo && c.obra !== filtroCodigo) continue
-            if (!matchPeriodo(c.ym, filtroAnos, filtroMeses)) continue
-            add(c.ym, 'comprometido', c.valor)
+        // Comprometido = MESMA medida do Fluxo de Caixa Diário: Pago + A pagar,
+        // somados por mês. Antes vinha da view vw_controle_comprometido_mes, que
+        // usa outro recorte e deixava as duas telas com números diferentes
+        // (out/26: 3,31 mi no gráfico contra 2,67 mi no fluxo).
+        for (const d of [...fluxoPago, ...fluxoAPagar]) {
+            if (!d.data) continue
+            if (filtroCodigo && d.obra !== filtroCodigo) continue
+            if (!matchPeriodo(d.data, filtroAnos, filtroMeses)) continue
+            add(d.data.slice(0, 7), 'comprometido', d.valor)
         }
         return Object.keys(map).sort().map(ym => ({ ym, label: ymLabel(ym), ...map[ym] }))
-    }, [medicoesFiltradas, comprometido, filtroCodigo, filtroAnos, filtroMeses])
+    }, [medicoesFiltradas, fluxoPago, fluxoAPagar, filtroCodigo, filtroAnos, filtroMeses])
 
     // KPIs: "A receber" = só nota emitida ainda não recebida; "Já recebido" = o que foi recebido
     const totalAReceber = medicoesFiltradas.filter(m => m.tipo === 'emitida' && !isRecebida(m)).reduce((s, m) => s + valorLiquido(m), 0)
