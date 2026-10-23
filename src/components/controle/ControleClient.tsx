@@ -518,17 +518,19 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
             {imprimindo && (
                 <>
                     <style>{`
+                        /* fora da tela enquanto a caixa de impressão não abre */
+                        #medicoes-print { position: absolute; left: -10000px; top: 0; width: 720px; }
                         @media print {
                             @page { size: A4 portrait; margin: 10mm 10mm 14mm; }
                             body { background: #fff !important; }
                             body * { visibility: hidden !important; }
                             #medicoes-print, #medicoes-print * { visibility: visible !important; }
-                            #medicoes-print { position: absolute; left: 0; top: 0; width: 100%; }
+                            #medicoes-print { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; }
                             #medicoes-print thead { display: table-header-group; }
                             #medicoes-print tr { break-inside: avoid; page-break-inside: avoid; }
                         }
                     `}</style>
-                    <div id="medicoes-print" style={{ position: 'fixed', left: '-10000px', top: 0, width: '720px', background: '#fff', color: '#2B2E34', padding: '18px 20px', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+                    <div id="medicoes-print" style={{ background: '#fff', color: '#2B2E34', padding: '18px 20px', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #2B2E34', paddingBottom: '7px', marginBottom: '12px' }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src="/logo-constrowins.png" alt="Constrowins" style={{ height: '26px' }} />
