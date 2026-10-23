@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
     LineChart as RLineChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, CalendarDays, Undo2 } from 'lucide-react'
+import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, CalendarDays, Undo2, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
@@ -117,6 +117,15 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
 
     // Aba do painel da direita: previsão / a receber / recebidas / descontos por antecipação
     const [aba, setAba] = useState<'previsao' | 'aReceber' | 'recebidas' | 'descontos'>('aReceber')
+
+    // Exportar a lista da aba em PDF (impressão do navegador, como no Fechamento Banco).
+    const [imprimindo, setImprimindo] = useState(false)
+    useEffect(() => {
+        if (!imprimindo) return
+        // tempo para a folha entrar no DOM antes da caixa de impressão
+        const t = setTimeout(() => { window.print(); setImprimindo(false) }, 350)
+        return () => clearTimeout(t)
+    }, [imprimindo])
 
     // Modal cadastro/edição
     const [showModal, setShowModal] = useState(false)
@@ -307,6 +316,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
     const recebidas = medicoesFiltradas.filter(isRecebida)
     const comDesconto = recebidas.filter(m => Number(m.percentual_recebido) < 100)
     const listaAba = aba === 'previsao' ? previsoes : aba === 'recebidas' ? recebidas : aba === 'descontos' ? comDesconto : aReceberLista
+    const tituloAba = aba === 'previsao' ? 'Total previsto'
+        : aba === 'descontos' ? 'Total deixado de receber'
+        : aba === 'recebidas' ? 'Total recebido' : 'Total a receber'
     const valorDaLinha = (m: Medicao) => aba === 'descontos' ? valorDesconto(m) : aba === 'recebidas' ? valorRecebido(m) : valorLiquido(m)
     const totalAba = listaAba.reduce((s, m) => s + valorDaLinha(m), 0)
     const corAba = aba === 'descontos' ? 'var(--accent-red, #ef4444)' : aba === 'previsao' ? '#6366f1' : 'var(--accent-green)'
@@ -438,6 +450,15 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                         <AbaBtn ativa={aba === 'aReceber'} cor="#f59e0b" label="A receber" qtd={aReceberLista.length} onClick={() => setAba('aReceber')} />
                         <AbaBtn ativa={aba === 'recebidas'} cor="#10b981" label="Notas recebidas" qtd={recebidas.length} onClick={() => setAba('recebidas')} />
                         <AbaBtn ativa={aba === 'descontos'} cor="#ef4444" label="Desconto antecipação" qtd={comDesconto.length} onClick={() => setAba('descontos')} />
+                        <button
+                            onClick={() => setImprimindo(true)}
+                            disabled={imprimindo || listaAba.length === 0}
+                            title="Exportar a lista desta aba em PDF"
+                            className="btn-secondary"
+                            style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '6px 12px', opacity: listaAba.length === 0 ? 0.5 : 1 }}
+                        >
+                            <Printer size={14} /> {imprimindo ? 'Preparando…' : 'Exportar PDF'}
+                        </button>
                     </div>
                     {aba === 'descontos' && (
                         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '-8px 0 12px' }}>
@@ -492,6 +513,68 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                     </div>
                 </div>
             </div>
+
+            {/* Folha de impressão da aba (só existe enquanto exporta) */}
+            {imprimindo && (
+                <>
+                    <style>{`
+                        @media print {
+                            @page { size: A4 portrait; margin: 10mm 10mm 14mm; }
+                            body { background: #fff !important; }
+                            body * { visibility: hidden !important; }
+                            #medicoes-print, #medicoes-print * { visibility: visible !important; }
+                            #medicoes-print { position: absolute; left: 0; top: 0; width: 100%; }
+                            #medicoes-print thead { display: table-header-group; }
+                            #medicoes-print tr { break-inside: avoid; page-break-inside: avoid; }
+                        }
+                    `}</style>
+                    <div id="medicoes-print" style={{ position: 'fixed', left: '-10000px', top: 0, width: '720px', background: '#fff', color: '#2B2E34', padding: '18px 20px', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #2B2E34', paddingBottom: '7px', marginBottom: '12px' }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/logo-constrowins.png" alt="Constrowins" style={{ height: '26px' }} />
+                            <div style={{ textAlign: 'right', fontSize: '9px', color: '#6b7078', lineHeight: 1.5 }}>
+                                <div style={{ fontWeight: 800, fontSize: '11px', color: '#2B2E34' }}>{tituloAba}</div>
+                                Emitido em {new Date().toLocaleDateString('pt-BR')} · {listaAba.length} {listaAba.length === 1 ? 'nota' : 'notas'}
+                            </div>
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#6b7078', marginBottom: '10px' }}>
+                            Filtros: obra {filtroCodigo || 'todas'} · ano {filtroAnos.length ? filtroAnos.join(', ') : 'todos'} · mês {filtroMeses.length ? filtroMeses.map(m => MESES_FILTRO.find(x => x.v === m)?.n ?? m).join(', ') : 'todos'}
+                        </div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                            <thead>
+                                <tr>
+                                    {['Obra', 'Código', 'Cidade', aba === 'recebidas' || aba === 'descontos' ? 'Recebimento' : 'Previsão', 'NF', 'Situação', 'Valor (R$)'].map((h, i) => (
+                                        <th key={h} style={{ background: '#2B2E34', color: '#fff', textAlign: i === 6 ? 'right' : 'left', padding: '5px 7px', fontSize: '8.5px', textTransform: 'uppercase', letterSpacing: '.03em' }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {listaAba.map((m, i) => (
+                                    <tr key={m.id} style={{ background: i % 2 ? '#f6f7f8' : '#fff' }}>
+                                        <td style={tdPrint}>{m.obra?.nome ?? '—'}</td>
+                                        <td style={tdPrint}>{m.obra?.codigo ?? '—'}</td>
+                                        <td style={tdPrint}>{m.obra?.cidade ?? '—'}</td>
+                                        <td style={tdPrint}>{isRecebida(m) ? ymLabel(toYm(m.mes_recebimento_real)) : dmyLabel(m.mes_recebimento)}</td>
+                                        <td style={tdPrint}>{m.nota_fiscal || '—'}</td>
+                                        <td style={tdPrint}>{statusInfo(m).label}</td>
+                                        <td style={{ ...tdPrint, textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{formatCurrency(valorDaLinha(m))}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
+                                    <td style={{ ...tdPrint, color: '#fff' }} colSpan={6}>{tituloAba}</td>
+                                    <td style={{ ...tdPrint, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{aba === 'descontos' ? '− ' : ''}{formatCurrency(totalAba)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                        <div style={{ marginTop: '10px', borderTop: '1px solid #e6e8ea', paddingTop: '5px', fontSize: '8px', color: '#6b7078', display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontWeight: 700, color: '#2B2E34' }}>CONSTROWINS SERVIÇOS DE ENGENHARIA LTDA</span>
+                            <span>Módulo Controle · cadastro de medições</span>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Fluxo de Caixa Diário: recebido x pago por dia (medidas da KPI'S) */}
             <FluxoCaixaDiario recebidos={fluxoRecebido} pagos={fluxoPago} aPagar={fluxoAPagar} aReceber={fluxoAReceber} obras={obras} />
@@ -592,6 +675,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
 }
 
 const lbl: React.CSSProperties = { fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }
+
+/** Célula da folha de impressão das medições. */
+const tdPrint: React.CSSProperties = { padding: '4px 7px', borderBottom: '1px solid #e6e8ea', color: '#41454d' }
 
 // ===== Fluxo de Caixa Diário =====
 // Barras de Recebido x Pago por dia do mês, usando as MESMAS medidas da KPI'S:
