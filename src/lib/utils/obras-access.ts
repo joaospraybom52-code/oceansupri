@@ -19,14 +19,14 @@ export const podeCriarMedProg = (p: PapelObras) => p === 'editor' || p === 'admi
 export const podeAdminObra = (p: PapelObras) => p === 'admin'
 
 /**
- * Perfis (cadastro de usuários) que podem preencher a Linha de Base da Curva S.
- * Antes era uma lista de e-mails na própria página; agora segue o nível de
- * acesso, então basta cadastrar a pessoa como Planejamento.
+ * Perfis (cadastro de usuários) que respondem pelo PLANEJAMENTO da obra: Linha
+ * de Base da Curva S e Previsto do Histograma. Segue o nível de acesso, então
+ * basta cadastrar a pessoa como Planejamento.
  */
 export const PERFIS_LINHA_BASE = ['admin', 'planejamento']
 
-/** Pode cadastrar/alterar a Linha de Base da Curva S? */
-export async function podeEditarLinhaBase(): Promise<boolean> {
+/** Pode cadastrar/alterar o planejamento da obra (linha de base e previsto)? */
+export async function podeEditarPlanejamento(): Promise<boolean> {
     const papel = await getPapelObras()
     if (papel === 'admin') return true
     if (!podeCriarMedProg(papel)) return false // precisa ser ao menos editor no Obras
@@ -44,3 +44,6 @@ export async function podeEditarLinhaBase(): Promise<boolean> {
     const u = data as { perfil?: string; ativo?: boolean } | null
     return !!u?.ativo && PERFIS_LINHA_BASE.includes(u?.perfil ?? '')
 }
+
+/** Nome antigo, mantido para a Curva S. */
+export const podeEditarLinhaBase = podeEditarPlanejamento

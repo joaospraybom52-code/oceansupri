@@ -23,7 +23,10 @@ const GRUPOS = [
     { titulo: 'Histograma de Equipamentos', prev: 'equip_prev', real: 'equip_real' },
 ] as const
 
-export default function HistogramaClient({ obraId, initialSemanas, podeEditar }: { obraId: string, initialSemanas: any[], podeEditar: boolean }) {
+export default function HistogramaClient({ obraId, initialSemanas, podeEditar, podeEditarPrevisto = false }: { obraId: string, initialSemanas: any[], podeEditar: boolean, podeEditarPrevisto?: boolean }) {
+    /** Colunas de PREVISTO: planejamento da obra, travadas para os demais. */
+    const ehPrevisto = (campo: Campo) => campo.endsWith('_prev')
+    const podeMexer = (campo: Campo) => ehPrevisto(campo) ? podeEditarPrevisto : podeEditar
     const supabase = createClient()
     const router = useRouter()
     const [rows, setRows] = useState<Row[]>(
@@ -54,9 +57,15 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar }:
         setSaving(true)
         await supabase.from('histograma_semanas' as any).delete().eq('obra_id', obraId)
         if (validas.length > 0) {
+            // Sem permissão de planejamento, o Previsto é gravado como estava —
+            // a tela já bloqueia, isto é a rede de segurança do salvamento.
+            const originais = new Map<string, any>((initialSemanas || []).map((s: any) => [String(s.semana_ref).slice(0, 10), s]))
             const payload = validas.sort((a, b) => a.semana_ref.localeCompare(b.semana_ref)).map((r, idx) => {
                 const o: any = { obra_id: obraId, semana_ref: r.semana_ref, ordem: idx }
-                CAMPOS.forEach(c => { o[c] = toNum(r[c]) })
+                const antes = originais.get(r.semana_ref)
+                CAMPOS.forEach(c => {
+                    o[c] = (ehPrevisto(c) && !podeEditarPrevisto) ? (antes ? toNum(toStr(antes[c])) : null) : toNum(r[c])
+                })
                 return o
             })
             const { error } = await supabase.from('histograma_semanas' as any).insert(payload)
@@ -114,7 +123,14 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar }:
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr>
-                                <th style={{ ...th, textAlign: 'left' }}>Semana</th>
+                                <th style={{ ...th, textAlign: 'left' }}>
+                                    Semana
+                                    {podeEditar && !podeEditarPrevisto && (
+                                        <span style={{ display: 'block', fontWeight: 500, textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)', fontSize: '10px', marginTop: '2px' }}>
+                                            🔒 Previsto é do planejamento — você edita só o realizado
+                                        </span>
+                                    )}
+                                </th>
                                 <th style={{ ...th, textAlign: 'center' }}>MOI Prev.</th>
                                 <th style={{ ...th, textAlign: 'center' }}>MOI Real.</th>
                                 <th style={{ ...th, textAlign: 'center' }}>MOD Prev.</th>
@@ -135,7 +151,14 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar }:
                                     </td>
                                     {CAMPOS.map(campo => (
                                         <td style={td} key={campo}>
-                                            <input type="text" inputMode="decimal" value={r[campo]} onChange={e => update(i, campo, e.target.value)} className="input-field" style={{ padding: '6px 8px', width: '64px', textAlign: 'center' }} placeholder="-" disabled={!podeEditar} />
+                                            <input
+                                                type="text" inputMode="decimal" value={r[campo]}
+                                                onChange={e => update(i, campo, e.target.value)}
+                                                className="input-field"
+                                                title={ehPrevisto(campo) && !podeEditarPrevisto ? 'O Previsto é do planejamento — só admin ou perfil Planejamento altera' : undefined}
+                                                style={{ padding: '6px 8px', width: '64px', textAlign: 'center', opacity: podeMexer(campo) ? 1 : 0.55, cursor: podeMexer(campo) ? 'auto' : 'not-allowed' }}
+                                                placeholder="-" disabled={!podeMexer(campo)}
+                                            />
                                         </td>
                                     ))}
                                     {podeEditar && (
