@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Save } from 'lucide-react'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
 
-const CAMPOS = ['moi_prev', 'moi_real', 'mod_prev', 'mod_real', 'equip_prev', 'equip_real'] as const
+const CAMPOS = ['moi_prev', 'moi_real', 'mod_prev', 'mod_real', 'terc_prev', 'terc_real', 'equip_prev', 'equip_real'] as const
 type Campo = typeof CAMPOS[number]
 type Row = { semana_ref: string } & Record<Campo, string>
 
@@ -15,13 +15,44 @@ const toStr = (v: any) => v == null ? '' : String(v).replace('.', ',')
 const toNum = (v: string): number | null => v.trim() === '' ? null : Number(v.replace(',', '.'))
 const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''
 
-const novaLinha = (): Row => ({ semana_ref: '', moi_prev: '', moi_real: '', mod_prev: '', mod_real: '', equip_prev: '', equip_real: '' })
+const novaLinha = (): Row => ({
+    semana_ref: '', moi_prev: '', moi_real: '', mod_prev: '', mod_real: '',
+    terc_prev: '', terc_real: '', equip_prev: '', equip_real: '',
+})
+
+/** Jornada da Constrowins: 8 h por dia, de segunda a sexta. */
+const HORAS_DIA = 8
+
+/** Dias úteis (seg a sex) da semana que começa em semana_ref. */
+function diasUteis(semanaRef: string): number {
+    if (!semanaRef) return 0
+    const ini = new Date(semanaRef + 'T00:00:00')
+    if (isNaN(ini.getTime())) return 0
+    let n = 0
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(ini)
+        d.setDate(ini.getDate() + i)
+        const dow = d.getDay()
+        if (dow !== 0 && dow !== 6) n++
+    }
+    return n
+}
+
+const fmtHoras = (h: number) => `${Math.round(h).toLocaleString('pt-BR')} h`
 
 const GRUPOS = [
-    { titulo: 'Histograma de MOI (Mão de Obra Indireta)', prev: 'moi_prev', real: 'moi_real' },
-    { titulo: 'Histograma de MOD (Mão de Obra Direta)', prev: 'mod_prev', real: 'mod_real' },
-    { titulo: 'Histograma de Equipamentos', prev: 'equip_prev', real: 'equip_real' },
+    { titulo: 'Histograma de MOI (Mão de Obra Indireta)', prev: 'moi_prev', real: 'moi_real', ptw: true },
+    { titulo: 'Histograma de MOD (Mão de Obra Direta)', prev: 'mod_prev', real: 'mod_real', ptw: true },
+    { titulo: 'Histograma de MO Terceirizada', prev: 'terc_prev', real: 'terc_real', ptw: true },
+    { titulo: 'Histograma de Equipamentos', prev: 'equip_prev', real: 'equip_real', ptw: false },
 ] as const
+
+const COLUNAS: { campo: Campo, label: string }[] = [
+    { campo: 'moi_prev', label: 'MOI Prev.' }, { campo: 'moi_real', label: 'MOI Real.' },
+    { campo: 'mod_prev', label: 'MOD Prev.' }, { campo: 'mod_real', label: 'MOD Real.' },
+    { campo: 'terc_prev', label: 'Terc. Prev.' }, { campo: 'terc_real', label: 'Terc. Real.' },
+    { campo: 'equip_prev', label: 'Equip. Prev.' }, { campo: 'equip_real', label: 'Equip. Real.' },
+]
 
 export default function HistogramaClient({ obraId, initialSemanas, podeEditar, podeEditarPrevisto = false }: { obraId: string, initialSemanas: any[], podeEditar: boolean, podeEditarPrevisto?: boolean }) {
     /** Colunas de PREVISTO: planejamento da obra, travadas para os demais. */
@@ -43,6 +74,27 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
     function chartData(prev: Campo, real: Campo) {
         return ordenadas.map(r => ({ label: fmtData(r.semana_ref), Previsto: toNum(r[prev]), Realizado: toNum(r[real]) }))
     }
+
+    /**
+     * PTW: horas do efetivo no período. Cada pessoa da semana vale
+     * 8 h x dias úteis (sábado e domingo não contam).
+     */
+    const ptw = useMemo(() => {
+        const soma = (campos: Campo[]) => ordenadas.reduce((acc, r) => {
+            const pessoas = campos.reduce((s, c) => s + (toNum(r[c]) ?? 0), 0)
+            return acc + pessoas * HORAS_DIA * diasUteis(r.semana_ref)
+        }, 0)
+        const horas = (campo: Campo) => soma([campo])
+        return {
+            horas,
+            propriaPrev: soma(['moi_prev', 'mod_prev']),
+            propriaReal: soma(['moi_real', 'mod_real']),
+            tercPrev: soma(['terc_prev']),
+            tercReal: soma(['terc_real']),
+            totalPrev: soma(['moi_prev', 'mod_prev', 'terc_prev']),
+            totalReal: soma(['moi_real', 'mod_real', 'terc_real']),
+        }
+    }, [ordenadas])
 
     function update(i: number, campo: keyof Row, valor: string) {
         setRows(rows.map((r, idx) => idx === i ? { ...r, [campo]: valor } : r))
@@ -79,6 +131,33 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
     const th: React.CSSProperties = { padding: '8px 10px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }
     const td: React.CSSProperties = { padding: '5px 10px', borderTop: '1px solid var(--border-glass)' }
 
+    /** Faixa de PTW no rodapé de cada gráfico de mão de obra. */
+    function FaixaPtw({ prev, real }: { prev: Campo, real: Campo }) {
+        const hp = ptw.horas(prev), hr = ptw.horas(real)
+        const pct = hp > 0 ? (hr / hp) * 100 : null
+        return (
+            <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-glass)', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--text-muted)' }}>PTW</span>
+                <span style={{ fontSize: '12px', color: '#3b82f6' }}>Previsto <b style={{ color: 'var(--text-primary)' }}>{fmtHoras(hp)}</b></span>
+                <span style={{ fontSize: '12px', color: '#10b981' }}>Realizado <b style={{ color: 'var(--text-primary)' }}>{fmtHoras(hr)}</b></span>
+                {pct != null && <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: 'auto' }}>{pct.toFixed(0)}% do previsto</span>}
+            </div>
+        )
+    }
+
+    const CardPtw = ({ titulo, prev, real, destaque }: { titulo: string, prev: number, real: number, destaque?: boolean }) => {
+        const pct = prev > 0 ? (real / prev) * 100 : null
+        return (
+            <div style={{ padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--border-glass)', background: destaque ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.02)' }}>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', fontWeight: 700 }}>{titulo}</div>
+                <div style={{ fontSize: '20px', fontWeight: 800, margin: '6px 0 2px' }}>{fmtHoras(real)}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    previsto {fmtHoras(prev)}{pct != null && ` · ${pct.toFixed(0)}%`}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {/* Gráficos */}
@@ -103,9 +182,25 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
                                     </BarChart>
                                 </ResponsiveContainer>
                             )}
+                            {g.ptw && data.length > 0 && <FaixaPtw prev={g.prev} real={g.real} />}
                         </div>
                     )
                 })}
+            </div>
+
+            {/* PTW consolidado — mão de obra própria x terceirizada */}
+            <div className="glass-card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700 }}>PTW — horas de mão de obra</h3>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Efetivo da semana × {HORAS_DIA} h/dia × dias úteis (sábado e domingo não contam)
+                    </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                    <CardPtw titulo="MO própria (MOI + MOD)" prev={ptw.propriaPrev} real={ptw.propriaReal} />
+                    <CardPtw titulo="MO terceirizada" prev={ptw.tercPrev} real={ptw.tercReal} />
+                    <CardPtw titulo="Total" prev={ptw.totalPrev} real={ptw.totalReal} destaque />
+                </div>
             </div>
 
             {/* Grade */}
@@ -131,47 +226,53 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
                                         </span>
                                     )}
                                 </th>
-                                <th style={{ ...th, textAlign: 'center' }}>MOI Prev.</th>
-                                <th style={{ ...th, textAlign: 'center' }}>MOI Real.</th>
-                                <th style={{ ...th, textAlign: 'center' }}>MOD Prev.</th>
-                                <th style={{ ...th, textAlign: 'center' }}>MOD Real.</th>
-                                <th style={{ ...th, textAlign: 'center' }}>Equip. Prev.</th>
-                                <th style={{ ...th, textAlign: 'center' }}>Equip. Real.</th>
+                                {COLUNAS.map(c => <th key={c.campo} style={{ ...th, textAlign: 'center' }}>{c.label}</th>)}
+                                <th style={{ ...th, textAlign: 'center' }}>PTW real.</th>
                                 {podeEditar && <th style={th}></th>}
                             </tr>
                         </thead>
                         <tbody>
                             {rows.length === 0 && (
-                                <tr><td style={{ ...td, color: 'var(--text-muted)', textAlign: 'center' }} colSpan={podeEditar ? 8 : 7}>Nenhuma semana cadastrada.</td></tr>
+                                <tr><td style={{ ...td, color: 'var(--text-muted)', textAlign: 'center' }} colSpan={podeEditar ? COLUNAS.length + 3 : COLUNAS.length + 2}>Nenhuma semana cadastrada.</td></tr>
                             )}
-                            {rows.map((r, i) => (
-                                <tr key={i}>
-                                    <td style={td}>
-                                        <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px' }} disabled={!podeEditar} />
-                                    </td>
-                                    {CAMPOS.map(campo => (
-                                        <td style={td} key={campo}>
-                                            <input
-                                                type="text" inputMode="decimal" value={r[campo]}
-                                                onChange={e => update(i, campo, e.target.value)}
-                                                className="input-field"
-                                                title={ehPrevisto(campo) && !podeEditarPrevisto ? 'O Previsto é do planejamento — só admin ou perfil Planejamento altera' : undefined}
-                                                style={{ padding: '6px 8px', width: '64px', textAlign: 'center', opacity: podeMexer(campo) ? 1 : 0.55, cursor: podeMexer(campo) ? 'auto' : 'not-allowed' }}
-                                                placeholder="-" disabled={!podeMexer(campo)}
-                                            />
-                                        </td>
-                                    ))}
-                                    {podeEditar && (
+                            {rows.map((r, i) => {
+                                const pessoas = (toNum(r.moi_real) ?? 0) + (toNum(r.mod_real) ?? 0) + (toNum(r.terc_real) ?? 0)
+                                const horasSemana = pessoas * HORAS_DIA * diasUteis(r.semana_ref)
+                                return (
+                                    <tr key={i}>
                                         <td style={td}>
-                                            <button onClick={() => removeRow(i)} title="Excluir semana" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                            <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px' }} disabled={!podeEditar} />
                                         </td>
-                                    )}
-                                </tr>
-                            ))}
+                                        {CAMPOS.map(campo => (
+                                            <td style={td} key={campo}>
+                                                <input
+                                                    type="text" inputMode="decimal" value={r[campo]}
+                                                    onChange={e => update(i, campo, e.target.value)}
+                                                    className="input-field"
+                                                    title={ehPrevisto(campo) && !podeEditarPrevisto ? 'O Previsto é do planejamento — só admin ou perfil Planejamento altera' : undefined}
+                                                    style={{ padding: '6px 8px', width: '64px', textAlign: 'center', opacity: podeMexer(campo) ? 1 : 0.55, cursor: podeMexer(campo) ? 'auto' : 'not-allowed' }}
+                                                    placeholder="-" disabled={!podeMexer(campo)}
+                                                />
+                                            </td>
+                                        ))}
+                                        <td style={{ ...td, textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                            {horasSemana > 0 ? fmtHoras(horasSemana) : '—'}
+                                        </td>
+                                        {podeEditar && (
+                                            <td style={td}>
+                                                <button onClick={() => removeRow(i)} title="Excluir semana" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                            </td>
+                                        )}
+                                    </tr>
+                                )
+                            })}
                         </tbody>
                     </table>
                 </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>P = previsto, R = realizado. MOI: mão de obra indireta · MOD: mão de obra direta.</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>
+                    P = previsto, R = realizado. MOI: mão de obra indireta · MOD: mão de obra direta · Terc.: mão de obra terceirizada.
+                    A coluna PTW real. é a hora-homem da semana (MOI + MOD + terceirizada × {HORAS_DIA} h × dias úteis).
+                </p>
             </div>
         </div>
     )

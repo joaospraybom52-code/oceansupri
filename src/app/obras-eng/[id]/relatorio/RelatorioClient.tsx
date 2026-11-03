@@ -188,6 +188,27 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
     const histOrd = [...histograma].sort((a, b) => a.semana_ref.localeCompare(b.semana_ref))
     const histData = (p: string, r: string) => histOrd.map(h => ({ label: fmtCurto(h.semana_ref), Previsto: toNum(h[p]), Realizado: toNum(h[r]) }))
 
+    // PTW: horas do efetivo. Jornada de 8 h/dia, só dias úteis (seg a sex).
+    const HORAS_DIA = 8
+    const diasUteis = (ref: string) => {
+        const ini = new Date(String(ref) + 'T00:00:00')
+        if (isNaN(ini.getTime())) return 0
+        let n = 0
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(ini); d.setDate(ini.getDate() + i)
+            if (d.getDay() !== 0 && d.getDay() !== 6) n++
+        }
+        return n
+    }
+    const ptw = (campos: string[]) => histOrd.reduce((acc, h) =>
+        acc + campos.reduce((s, c) => s + (toNum(h[c]) ?? 0), 0) * HORAS_DIA * diasUteis(h.semana_ref), 0)
+    const fmtHoras = (h: number) => `${Math.round(h).toLocaleString('pt-BR')} h`
+    const PTW_LINHAS: [string, string[], string[]][] = [
+        ['MO própria (MOI + MOD)', ['moi_prev', 'mod_prev'], ['moi_real', 'mod_real']],
+        ['MO terceirizada', ['terc_prev'], ['terc_real']],
+        ['Total', ['moi_prev', 'mod_prev', 'terc_prev'], ['moi_real', 'mod_real', 'terc_real']],
+    ]
+
     // Próxima semana (primeira programação com início > semanaSel)
     const proxProg = programacoes.filter((p: any) => p.semana_referente_inicio > semanaSel).sort((a: any, b: any) => a.semana_referente_inicio.localeCompare(b.semana_referente_inicio))[0]
 
@@ -486,7 +507,8 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                         <div style={{ fontSize: '12px', color: '#999' }}>Sem dados de histograma.</div>
                     </div>
                 ) : (
-                    ([['MOI', 'moi_prev', 'moi_real'], ['MOD', 'mod_prev', 'mod_real'], ['Equipamentos', 'equip_prev', 'equip_real']] as const).map(([titulo, p, r], idx) => (
+                    ([['MOI', 'moi_prev', 'moi_real'], ['MOD', 'mod_prev', 'mod_real'],
+                      ['MO Terceirizada', 'terc_prev', 'terc_real'], ['Equipamentos', 'equip_prev', 'equip_real']] as const).map(([titulo, p, r], idx) => (
                         <div key={titulo} className="rep-avoid" style={card}>
                             {idx === 0 && <div style={h2}>Histogramas (previsto × realizado)</div>}
                             <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>{titulo}</div>
@@ -507,6 +529,35 @@ export default function RelatorioClient({ obra, programacoes, tarefas, restricoe
                             </ResponsiveContainer>
                         </div>
                     ))
+                )}
+
+                {/* PARTE 4b — PTW (horas de mão de obra própria e terceirizada) */}
+                {histOrd.length > 0 && (
+                    <div className="rep-avoid" style={card}>
+                        <div style={h2}>PTW — horas de mão de obra</div>
+                        <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
+                            Efetivo da semana × {HORAS_DIA} h/dia × dias úteis — sábado e domingo não contam.
+                        </div>
+                        <table style={tbl}>
+                            <thead><tr>
+                                <th style={{ ...thHead, textAlign: 'left' }}>Mão de obra</th>
+                                <th style={thHead}>PTW previsto</th><th style={thHead}>PTW realizado</th><th style={thHead}>%</th>
+                            </tr></thead>
+                            <tbody>
+                                {PTW_LINHAS.map(([rotulo, cp, cr], i) => {
+                                    const hp = ptw(cp), hr = ptw(cr)
+                                    return (
+                                        <tr key={rotulo} style={i % 2 ? { background: ZEBRA } : undefined}>
+                                            <td style={{ ...tc, textAlign: 'left', fontWeight: i === 2 ? 700 : 400 }}>{rotulo}</td>
+                                            <td style={tc}>{fmtHoras(hp)}</td>
+                                            <td style={tc}>{fmtHoras(hr)}</td>
+                                            <td style={tc}>{hp > 0 ? `${Math.round((hr / hp) * 100)}%` : '-'}</td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
 
                 {/* PARTE 5 — Planejamento semanal realizado */}
