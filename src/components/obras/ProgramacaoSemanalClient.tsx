@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, HelpCircle, Plus, X, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import SeletorItemOrcamento from './SeletorItemOrcamento'
 
 export default function ProgramacaoSemanalClient({
     obraId,
@@ -135,6 +136,9 @@ export default function ProgramacaoSemanalClient({
 
     async function handleAddTarefa(e: React.FormEvent) {
         e.preventDefault()
+        // O item do orçamento não é mais um <select> nativo, então a cobrança
+        // do campo obrigatório é feita aqui.
+        if (!novaTarefa.item_orcamento_id) { toast.error('Selecione o item do orçamento da tarefa.'); return }
         setLoading(true)
         const num = (v: string) => v === '' || v === null ? null : Number(String(v).replace(',', '.'))
         const { data, error } = await supabase.from('tarefas').insert({
@@ -388,10 +392,11 @@ export default function ProgramacaoSemanalClient({
                                     <input type="text" placeholder="Responsável *" value={novaTarefa.responsavel} onChange={e => setNovaTarefa({...novaTarefa, responsavel: e.target.value})} className="input-field" required />
                                 </div>
                                 <div>
-                                    <select value={novaTarefa.item_orcamento_id} onChange={e => setNovaTarefa({...novaTarefa, item_orcamento_id: e.target.value})} className="select-field" required style={{ width: '100%' }}>
-                                        <option value="">Selecione um item do orçamento *</option>
-                                        {itensOrcamento.map(item => <option key={item.id} value={item.id}>{item.codigo} - {item.descricao}</option>)}
-                                    </select>
+                                    <SeletorItemOrcamento
+                                        itens={itensOrcamento}
+                                        value={novaTarefa.item_orcamento_id}
+                                        onChange={id => setNovaTarefa({ ...novaTarefa, item_orcamento_id: id })}
+                                    />
                                 </div>
 
                                 {/* Quantitativos de produção da semana */}
