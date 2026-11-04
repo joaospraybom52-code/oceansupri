@@ -39,7 +39,7 @@ const toNum = (v: string): number | null => v.trim() === '' ? null : Number(v.re
 const fmtData = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''
 const fmtDataLonga = (d: string) => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : ''
 
-export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeEditarLinhaBase = false }: { obraId: string, initialSemanas: any[], podeEditar: boolean, podeEditarLinhaBase?: boolean }) {
+export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeEditarLinhaBase = false, podeGerenciarSemanas = false }: { obraId: string, initialSemanas: any[], podeEditar: boolean, podeEditarLinhaBase?: boolean, podeGerenciarSemanas?: boolean }) {
     const supabase = createClient()
     const router = useRouter()
     const [rows, setRows] = useState<Row[]>(
@@ -79,7 +79,18 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
     }
 
     async function salvar() {
-        const validas = rows.filter(r => r.semana_ref)
+        // Quem não é do planejamento não cria nem apaga semana: a tela já esconde
+        // os botões e aqui o salvamento refaz a lista de semanas como estava.
+        const originais = new Map<string, any>((initialSemanas || []).map((s: any) => [String(s.semana_ref).slice(0, 10), s]))
+        let validas = rows.filter(r => r.semana_ref)
+        if (!podeGerenciarSemanas) {
+            const mantidas = validas.filter(r => originais.has(r.semana_ref))
+            const faltando = [...originais.keys()].filter(k => !mantidas.some(r => r.semana_ref === k))
+            validas = [...mantidas, ...faltando.map(k => {
+                const o = originais.get(k)
+                return { semana_ref: k, lb1_pct: toStr(o?.lb1_pct), lb2_pct: toStr(o?.lb2_pct), real_pct: toStr(o?.real_pct) }
+            })]
+        }
         const refs = validas.map(r => r.semana_ref)
         if (new Set(refs).size !== refs.length) {
             toast.error('Há semanas com a mesma data. Use datas distintas.')
@@ -92,7 +103,9 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
                 .sort((a, b) => a.semana_ref.localeCompare(b.semana_ref))
                 .map((r, idx) => ({
                     obra_id: obraId, semana_ref: r.semana_ref, ordem: idx,
-                    lb1_pct: toNum(r.lb1_pct), lb2_pct: null, real_pct: toNum(r.real_pct),
+                    // Linha de Base é planejamento: sem permissão, grava como estava.
+                    lb1_pct: podeEditarLinhaBase ? toNum(r.lb1_pct) : (originais.get(r.semana_ref)?.lb1_pct ?? null),
+                    lb2_pct: null, real_pct: toNum(r.real_pct),
                 }))
             const { error } = await supabase.from('curva_s_semanas' as any).insert(payload)
             if (error) { toast.error('Erro ao salvar: ' + error.message); setSaving(false); return }
@@ -156,10 +169,12 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
                     <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Semanas</h3>
                     {podeEditar && (
                         <div style={{ display: 'flex', gap: '8px' }}>
-                            {rows.length > 0 && (
+                            {podeGerenciarSemanas && rows.length > 0 && (
                                 <button onClick={excluirTudo} className="btn-secondary" disabled={saving} title="Excluir todas as semanas" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.4)' }}><Trash2 size={16} /> Excluir tudo</button>
                             )}
-                            <button onClick={addRow} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Plus size={16} /> Semana</button>
+                            {podeGerenciarSemanas && (
+                                <button onClick={addRow} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Plus size={16} /> Semana</button>
+                            )}
                             <button onClick={salvar} className="btn-primary" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Save size={16} /> {saving ? 'Salvando...' : 'Salvar'}</button>
                         </div>
                     )}
@@ -172,12 +187,12 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
                                 <th style={th}>Linha de Base (%)</th>
                                 <th style={th}>Real (%)</th>
                                 <th style={th}>Tendência (%)</th>
-                                {podeEditar && <th style={th}></th>}
+                                {podeGerenciarSemanas && <th style={th}></th>}
                             </tr>
                         </thead>
                         <tbody>
                             {rows.length === 0 && (
-                                <tr><td style={{ ...td, color: 'var(--text-muted)', textAlign: 'center' }} colSpan={podeEditar ? 5 : 4}>Nenhuma semana cadastrada.</td></tr>
+                                <tr><td style={{ ...td, color: 'var(--text-muted)', textAlign: 'center' }} colSpan={podeGerenciarSemanas ? 5 : 4}>Nenhuma semana cadastrada.</td></tr>
                             )}
                             {rows.map((r, i) => {
                                 const tend = comTendencia.find(s => s.semana_ref === r.semana_ref)?.tendencia_pct
@@ -185,7 +200,8 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
                                     <tr key={i}>
                                         <td style={td}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px' }} disabled={!podeEditar} />
+                                                <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px', opacity: podeGerenciarSemanas ? 1 : 0.7 }} disabled={!podeGerenciarSemanas}
+                                                    title={podeGerenciarSemanas ? undefined : 'As semanas da Curva S são do planejamento — só admin ou perfil Planejamento inclui ou altera'} />
                                                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                                                     {r.semana_ref ? `a ${fmtDataLonga(fimDaSemana(r.semana_ref))}` : ''}
                                                 </span>
@@ -204,7 +220,7 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
                                         <td style={{ ...td, fontWeight: 600, color: 'var(--accent-amber, #f59e0b)' }}>
                                             {tend == null ? '-' : `${tend.toFixed(1)}%`}
                                         </td>
-                                        {podeEditar && (
+                                        {podeGerenciarSemanas && (
                                             <td style={td}>
                                                 <button onClick={() => removeRow(i)} title="Excluir semana" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
                                             </td>
@@ -215,7 +231,8 @@ export default function CurvaSClient({ obraId, initialSemanas, podeEditar, podeE
                         </tbody>
                     </table>
                 </div>
-                {podeEditar && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>A semana vai de <strong>segunda a domingo</strong> e casa com a programação semanal — a data escolhida se encaixa sozinha na segunda mais próxima. A Tendência é calculada automaticamente a partir do Real e da Linha de Base. Lembre de clicar em <strong>Salvar</strong>.</p>}
+                {podeEditar && !podeGerenciarSemanas && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>🔒 As <strong>semanas</strong> e a <strong>Linha de Base</strong> são do planejamento — só admin ou perfil Planejamento inclui, altera ou exclui semana. Você preenche o <strong>Real</strong> e clica em <strong>Salvar</strong>.</p>}
+                {podeEditar && podeGerenciarSemanas && <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px' }}>A semana vai de <strong>segunda a domingo</strong> e casa com a programação semanal — a data escolhida se encaixa sozinha na segunda mais próxima. A Tendência é calculada automaticamente a partir do Real e da Linha de Base. Lembre de clicar em <strong>Salvar</strong>.</p>}
             </div>
         </div>
     )

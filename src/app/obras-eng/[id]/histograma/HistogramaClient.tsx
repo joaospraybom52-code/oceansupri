@@ -54,7 +54,7 @@ const COLUNAS: { campo: Campo, label: string }[] = [
     { campo: 'equip_prev', label: 'Equip. Prev.' }, { campo: 'equip_real', label: 'Equip. Real.' },
 ]
 
-export default function HistogramaClient({ obraId, initialSemanas, podeEditar, podeEditarPrevisto = false }: { obraId: string, initialSemanas: any[], podeEditar: boolean, podeEditarPrevisto?: boolean }) {
+export default function HistogramaClient({ obraId, initialSemanas, podeEditar, podeEditarPrevisto = false, podeGerenciarSemanas = false }: { obraId: string, initialSemanas: any[], podeEditar: boolean, podeEditarPrevisto?: boolean, podeGerenciarSemanas?: boolean }) {
     /** Colunas de PREVISTO: planejamento da obra, travadas para os demais. */
     const ehPrevisto = (campo: Campo) => campo.endsWith('_prev')
     const podeMexer = (campo: Campo) => ehPrevisto(campo) ? podeEditarPrevisto : podeEditar
@@ -103,7 +103,19 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
     const removeRow = (i: number) => setRows(rows.filter((_, idx) => idx !== i))
 
     async function salvar() {
-        const validas = rows.filter(r => r.semana_ref)
+        // Quem não é do planejamento não cria nem apaga semana: a tela já esconde
+        // os botões e aqui o salvamento refaz a lista de semanas como estava.
+        const originais = new Map<string, any>((initialSemanas || []).map((s: any) => [String(s.semana_ref).slice(0, 10), s]))
+        let validas = rows.filter(r => r.semana_ref)
+        if (!podeGerenciarSemanas) {
+            const mantidas = validas.filter(r => originais.has(r.semana_ref))
+            const faltando = [...originais.keys()].filter(k => !mantidas.some(r => r.semana_ref === k))
+            validas = [...mantidas, ...faltando.map(k => {
+                const r = novaLinha(); r.semana_ref = k
+                CAMPOS.forEach(c => { r[c] = toStr(originais.get(k)?.[c]) })
+                return r
+            })]
+        }
         const refs = validas.map(r => r.semana_ref)
         if (new Set(refs).size !== refs.length) { toast.error('Há semanas com a mesma data.'); return }
         setSaving(true)
@@ -111,7 +123,6 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
         if (validas.length > 0) {
             // Sem permissão de planejamento, o Previsto é gravado como estava —
             // a tela já bloqueia, isto é a rede de segurança do salvamento.
-            const originais = new Map<string, any>((initialSemanas || []).map((s: any) => [String(s.semana_ref).slice(0, 10), s]))
             const payload = validas.sort((a, b) => a.semana_ref.localeCompare(b.semana_ref)).map((r, idx) => {
                 const o: any = { obra_id: obraId, semana_ref: r.semana_ref, ordem: idx }
                 const antes = originais.get(r.semana_ref)
@@ -209,7 +220,9 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
                     <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Recursos por semana (previsto × realizado)</h3>
                     {podeEditar && (
                         <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={addRow} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Plus size={16} /> Semana</button>
+                            {podeGerenciarSemanas && (
+                                <button onClick={addRow} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Plus size={16} /> Semana</button>
+                            )}
                             <button onClick={salvar} className="btn-primary" disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Save size={16} /> {saving ? 'Salvando...' : 'Salvar'}</button>
                         </div>
                     )}
@@ -222,18 +235,18 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
                                     Semana
                                     {podeEditar && !podeEditarPrevisto && (
                                         <span style={{ display: 'block', fontWeight: 500, textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)', fontSize: '10px', marginTop: '2px' }}>
-                                            🔒 Previsto é do planejamento — você edita só o realizado
+                                            🔒 Previsto e as semanas são do planejamento — você edita só o realizado
                                         </span>
                                     )}
                                 </th>
                                 {COLUNAS.map(c => <th key={c.campo} style={{ ...th, textAlign: 'center' }}>{c.label}</th>)}
                                 <th style={{ ...th, textAlign: 'center' }}>PTW real.</th>
-                                {podeEditar && <th style={th}></th>}
+                                {podeGerenciarSemanas && <th style={th}></th>}
                             </tr>
                         </thead>
                         <tbody>
                             {rows.length === 0 && (
-                                <tr><td style={{ ...td, color: 'var(--text-muted)', textAlign: 'center' }} colSpan={podeEditar ? COLUNAS.length + 3 : COLUNAS.length + 2}>Nenhuma semana cadastrada.</td></tr>
+                                <tr><td style={{ ...td, color: 'var(--text-muted)', textAlign: 'center' }} colSpan={podeGerenciarSemanas ? COLUNAS.length + 3 : COLUNAS.length + 2}>Nenhuma semana cadastrada.</td></tr>
                             )}
                             {rows.map((r, i) => {
                                 const pessoas = (toNum(r.moi_real) ?? 0) + (toNum(r.mod_real) ?? 0) + (toNum(r.terc_real) ?? 0)
@@ -241,7 +254,8 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
                                 return (
                                     <tr key={i}>
                                         <td style={td}>
-                                            <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px' }} disabled={!podeEditar} />
+                                            <input type="date" value={r.semana_ref} onChange={e => update(i, 'semana_ref', e.target.value)} className="input-field" style={{ padding: '6px 8px', opacity: podeGerenciarSemanas ? 1 : 0.7 }} disabled={!podeGerenciarSemanas}
+                                                title={podeGerenciarSemanas ? undefined : 'As semanas do histograma são do planejamento — só admin ou perfil Planejamento inclui ou altera'} />
                                         </td>
                                         {CAMPOS.map(campo => (
                                             <td style={td} key={campo}>
@@ -258,7 +272,7 @@ export default function HistogramaClient({ obraId, initialSemanas, podeEditar, p
                                         <td style={{ ...td, textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                                             {horasSemana > 0 ? fmtHoras(horasSemana) : '—'}
                                         </td>
-                                        {podeEditar && (
+                                        {podeGerenciarSemanas && (
                                             <td style={td}>
                                                 <button onClick={() => removeRow(i)} title="Excluir semana" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
                                             </td>

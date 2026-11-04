@@ -15,9 +15,9 @@ export default async function HistogramaPage({ params }: { params: Promise<{ id:
         .order('semana_ref', { ascending: true })
 
     const podeEditar = podeCriarMedProg(await getPapelObras())
-    // O PREVISTO é planejamento: só admin ou perfil Planejamento mexem nele.
-    // O realizado segue liberado para quem edita a obra.
-    const podeEditarPrevisto = await podeEditarPlanejamento()
+    // O PREVISTO e a própria lista de SEMANAS são planejamento: só admin ou perfil
+    // Planejamento mexem neles. O realizado segue liberado para quem edita a obra.
+    const podePlanejar = await podeEditarPlanejamento()
 
-    return <HistogramaClient obraId={id} initialSemanas={semanas || []} podeEditar={podeEditar} podeEditarPrevisto={podeEditarPrevisto} />
+    return <HistogramaClient obraId={id} initialSemanas={semanas || []} podeEditar={podeEditar} podeEditarPrevisto={podePlanejar} podeGerenciarSemanas={podePlanejar} />
 }
