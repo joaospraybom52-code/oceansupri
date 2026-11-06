@@ -654,6 +654,8 @@ export type Database = {
                     mes_recebimento_real: string | null
                     iss_percentual: number | null
                     inss_percentual: number | null
+                    risco_sacado: boolean
+                    risco_sacado_em: string | null
                     created_at: string | null
                 }
                 Insert: {
@@ -668,6 +670,8 @@ export type Database = {
                     mes_recebimento_real?: string | null
                     iss_percentual?: number | null
                     inss_percentual?: number | null
+                    risco_sacado?: boolean
+                    risco_sacado_em?: string | null
                     created_at?: string | null
                 }
                 Update: {
@@ -682,6 +686,8 @@ export type Database = {
                     mes_recebimento_real?: string | null
                     iss_percentual?: number | null
                     inss_percentual?: number | null
+                    risco_sacado?: boolean
+                    risco_sacado_em?: string | null
                     created_at?: string | null
                 }
                 Relationships: []

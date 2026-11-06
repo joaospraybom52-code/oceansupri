@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from 'react'
 import {
     LineChart as RLineChart, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, CalendarDays, Undo2, Printer } from 'lucide-react'
+import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, CalendarDays, Undo2, Printer, Flag } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
@@ -29,6 +29,8 @@ interface Medicao {
     mes_recebimento_real: string | null
     iss_percentual: number | null
     inss_percentual: number | null
+    /** Nota já disponível no site do risco sacado para antecipação (marca manual). */
+    risco_sacado?: boolean | null
     created_at: string | null
     obra: Obra | null
 }
@@ -92,6 +94,12 @@ const tooltipStyle: React.CSSProperties = {
     background: 'rgba(17, 17, 40, 0.95)', backdropFilter: 'blur(12px)',
     border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '12px 16px',
 }
+
+/** Colunas que todo update/insert precisa devolver para o estado não perder dado. */
+const SEL = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, risco_sacado, created_at'
+
+/** Está marcada como disponível no risco sacado? */
+const noRiscoSacado = (m: Medicao) => m.risco_sacado === true
 
 const iconBtnStyle: React.CSSProperties = {
     background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-glass)', borderRadius: '6px',
@@ -174,6 +182,28 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
         setShowReceb(true)
     }
 
+    /**
+     * Liga/desliga a bandeirinha do RISCO SACADO: o usuário confere no site da
+     * antecipação se a nota já apareceu lá e marca aqui. A marcação pinta a linha
+     * de verde no PDF exportado. Não mexe em valor, recebimento nem imposto.
+     */
+    async function handleRiscoSacado(m: Medicao) {
+        const novo = !noRiscoSacado(m)
+        setLoading(true)
+        const { data, error } = await supabase.from('controle_medicoes')
+            .update({ risco_sacado: novo, risco_sacado_em: novo ? new Date().toISOString() : null })
+            .eq('id', m.id).select(SEL).single()
+        if (error) toast.error('Erro ao marcar o risco sacado: ' + error.message)
+        else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setMedicoes(medicoes.map(x => x.id === m.id ? { ...(data as any), obra: m.obra } : x))
+            toast.success(novo
+                ? `NF ${m.nota_fiscal || 's/nº'} marcada como disponível no risco sacado.`
+                : `NF ${m.nota_fiscal || 's/nº'} desmarcada do risco sacado.`)
+        }
+        setLoading(false)
+    }
+
     async function handleExcluir(m: Medicao) {
         if (!window.confirm(`Excluir a medição de ${m.obra?.nome ?? 'obra'} (${formatCurrency(Number(m.valor_medicao))})?`)) return
         const { error } = await supabase.from('controle_medicoes').delete().eq('id', m.id)
@@ -197,16 +227,15 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
             iss_percentual: form.tipo === 'emitida' && form.iss !== '' && Number(form.valor) > 0 ? (Number(form.iss) / Number(form.valor)) * 100 : null,
             inss_percentual: form.tipo === 'emitida' && form.inss !== '' && Number(form.valor) > 0 ? (Number(form.inss) / Number(form.valor)) * 100 : null,
         }
-        const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at'
         if (editId) {
-            const { data, error } = await supabase.from('controle_medicoes').update(payload).eq('id', editId).select(sel).single()
+            const { data, error } = await supabase.from('controle_medicoes').update(payload).eq('id', editId).select(SEL).single()
             if (error) toast.error('Erro ao salvar: ' + error.message)
             else {
                 setMedicoes(medicoes.map(m => m.id === editId ? { ...(data as any), obra: obraSelecionada } : m))
                 toast.success('Medição atualizada!'); fecharCadastro()
             }
         } else {
-            const { data, error } = await supabase.from('controle_medicoes').insert(payload).select(sel).single()
+            const { data, error } = await supabase.from('controle_medicoes').insert(payload).select(SEL).single()
             if (error) toast.error('Erro ao salvar: ' + error.message)
             else { setMedicoes([...medicoes, { ...(data as any), obra: obraSelecionada }]); toast.success('Medição cadastrada!'); fecharCadastro() }
         }
@@ -230,8 +259,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
         const payload = { percentual_recebido: percentual, mes_recebimento_real: `${recebForm.mesReal}-01` }
         // iss/inss precisam voltar no select: sem eles o estado perde os impostos
         // e a tela passa a calcular o recebido sobre o BRUTO (valor "salta").
-        const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at'
-        const { data, error } = await supabase.from('controle_medicoes').update(payload).eq('id', recebMed.id).select(sel).single()
+        const { data, error } = await supabase.from('controle_medicoes').update(payload).eq('id', recebMed.id).select(SEL).single()
         if (error) toast.error('Erro: ' + error.message)
         else {
             setMedicoes(medicoes.map(m => m.id === recebMed.id ? { ...(data as any), obra: recebMed.obra } : m))
@@ -249,10 +277,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
         const liquido = formatCurrency(valorLiquido(m))
         if (!window.confirm(`Devolver esta nota para "A receber"?\n\n${m.obra?.nome ?? ''}${m.nota_fiscal ? ` · NF ${m.nota_fiscal}` : ''}\nEla volta com o valor líquido de ${liquido} e sai da lista de recebidas.`)) return
         setLoading(true)
-        const sel = 'id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at'
         const { data, error } = await supabase.from('controle_medicoes')
             .update({ percentual_recebido: null, mes_recebimento_real: null })
-            .eq('id', m.id).select(sel).single()
+            .eq('id', m.id).select(SEL).single()
         if (error) toast.error('Erro ao devolver a nota: ' + error.message)
         else {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -322,6 +349,9 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
     const valorDaLinha = (m: Medicao) => aba === 'descontos' ? valorDesconto(m) : aba === 'recebidas' ? valorRecebido(m) : valorLiquido(m)
     const totalAba = listaAba.reduce((s, m) => s + valorDaLinha(m), 0)
     const corAba = aba === 'descontos' ? 'var(--accent-red, #ef4444)' : aba === 'previsao' ? '#6366f1' : 'var(--accent-green)'
+    // Notas desta aba que já estão no risco sacado (saíram em verde no PDF).
+    const noRisco = listaAba.filter(noRiscoSacado)
+    const totalRisco = noRisco.reduce((s, m) => s + valorDaLinha(m), 0)
 
     const limparFiltros = () => { setFiltroCodigo(''); setFiltroAnos(['2026']); setFiltroMeses([]) }
 
@@ -481,6 +511,7 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                                                 <span style={{ color: st.color, fontWeight: 600 }}>{st.label}</span>
                                                 <span>· {m.obra?.codigo}{m.obra?.cidade ? ` · ${m.obra.cidade}` : ''} · {isRecebida(m) ? ymLabel(toYm(m.mes_recebimento_real)) : dmyLabel(m.mes_recebimento)}</span>
                                                 {m.nota_fiscal && <span>· NF {m.nota_fiscal}</span>}
+                                                {noRiscoSacado(m) && <span style={{ color: '#10b981', fontWeight: 600 }}>· no risco sacado</span>}
                                                 {temImposto(m) && aba !== 'descontos' && <span>· líq. de {formatCurrency(Number(m.valor_medicao))} (− ISS {formatCurrency(Number(m.valor_medicao) * Number(m.iss_percentual || 0) / 100)} − INSS {formatCurrency(Number(m.valor_medicao) * Number(m.inss_percentual || 0) / 100)})</span>}
                                                 {aba === 'descontos' && <span>· de {formatCurrency(Number(m.valor_medicao))}</span>}
                                             </div>
@@ -497,6 +528,22 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                                                     )}
                                                     <button onClick={() => abrirEdicao(m)} title="Editar" style={iconBtnStyle}><Pencil size={14} /></button>
                                                     <button onClick={() => handleExcluir(m)} title="Excluir" style={{ ...iconBtnStyle, color: 'var(--accent-red, #ef4444)' }}><Trash2 size={14} /></button>
+                                                    {m.tipo === 'emitida' && (
+                                                        <button
+                                                            onClick={() => handleRiscoSacado(m)} disabled={loading}
+                                                            title={noRiscoSacado(m)
+                                                                ? 'Já aparece no risco sacado — clique para desmarcar'
+                                                                : 'Marcar: já apareceu no site do risco sacado (sai em verde no PDF)'}
+                                                            style={{
+                                                                ...iconBtnStyle,
+                                                                color: noRiscoSacado(m) ? '#10b981' : 'var(--text-muted)',
+                                                                background: noRiscoSacado(m) ? 'rgba(16,185,129,0.18)' : iconBtnStyle.background,
+                                                                borderColor: noRiscoSacado(m) ? 'rgba(16,185,129,0.5)' : undefined,
+                                                            }}
+                                                        >
+                                                            <Flag size={14} fill={noRiscoSacado(m) ? '#10b981' : 'none'} />
+                                                        </button>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -520,6 +567,8 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                     <style>{`
                         /* fora da tela enquanto a caixa de impressão não abre */
                         #medicoes-print { position: absolute; left: -10000px; top: 0; width: 720px; }
+                        /* sem isto o navegador imprime as faixas coloridas em branco */
+                        #medicoes-print, #medicoes-print * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                         @media print {
                             @page { size: A4 portrait; margin: 10mm 10mm 14mm; }
                             body { background: #fff !important; }
@@ -539,6 +588,12 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                                 Emitido em {new Date().toLocaleDateString('pt-BR')} · {listaAba.length} {listaAba.length === 1 ? 'nota' : 'notas'}
                             </div>
                         </div>
+                        {noRisco.length > 0 && (
+                            <div style={{ fontSize: '10px', color: '#0f7a4d', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ width: '14px', height: '9px', background: '#d6f2e0', border: '1px solid #9bd9b6', borderRadius: '2px', display: 'inline-block' }} />
+                                Linhas em verde: nota já disponível no risco sacado para antecipação — {noRisco.length} de {listaAba.length} ({formatCurrency(totalRisco)}).
+                            </div>
+                        )}
                         <div style={{ fontSize: '10px', color: '#6b7078', marginBottom: '10px' }}>
                             Filtros: obra {filtroCodigo || 'todas'} · ano {filtroAnos.length ? filtroAnos.join(', ') : 'todos'} · mês {filtroMeses.length ? filtroMeses.map(m => MESES_FILTRO.find(x => x.v === m)?.n ?? m).join(', ') : 'todos'}
                         </div>
@@ -551,19 +606,32 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
                                 </tr>
                             </thead>
                             <tbody>
-                                {listaAba.map((m, i) => (
-                                    <tr key={m.id} style={{ background: i % 2 ? '#f6f7f8' : '#fff' }}>
-                                        <td style={tdPrint}>{m.obra?.nome ?? '—'}</td>
-                                        <td style={tdPrint}>{m.obra?.codigo ?? '—'}</td>
-                                        <td style={tdPrint}>{m.obra?.cidade ?? '—'}</td>
-                                        <td style={tdPrint}>{isRecebida(m) ? ymLabel(toYm(m.mes_recebimento_real)) : dmyLabel(m.mes_recebimento)}</td>
-                                        <td style={tdPrint}>{m.nota_fiscal || '—'}</td>
-                                        <td style={tdPrint}>{statusInfo(m).label}</td>
-                                        <td style={{ ...tdPrint, textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{formatCurrency(valorDaLinha(m))}</td>
-                                    </tr>
-                                ))}
+                                {listaAba.map((m, i) => {
+                                    // Verde = nota já disponível no risco sacado para antecipar.
+                                    const risco = noRiscoSacado(m)
+                                    const td = risco ? { ...tdPrint, color: '#0f7a4d', borderBottom: '1px solid #bfe6cf' } : tdPrint
+                                    return (
+                                        <tr key={m.id} style={{ background: risco ? (i % 2 ? '#cdeedd' : '#d6f2e0') : (i % 2 ? '#f6f7f8' : '#fff') }}>
+                                            <td style={{ ...td, fontWeight: risco ? 700 : undefined }}>{m.obra?.nome ?? '—'}</td>
+                                            <td style={td}>{m.obra?.codigo ?? '—'}</td>
+                                            <td style={td}>{m.obra?.cidade ?? '—'}</td>
+                                            <td style={td}>{isRecebida(m) ? ymLabel(toYm(m.mes_recebimento_real)) : dmyLabel(m.mes_recebimento)}</td>
+                                            <td style={td}>{m.nota_fiscal || '—'}</td>
+                                            <td style={td}>{statusInfo(m).label}{risco ? ' · risco sacado' : ''}</td>
+                                            <td style={{ ...td, textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{formatCurrency(valorDaLinha(m))}</td>
+                                        </tr>
+                                    )
+                                })}
                             </tbody>
                             <tfoot>
+                                {noRisco.length > 0 && (
+                                    <tr style={{ background: '#d6f2e0', color: '#0f7a4d', fontWeight: 700 }}>
+                                        <td style={{ ...tdPrint, color: '#0f7a4d', borderBottom: '1px solid #bfe6cf' }} colSpan={6}>
+                                            No risco sacado (antecipável) — {noRisco.length} {noRisco.length === 1 ? 'nota' : 'notas'}
+                                        </td>
+                                        <td style={{ ...tdPrint, color: '#0f7a4d', borderBottom: '1px solid #bfe6cf', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(totalRisco)}</td>
+                                    </tr>
+                                )}
                                 <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
                                     <td style={{ ...tdPrint, color: '#fff' }} colSpan={6}>{tituloAba}</td>
                                     <td style={{ ...tdPrint, color: '#fff', textAlign: 'right', whiteSpace: 'nowrap' }}>{aba === 'descontos' ? '− ' : ''}{formatCurrency(totalAba)}</td>

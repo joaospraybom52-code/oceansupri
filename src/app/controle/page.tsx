@@ -87,7 +87,7 @@ export default async function ControlePage() {
         comLimite((async () => {
             const { data } = await supabase
                 .from('controle_medicoes')
-                .select('id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, created_at, obra:obras(id, nome, codigo, cidade)')
+                .select('id, obra_id, valor_medicao, mes_recebimento, tipo, nota_fiscal, observacoes, percentual_recebido, mes_recebimento_real, iss_percentual, inss_percentual, risco_sacado, created_at, obra:obras(id, nome, codigo, cidade)')
                 .order('mes_recebimento', { ascending: true })
             return data ?? []
         })(), LIMITE_MS, []),
