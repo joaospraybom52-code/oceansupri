@@ -79,8 +79,8 @@ async function montarRelatorio(
             supabase, 'controle_pago_apagar', 'tipo_controle, vlr_at_pago, total_receita', { coluna: 'obra', valor: obra }),
         buscarTudo<{ num_parc_ger: string | null; val_provisao_curto_ven: number | null; val_desconto_imposto_ven: number | null }>(
             supabase, 'controle_a_receber', 'num_parc_ger, val_provisao_curto_ven, val_desconto_imposto_ven', { coluna: 'obra', valor: obra }),
-        buscarTudo<{ valor_venda: number | null }>(
-            supabase, 'controle_vgv', 'valor_venda', { coluna: 'codigo_obra', valor: obra }),
+        buscarTudo<{ valor_venda: number | null; lucro_previsto: number | null }>(
+            supabase, 'controle_vgv', 'valor_venda, lucro_previsto', { coluna: 'codigo_obra', valor: obra }),
     ])
 
     const linhas = (linhasRes.data ?? []) as unknown as LinhaCusto[]
@@ -115,6 +115,8 @@ async function montarRelatorio(
         .reduce((s, a) => s + Number(a.val_provisao_curto_ven || 0) + Number(a.val_desconto_imposto_ven || 0), 0)
 
     const vgv = vgvRows.reduce((s, v) => s + Number(v.valor_venda || 0), 0)
+    // Lucro previsto do contrato, digitado a mao no Cadastro de venda.
+    const lucroPrevisto = vgvRows.reduce((s, v) => s + Number(v.lucro_previsto || 0), 0)
 
     return {
         obraCodigo: obra,
@@ -126,6 +128,6 @@ async function montarRelatorio(
             receita: totalRecebidoReal,
             despesa: totalPago + controleFinanceiroSaida + (valorRecebidoBruto + faturadoAReceber) * ALIQUOTA_IMPOSTO_SIMPLES,
         },
-        evolucao: { vgv, medido: valorRecebidoBruto, faturado: faturadoAReceber },
+        evolucao: { vgv, lucroPrevisto, medido: valorRecebidoBruto, faturado: faturadoAReceber },
     }
 }

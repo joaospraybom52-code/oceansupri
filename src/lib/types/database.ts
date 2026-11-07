@@ -989,6 +989,7 @@ export type Database = {
                     nome_obra: string | null
                     cliente: string | null
                     valor_venda: number | null
+                    lucro_previsto: number | null
                     observacoes: string | null
                     created_at: string | null
                 }
@@ -999,6 +1000,7 @@ export type Database = {
                     nome_obra?: string | null
                     cliente?: string | null
                     valor_venda?: number | null
+                    lucro_previsto?: number | null
                     observacoes?: string | null
                     created_at?: string | null
                 }
@@ -1009,6 +1011,7 @@ export type Database = {
                     nome_obra?: string | null
                     cliente?: string | null
                     valor_venda?: number | null
+                    lucro_previsto?: number | null
                     observacoes?: string | null
                     created_at?: string | null
                 }

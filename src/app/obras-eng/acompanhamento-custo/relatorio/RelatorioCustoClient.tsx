@@ -26,7 +26,7 @@ export interface RelatorioObra {
     rows: DisplayRow[]
     totais: Totais
     balanco: { receita: number; despesa: number }
-    evolucao: { vgv: number; medido: number; faturado: number }
+    evolucao: { vgv: number; lucroPrevisto: number; medido: number; faturado: number }
 }
 
 export default function RelatorioCustoClient({ relatorios }: { relatorios: RelatorioObra[] }) {
@@ -116,6 +116,8 @@ function FolhaObra({ r, geradoEm }: { r: RelatorioObra; geradoEm: string }) {
     const pctRealizada = evolucao.vgv ? evolucao.medido / evolucao.vgv : 0
     const pctTotal = evolucao.vgv ? (evolucao.medido + evolucao.faturado) / evolucao.vgv : 0
     const saldoFinal = evolucao.vgv - evolucao.medido - evolucao.faturado
+    // Margem do lucro previsto sobre o VGV (so sai no card se houver lucro cadastrado).
+    const margemLucro = evolucao.vgv ? (evolucao.lucroPrevisto / evolucao.vgv) * 100 : 0
     const clamp = (x: number) => Math.max(0, Math.min(1, x))
 
     const card: React.CSSProperties = {
@@ -216,7 +218,15 @@ function FolhaObra({ r, geradoEm }: { r: RelatorioObra; geradoEm: string }) {
                         <div style={card}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#0072B2' }}>MEDIÇÃO + FATURAMENTO</span>
-                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#008000', whiteSpace: 'nowrap' }}>VGV: {brl(evolucao.vgv)}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px' }}>
+                                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#008000', whiteSpace: 'nowrap' }}>VGV: {brl(evolucao.vgv)}</span>
+                                    {evolucao.lucroPrevisto !== 0 && (
+                                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#0E7C66', whiteSpace: 'nowrap' }}>
+                                            Lucro previsto: {brl(evolucao.lucroPrevisto)}
+                                            {evolucao.vgv > 0 && <span style={{ fontWeight: 600, color: '#737373' }}> ({margemLucro.toFixed(2).replace('.', ',')}%)</span>}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             <div style={{ fontSize: '21px', fontWeight: 800, color: '#262626', marginTop: '8px', lineHeight: 1 }}>
                                 {(pctRealizada * 100).toFixed(2).replace('.', ',')}%

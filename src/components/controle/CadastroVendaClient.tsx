@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Plus, X, Pencil, Trash2, Receipt, Search } from 'lucide-react'
+import { Plus, X, Pencil, Trash2, Receipt, Search, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,6 +12,7 @@ interface Venda {
     nome_obra: string | null
     cliente: string | null
     valor_venda: number | null
+    lucro_previsto: number | null
     observacoes: string | null
 }
 
@@ -25,7 +26,11 @@ const iconBtnStyle: React.CSSProperties = {
     cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0,
 }
 
-const formVazio = { codigo_obra: '', ano: String(new Date().getFullYear()), nome_obra: '', cliente: '', valor_venda: '', observacoes: '' }
+const formVazio = { codigo_obra: '', ano: String(new Date().getFullYear()), nome_obra: '', cliente: '', valor_venda: '', lucro_previsto: '', observacoes: '' }
+
+// Margem = lucro previsto / valor de venda. So faz sentido com venda > 0.
+const margemPct = (lucro: number, venda: number) => venda ? (lucro / venda) * 100 : 0
+const fmtPct = (p: number) => p.toFixed(2).replace('.', ',') + '%'
 
 export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { vendasIniciais: Venda[]; podeEditar: boolean }) {
     const supabase = createClient()
@@ -51,6 +56,7 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
             nome_obra: v.nome_obra ?? '',
             cliente: v.cliente ?? '',
             valor_venda: v.valor_venda != null ? String(v.valor_venda) : '',
+            lucro_previsto: v.lucro_previsto != null ? String(v.lucro_previsto) : '',
             observacoes: v.observacoes ?? '',
         })
         setShowModal(true)
@@ -77,9 +83,10 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
             nome_obra: form.nome_obra || null,
             cliente: form.cliente || null,
             valor_venda: Number(form.valor_venda),
+            lucro_previsto: form.lucro_previsto.trim() === '' ? null : Number(form.lucro_previsto),
             observacoes: form.observacoes.trim() || null,
         }
-        const sel = 'id, codigo_obra, ano, nome_obra, cliente, valor_venda, observacoes'
+        const sel = 'id, codigo_obra, ano, nome_obra, cliente, valor_venda, lucro_previsto, observacoes'
         if (editId) {
             const { data, error } = await supabase.from('controle_vgv').update(payload).eq('id', editId).select(sel).single()
             if (error) toast.error('Erro ao salvar: ' + error.message)
@@ -104,6 +111,7 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
     }, [vendas, busca])
 
     const totalVgv = useMemo(() => vendasFiltradas.reduce((s, v) => s + Number(v.valor_venda || 0), 0), [vendasFiltradas])
+    const totalLucro = useMemo(() => vendasFiltradas.reduce((s, v) => s + Number(v.lucro_previsto || 0), 0), [vendasFiltradas])
 
     return (
         <div>
@@ -129,6 +137,18 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                     <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '2px' }}>VGV total {busca && '(filtro)'}</div>
                         <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{formatCurrency(totalVgv)}</div>
+                    </div>
+                </div>
+                <div className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#0ea5e91a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <TrendingUp size={22} color="#0ea5e9" />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '2px' }}>Lucro previsto {busca && '(filtro)'}</div>
+                        <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                            {formatCurrency(totalLucro)}
+                            {totalVgv > 0 && <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginLeft: '8px' }}>{fmtPct(margemPct(totalLucro, totalVgv))}</span>}
+                        </div>
                     </div>
                 </div>
                 <div className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -160,6 +180,7 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                                     <th style={{ padding: '8px 10px' }}>Nome da obra</th>
                                     <th style={{ padding: '8px 10px' }}>Cliente</th>
                                     <th style={{ padding: '8px 10px', textAlign: 'right' }}>Valor de venda</th>
+                                    <th style={{ padding: '8px 10px', textAlign: 'right' }}>Lucro previsto</th>
                                     {podeEditar && <th style={{ padding: '8px 10px', textAlign: 'right' }}>Ações</th>}
                                 </tr>
                             </thead>
@@ -178,6 +199,18 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                                         </td>
                                         <td style={{ padding: '10px', color: 'var(--text-secondary)' }}>{v.cliente ?? '—'}</td>
                                         <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: 'var(--accent-green)', whiteSpace: 'nowrap' }}>{formatCurrency(Number(v.valor_venda))}</td>
+                                        <td style={{ padding: '10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                            {v.lucro_previsto == null ? <span style={{ color: 'var(--text-muted)' }}>-</span> : (
+                                                <>
+                                                    <span style={{ fontWeight: 700 }}>{formatCurrency(Number(v.lucro_previsto))}</span>
+                                                    {Number(v.valor_venda) > 0 && (
+                                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                            {fmtPct(margemPct(Number(v.lucro_previsto), Number(v.valor_venda)))}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </td>
                                         {podeEditar && (
                                             <td style={{ padding: '10px' }}>
                                                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
@@ -193,6 +226,10 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                                 <tr style={{ borderTop: '2px solid var(--border-glass)' }}>
                                     <td colSpan={4} style={{ padding: '12px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Total {busca && '(filtro)'}</td>
                                     <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(totalVgv)}</td>
+                                    <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 800 }}>
+                                        {formatCurrency(totalLucro)}
+                                        {totalVgv > 0 && <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginTop: '2px' }}>{fmtPct(margemPct(totalLucro, totalVgv))}</div>}
+                                    </td>
                                     {podeEditar && <td />}
                                 </tr>
                             </tfoot>
@@ -216,7 +253,18 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                             </div>
                             <div><label style={lbl}>Nome da obra</label><input value={form.nome_obra} onChange={e => setForm({ ...form, nome_obra: e.target.value })} className="input-field" placeholder="Descrição da obra" /></div>
                             <div><label style={lbl}>Cliente</label><input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} className="input-field" placeholder="Nome do cliente" /></div>
-                            <div><label style={lbl}>Valor de venda *</label><input type="number" step="0.01" min="0" value={form.valor_venda} onChange={e => setForm({ ...form, valor_venda: e.target.value })} className="input-field" placeholder="0,00" required /></div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div><label style={lbl}>Valor de venda *</label><input type="number" step="0.01" min="0" value={form.valor_venda} onChange={e => setForm({ ...form, valor_venda: e.target.value })} className="input-field" placeholder="0,00" required /></div>
+                                <div>
+                                    <label style={lbl}>Lucro previsto (R$)</label>
+                                    <input type="number" step="0.01" value={form.lucro_previsto} onChange={e => setForm({ ...form, lucro_previsto: e.target.value })} className="input-field" placeholder="0,00" />
+                                    {form.lucro_previsto.trim() !== '' && Number(form.valor_venda) > 0 && (
+                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '5px' }}>
+                                            Margem: {fmtPct(margemPct(Number(form.lucro_previsto), Number(form.valor_venda)))} do valor de venda
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                             <div><label style={lbl}>Observações</label><textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} className="input-field" rows={4} placeholder="Escopo, condição de pagamento, pendências com o cliente..." style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.45 }} /></div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>

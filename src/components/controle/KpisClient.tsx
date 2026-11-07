@@ -46,6 +46,7 @@ interface VgvRow {
     codigo_obra: string | null
     ano: number | null
     valor_venda: number | null
+    lucro_previsto: number | null
 }
 
 interface PagoICRow {
@@ -266,6 +267,13 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
         .reduce((s, v) => s + Number(v.valor_venda || 0), 0),
         [vgv, filtroObras, filtroAnos])
 
+    // Lucro previsto = SUM(VGV[lucro_previsto]) - digitado a mao no Cadastro de
+    // venda e somado com o MESMO filtro do VGV (obra + ano).
+    const lucroPrevisto = useMemo(() => vgv
+        .filter(v => obraMatch(v.codigo_obra) && (filtroAnos.length === 0 || filtroAnos.includes(String(v.ano ?? ''))))
+        .reduce((s, v) => s + Number(v.lucro_previsto || 0), 0),
+        [vgv, filtroObras, filtroAnos])
+
     // Tabela 1: agrupado por Insumo (DescrInsumo)
     const linhasInsumo = useMemo(() => {
         const m = new Map<string, LinhaPag>()
@@ -359,7 +367,7 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
 
             {/* Indicador Evolução + Balanço da Obra */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '24px', marginTop: '24px', alignItems: 'start' }}>
-                <IndicadorEvolucao valorVenda={valorVendaVGV} valorMedido={valorRecebidoBruto} valorFaturado={faturadoAReceber} />
+                <IndicadorEvolucao valorVenda={valorVendaVGV} valorMedido={valorRecebidoBruto} valorFaturado={faturadoAReceber} lucroPrevisto={lucroPrevisto} />
                 <BalancoCard receita={totalRecebidoReal} despesa={totalPago + impostoSimples} />
             </div>
 
@@ -671,18 +679,28 @@ function TabelaPagamentos({ colLabel, linhas, onClickLinha, selecionada, ordemIn
 // Card "Indicador Evolução" (MEDIÇÃO + FATURAMENTO).
 // PorcentagemRealizada = ValorMedido / ValorVenda; barra de fundo (cinza),
 // faturado (azul claro = %total), realizado (azul escuro = %realizada).
-function IndicadorEvolucao({ valorVenda, valorMedido, valorFaturado }: { valorVenda: number; valorMedido: number; valorFaturado: number }) {
+function IndicadorEvolucao({ valorVenda, valorMedido, valorFaturado, lucroPrevisto }: { valorVenda: number; valorMedido: number; valorFaturado: number; lucroPrevisto: number }) {
     const clamp = (x: number) => Math.max(0, Math.min(1, x))
     const pctRealizada = valorVenda ? valorMedido / valorVenda : 0
     const pctTotal = valorVenda ? (valorMedido + valorFaturado) / valorVenda : 0
     const saldoFinal = valorVenda - valorMedido - valorFaturado
     const textoPct = (pctRealizada * 100).toFixed(2).replace('.', ',') + '%'
+    // Margem do lucro previsto sobre a venda (so aparece se houver lucro cadastrado).
+    const margemLucro = valorVenda ? (lucroPrevisto / valorVenda) * 100 : 0
 
     return (
         <div className="ie-wrap">
             <div className="ie-toprow">
                 <span className="ie-title">MEDIÇÃO + FATURAMENTO</span>
-                <span className="ie-vgv">VGV: {brlExato(valorVenda)}</span>
+                <div className="ie-vgv-col">
+                    <span className="ie-vgv">VGV: {brlExato(valorVenda)}</span>
+                    {lucroPrevisto !== 0 && (
+                        <span className="ie-lucro">
+                            Lucro previsto: {brlExato(lucroPrevisto)}
+                            {valorVenda > 0 && <em className="ie-lucro-pct"> ({margemLucro.toFixed(2).replace('.', ',')}%)</em>}
+                        </span>
+                    )}
+                </div>
             </div>
             <div className="ie-pct">{textoPct}</div>
             <div className="ie-pct-sub">DO CONTRATO REALIZADO</div>
@@ -708,7 +726,10 @@ function IndicadorEvolucao({ valorVenda, valorMedido, valorFaturado }: { valorVe
                 .ie-wrap { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 3px rgba(15,23,42,.12); padding: 18px 20px; font-family: 'Segoe UI', system-ui, sans-serif; }
                 .ie-toprow { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
                 .ie-title { font-size: 12px; font-weight: 700; color: #0072B2; }
+                .ie-vgv-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
                 .ie-vgv { font-size: 12px; font-weight: 700; color: #008000; white-space: nowrap; }
+                .ie-lucro { font-size: 11px; font-weight: 700; color: #0E7C66; white-space: nowrap; }
+                .ie-lucro-pct { font-style: normal; font-weight: 600; color: #737373; }
                 .ie-pct { font-size: 28px; font-weight: 800; color: #262626; margin-top: 12px; line-height: 1; }
                 .ie-pct-sub { font-size: 10px; color: #737373; margin-top: 5px; letter-spacing: .03em; }
                 .ie-bar-bg { position: relative; height: 14px; background: #E0E0E0; border-radius: 7px; margin: 16px 0 18px; overflow: hidden; }
