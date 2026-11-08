@@ -51,6 +51,7 @@ const OBRAS: { obra: string; ano: number }[] = [
     { obra: 'NES30', ano: 2026 },
     { obra: 'NES31', ano: 2026 },
     { obra: 'NES32', ano: 2026 },
+    { obra: 'NES33', ano: 2026 },
     { obra: 'ES001', ano: 2026 },
 ]
 
