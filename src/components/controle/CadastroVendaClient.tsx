@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Plus, X, Pencil, Trash2, Receipt, Search, TrendingUp } from 'lucide-react'
+import { Plus, X, Pencil, Trash2, Receipt, Search, TrendingUp, CalendarDays } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -18,6 +18,19 @@ interface Venda {
 
 const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
+
+// Chip do filtro de ano: aceso quando selecionado.
+const chipStyle = (ativo: boolean): React.CSSProperties => ({
+    padding: '6px 12px',
+    borderRadius: '999px',
+    border: `1px solid ${ativo ? 'var(--accent-primary, #7c6cf6)' : 'var(--border-glass)'}`,
+    background: ativo ? 'rgba(124,108,246,0.18)' : 'rgba(255,255,255,0.04)',
+    color: ativo ? 'var(--text-primary)' : 'var(--text-secondary)',
+    fontSize: '12px',
+    fontWeight: ativo ? 700 : 500,
+    cursor: 'pointer',
+    lineHeight: 1.2,
+})
 
 const lbl: React.CSSProperties = { fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }
 const iconBtnStyle: React.CSSProperties = {
@@ -36,6 +49,8 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
     const supabase = createClient()
     const [vendas, setVendas] = useState<Venda[]>(vendasIniciais)
     const [busca, setBusca] = useState('')
+    // '' = todos os anos; 'sem' = vendas cadastradas sem ano.
+    const [filtroAno, setFiltroAno] = useState('')
 
     const [showModal, setShowModal] = useState(false)
     const [editId, setEditId] = useState<string | null>(null)
@@ -99,16 +114,33 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
         setLoading(false)
     }
 
+    // Anos que existem no cadastro, do mais novo para o mais antigo.
+    const anosDisponiveis = useMemo(() => {
+        const anos = new Set<number>()
+        let temSemAno = false
+        for (const v of vendas) {
+            if (v.ano == null) temSemAno = true
+            else anos.add(Number(v.ano))
+        }
+        return { lista: [...anos].sort((a, b) => b - a), temSemAno }
+    }, [vendas])
+
     const vendasFiltradas = useMemo(() => {
         const q = busca.trim().toLowerCase()
-        if (!q) return vendas
-        return vendas.filter(v =>
-            (v.codigo_obra ?? '').toLowerCase().includes(q) ||
-            (v.nome_obra ?? '').toLowerCase().includes(q) ||
-            (v.cliente ?? '').toLowerCase().includes(q) ||
-            (v.observacoes ?? '').toLowerCase().includes(q),
-        )
-    }, [vendas, busca])
+        return vendas.filter(v => {
+            if (filtroAno === 'sem' && v.ano != null) return false
+            if (filtroAno !== '' && filtroAno !== 'sem' && String(v.ano ?? '') !== filtroAno) return false
+            if (!q) return true
+            return (v.codigo_obra ?? '').toLowerCase().includes(q) ||
+                (v.nome_obra ?? '').toLowerCase().includes(q) ||
+                (v.cliente ?? '').toLowerCase().includes(q) ||
+                (v.observacoes ?? '').toLowerCase().includes(q)
+        })
+    }, [vendas, busca, filtroAno])
+
+    // Rótulo dos totais: avisa que o número já está filtrado.
+    const filtroAtivo = busca.trim() !== '' || filtroAno !== ''
+    const rotuloFiltro = filtroAno === '' ? '(filtro)' : filtroAno === 'sem' ? '(sem ano)' : `(${filtroAno})`
 
     const totalVgv = useMemo(() => vendasFiltradas.reduce((s, v) => s + Number(v.valor_venda || 0), 0), [vendasFiltradas])
     const totalLucro = useMemo(() => vendasFiltradas.reduce((s, v) => s + Number(v.lucro_previsto || 0), 0), [vendasFiltradas])
@@ -135,7 +167,7 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                         <Receipt size={22} color="#10b981" />
                     </div>
                     <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '2px' }}>VGV total {busca && '(filtro)'}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '2px' }}>VGV total {filtroAtivo && rotuloFiltro}</div>
                         <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{formatCurrency(totalVgv)}</div>
                     </div>
                 </div>
@@ -144,7 +176,7 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                         <TrendingUp size={22} color="#0ea5e9" />
                     </div>
                     <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '2px' }}>Lucro previsto {busca && '(filtro)'}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '2px' }}>Lucro previsto {filtroAtivo && rotuloFiltro}</div>
                         <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                             {formatCurrency(totalLucro)}
                             {totalVgv > 0 && <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginLeft: '8px' }}>{fmtPct(margemPct(totalLucro, totalVgv))}</span>}
@@ -161,15 +193,25 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
 
             {/* Busca + Tabela */}
             <div className="glass-card" style={{ padding: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', maxWidth: '360px' }}>
-                    <div style={{ position: 'relative', flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: '360px' }}>
                         <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input value={busca} onChange={e => setBusca(e.target.value)} className="input-field" placeholder="Buscar por obra, nome ou cliente..." style={{ paddingLeft: '36px', width: '100%' }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <CalendarDays size={15} style={{ color: 'var(--text-muted)', marginRight: '2px' }} />
+                        <button type="button" onClick={() => setFiltroAno('')} style={chipStyle(filtroAno === '')}>Todos</button>
+                        {anosDisponiveis.lista.map(a => (
+                            <button key={a} type="button" onClick={() => setFiltroAno(String(a))} style={chipStyle(filtroAno === String(a))}>{a}</button>
+                        ))}
+                        {anosDisponiveis.temSemAno && (
+                            <button type="button" onClick={() => setFiltroAno('sem')} style={chipStyle(filtroAno === 'sem')}>Sem ano</button>
+                        )}
                     </div>
                 </div>
 
                 {vendasFiltradas.length === 0 ? (
-                    <p style={{ color: 'var(--text-muted)', fontSize: '14px', padding: '12px 0' }}>Nenhuma venda cadastrada.</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '14px', padding: '12px 0' }}>{filtroAtivo ? 'Nenhuma venda para esse filtro.' : 'Nenhuma venda cadastrada.'}</p>
                 ) : (
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -224,7 +266,7 @@ export default function CadastroVendaClient({ vendasIniciais, podeEditar }: { ve
                             </tbody>
                             <tfoot>
                                 <tr style={{ borderTop: '2px solid var(--border-glass)' }}>
-                                    <td colSpan={4} style={{ padding: '12px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Total {busca && '(filtro)'}</td>
+                                    <td colSpan={4} style={{ padding: '12px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Total {filtroAtivo && rotuloFiltro}</td>
                                     <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 800, color: 'var(--accent-green)' }}>{formatCurrency(totalVgv)}</td>
                                     <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 800 }}>
                                         {formatCurrency(totalLucro)}
