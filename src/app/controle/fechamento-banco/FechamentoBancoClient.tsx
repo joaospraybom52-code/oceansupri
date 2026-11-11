@@ -31,6 +31,8 @@ const brlP = (v: number) => brl(v)
 /** Estilo do valor negativo. `escuro` = linha de fundo escuro (totais). */
 const corNeg = (v: number, escuro = false): React.CSSProperties | undefined =>
     v < 0 ? { color: escuro ? '#F87171' : '#DC2626', fontWeight: 700 } : undefined
+/** Negativo entre parenteses, como no relatorio do UAU: (1.234,56). */
+const brlPar = (v: number) => (v < 0 ? `(${brl(-v)})` : brl(v))
 const dmy = (iso: string) => iso ? iso.split('-').reverse().join('/') : ''
 /** Arredonda só na exibição/total — o UAU soma os valores crus e arredonda no
  *  fim; arredondar lançamento a lançamento fecha 1 centavo acima. */
@@ -148,12 +150,21 @@ export default function FechamentoBancoClient({
         const saldoInicial = conciliacao.inicial
         const acumuladoNoDia = new Map<string, number>()
         let acc = saldoInicial
-        for (const l of linhas) {
-            acc += l.tipo === 'receber' ? l.valor : -l.valor
+        // Cada linha ja sai com despesa (negativa), receita e o SALDO corrido —
+        // o mesmo desenho do extrato do UAU e da aba Conciliacao.
+        const linhasSaldo = linhas.map(l => {
+            const rec = l.tipo === 'receber'
+            acc += rec ? l.valor : -l.valor
             acumuladoNoDia.set(l.data, r2(acc))
-        }
+            return {
+                ...l,
+                despesa: rec ? 0 : r2(-l.valor),
+                receita: rec ? r2(l.valor) : 0,
+                saldo: r2(acc),
+            }
+        })
         return {
-            linhas, receber: r2(receber), pagar: r2(pagar), total: r2(receber - pagar),
+            linhas: linhasSaldo, receber: r2(receber), pagar: r2(pagar), total: r2(receber - pagar),
             vencidas: { qtd: vencidas.length, valor: r2(vencidas.reduce((s, l) => s + l.valor, 0)) },
             saldoInicial, acumuladoNoDia, saldoFinal: r2(saldoInicial + receber - pagar),
         }
@@ -256,13 +267,13 @@ export default function FechamentoBancoClient({
                             <div style={{ fontSize: '11px', color: '#555' }}>
                                 A receber: <strong style={{ color: '#047857' }}>{brl(fluxo.receber)}</strong> ·
                                 {' '}A pagar: <strong style={{ color: '#B91C1C' }}>{brl(fluxo.pagar)}</strong> ·
-                                {' '}Saldo do período: <strong style={corNeg(fluxo.total) ?? { color: '#047857' }}>{brlP(fluxo.total)}</strong>
+                                {' '}Saldo do período: <strong style={corNeg(fluxo.total) ?? { color: '#047857' }}>{brlPar(fluxo.total)}</strong>
                             </div>
                         )}
                         {aba === 'fluxo' && (
                             <div style={{ fontSize: '11px', color: '#555' }}>
-                                Saldo em bancos em {dmy(diaAnterior)}: <strong style={corNeg(fluxo.saldoInicial) ?? { color: '#047857' }}>{brlP(fluxo.saldoInicial)}</strong> ·
-                                {' '}Saldo previsto acumulado: <strong style={corNeg(fluxo.saldoFinal) ?? { color: '#047857' }}>{brlP(fluxo.saldoFinal)}</strong>
+                                Saldo em bancos em {dmy(diaAnterior)}: <strong style={corNeg(fluxo.saldoInicial) ?? { color: '#047857' }}>{brlPar(fluxo.saldoInicial)}</strong> ·
+                                {' '}Saldo previsto acumulado: <strong style={corNeg(fluxo.saldoFinal) ?? { color: '#047857' }}>{brlPar(fluxo.saldoFinal)}</strong>
                             </div>
                         )}
                         {aba === 'fluxo' && fluxo.vencidas.qtd > 0 && (
@@ -418,7 +429,9 @@ export default function FechamentoBancoClient({
                                     <th style={{ ...th, textAlign: 'left', width: '134px' }}>Conta</th>
                                     <th style={{ ...th, textAlign: 'left' }}>Fornecedor / Cliente</th>
                                     <th style={{ ...th, textAlign: 'left' }}>Observações</th>
-                                    <th style={{ ...th, width: '116px' }}>Valor</th>
+                                    <th style={{ ...th, width: '104px' }}>Vlr. despesa</th>
+                                    <th style={{ ...th, width: '104px' }}>Vlr. receita</th>
+                                    <th style={{ ...th, width: '116px' }}>Saldo</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -452,21 +465,20 @@ export default function FechamentoBancoClient({
                                             <td style={{ ...td, textAlign: 'left' }}>{l.banco != null ? `${l.banco} / ${l.conta || '—'}` : '—'}</td>
                                             <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{l.contraparte || '—'}</td>
                                             <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', color: l.obs ? undefined : '#999' }}>{l.obs || '—'}</td>
-                                            <td style={{ ...td, fontWeight: 700, color: rec ? '#047857' : '#B91C1C' }}>{rec ? brl(l.valor) : brl(-l.valor)}</td>
+                                            <td style={{ ...td, ...corNeg(l.despesa) }}>{l.despesa < 0 ? brlPar(l.despesa) : '0,00'}</td>
+                                            <td style={{ ...td, color: l.receita > 0 ? '#047857' : undefined }}>{brl(l.receita)}</td>
+                                            <td style={{ ...td, fontWeight: 700, ...corNeg(l.saldo) }}>{brlPar(l.saldo)}</td>
                                         </tr>
                                         {fimDoDia && (
                                             <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
-                                                <td style={{ ...td, textAlign: 'left' }} colSpan={7}>
+                                                <td style={{ ...td, textAlign: 'left' }} colSpan={8}>
                                                     Total do dia {dmy(l.data)} ({doDia.length} lançamento{doDia.length === 1 ? '' : 's'})
-                                                    {' · '}Saldo acumulado:{' '}
-                                                    <span style={corNeg(fluxo.acumuladoNoDia.get(l.data) ?? 0)}>{brlP(fluxo.acumuladoNoDia.get(l.data) ?? 0)}</span>
+                                                    {' · '}Saldo do dia:{' '}
+                                                    <span style={corNeg(r2(recDia - pagDia))}>{brlPar(r2(recDia - pagDia))}</span>
                                                 </td>
-                                                <td style={{ ...td, textAlign: 'right', fontSize: '9.5px' }}>
-                                                    <span style={{ color: '#047857' }}>A receber {brl(recDia)}</span>
-                                                    {'   ·   '}
-                                                    <span style={{ color: '#B91C1C' }}>A pagar {brl(-pagDia)}</span>
-                                                </td>
-                                                <td style={{ ...td, ...corNeg(r2(recDia - pagDia)) }}>{brlP(r2(recDia - pagDia))}</td>
+                                                <td style={{ ...td, ...corNeg(-pagDia) }}>{pagDia ? brlPar(-pagDia) : '0,00'}</td>
+                                                <td style={{ ...td, color: recDia ? '#047857' : undefined }}>{brl(recDia)}</td>
+                                                <td style={{ ...td, ...corNeg(fluxo.acumuladoNoDia.get(l.data) ?? 0) }}>{brlPar(fluxo.acumuladoNoDia.get(l.data) ?? 0)}</td>
                                             </tr>
                                         )}
                                         </React.Fragment>
@@ -475,28 +487,22 @@ export default function FechamentoBancoClient({
                             </tbody>
                             <tfoot className="total-final">
                                 <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
-                                    <td style={{ ...td, textAlign: 'right' }} colSpan={8}>Saldo em bancos em {dmy(diaAnterior)} (Posição de Bancos):</td>
-                                    <td style={{ ...td, ...corNeg(fluxo.saldoInicial) }}>{brlP(fluxo.saldoInicial)}</td>
-                                </tr>
-                                <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
-                                    <td style={{ ...td, textAlign: 'right' }} colSpan={8}>Total a receber:</td>
-                                    <td style={{ ...td, color: '#047857' }}>{brl(fluxo.receber)}</td>
-                                </tr>
-                                <tr style={{ background: '#eef0f2', fontWeight: 700 }}>
-                                    <td style={{ ...td, textAlign: 'right' }} colSpan={8}>Total a pagar:</td>
-                                    <td style={{ ...td, color: '#B91C1C' }}>{brl(-fluxo.pagar)}</td>
+                                    <td style={{ ...td, textAlign: 'right' }} colSpan={10}>Saldo em bancos em {dmy(diaAnterior)} (Posição de Bancos):</td>
+                                    <td style={{ ...td, ...corNeg(fluxo.saldoInicial) }}>{brlPar(fluxo.saldoInicial)}</td>
                                 </tr>
                                 <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
                                     <td style={{ ...td, textAlign: 'left' }} colSpan={8}>
-                                        SALDO DO PERÍODO ({fluxo.linhas.length} lançamentos)
+                                        TOTAL DO PERÍODO ({fluxo.linhas.length} lançamentos)
                                     </td>
-                                    <td style={{ ...td, ...corNeg(fluxo.total, true) }}>{brlP(fluxo.total)}</td>
+                                    <td style={{ ...td, ...corNeg(-fluxo.pagar, true) }}>{fluxo.pagar ? brlPar(-fluxo.pagar) : '0,00'}</td>
+                                    <td style={td}>{brl(fluxo.receber)}</td>
+                                    <td style={{ ...td, ...corNeg(fluxo.saldoFinal, true) }}>{brlPar(fluxo.saldoFinal)}</td>
                                 </tr>
                                 <tr style={{ background: '#2B2E34', color: '#fff', fontWeight: 800 }}>
-                                    <td style={{ ...td, textAlign: 'left' }} colSpan={8}>
-                                        SALDO PREVISTO ACUMULADO (saldo em bancos + saldo do período)
+                                    <td style={{ ...td, textAlign: 'left' }} colSpan={10}>
+                                        SALDO DO PERÍODO (a receber − a pagar)
                                     </td>
-                                    <td style={{ ...td, ...corNeg(fluxo.saldoFinal, true) }}>{brlP(fluxo.saldoFinal)}</td>
+                                    <td style={{ ...td, ...corNeg(fluxo.total, true) }}>{brlPar(fluxo.total)}</td>
                                 </tr>
                             </tfoot>
                         </table>
