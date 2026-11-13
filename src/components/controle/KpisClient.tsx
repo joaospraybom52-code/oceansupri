@@ -116,7 +116,10 @@ const MESES = [
 export default function KpisClient({ obras, recebido, pago, vendasrec, areceber, vgv, pagoIC, atualizadoEm }: { obras: Obra[]; recebido: RecebidoRow[]; pago: PagoRow[]; vendasrec: VendasRecRow[]; areceber: AReceberRow[]; vgv: VgvRow[]; pagoIC: PagoICRow[]; atualizadoEm: string | null }) {
     // Filtros (dimensões código da obra + ano + mês)
     const [filtroObras, setFiltroObras] = useState<string[]>([])
-    const obraMatch = (cod: string | null | undefined) => filtroObras.length === 0 || filtroObras.includes(cod ?? '')
+    // O código da obra vem com grafias diferentes conforme a origem (o UAU tem
+    // obra cadastrada como "nes27" e o Cadastro de venda grava "NES27"), então a
+    // comparação ignora maiúsculas/minúsculas.
+    const obraMatch = (cod: string | null | undefined) => filtroObras.length === 0 || filtroObras.includes((cod ?? '').trim().toUpperCase())
     const [filtroAnos, setFiltroAnos] = useState<string[]>([])
     const [filtroMeses, setFiltroMeses] = useState<string[]>([])
     // Cross-filter das tabelas drill-down: insumo selecionado filtra os clientes
@@ -136,16 +139,22 @@ export default function KpisClient({ obras, recebido, pago, vendasrec, areceber,
     // Opções de obra montadas a partir dos códigos presentes nas tabelas-fato
     // (recebido + pago), usando o nome da tabela obras quando existir.
     const obraOptions = useMemo(() => {
-        const nomePorCodigo = new Map(obras.filter(o => o.codigo).map(o => [o.codigo as string, o.nome]))
+        // A chave é sempre o código em maiúsculas: assim "nes27" (como vem do UAU)
+        // e "NES27" (como está no Cadastro de venda) são a MESMA obra e aparecem
+        // numa linha só. O texto mostrado é o código do cadastro de obras, quando
+        // existir, para sair na grafia oficial.
+        const chave = (c: string) => c.trim().toUpperCase()
+        const cadastro = new Map(obras.filter(o => o.codigo).map(o => [chave(o.codigo as string), o]))
         const codigos = new Set<string>()
-        recebido.forEach(r => { if (r.obra_rec) codigos.add(r.obra_rec) })
-        pago.forEach(p => { if (p.obra) codigos.add(p.obra) })
-        areceber.forEach(a => { if (a.obra) codigos.add(a.obra) })
-        vgv.forEach(v => { if (v.codigo_obra) codigos.add(v.codigo_obra) })
-        return Array.from(codigos).sort((a, b) => a.localeCompare(b)).map(codigo => ({
-            codigo,
-            label: nomePorCodigo.has(codigo) ? `${codigo} - ${nomePorCodigo.get(codigo)}` : codigo,
-        }))
+        const add = (c: string | null) => { if (c && c.trim()) codigos.add(chave(c)) }
+        recebido.forEach(r => add(r.obra_rec))
+        pago.forEach(p => add(p.obra))
+        areceber.forEach(a => add(a.obra))
+        vgv.forEach(v => add(v.codigo_obra))
+        return Array.from(codigos).sort((a, b) => a.localeCompare(b)).map(codigo => {
+            const o = cadastro.get(codigo)
+            return { codigo, label: o ? `${o.codigo} - ${o.nome}` : codigo }
+        })
     }, [obras, recebido, pago, areceber, vgv])
 
     // recebido filtrado por obra + período (dimensões)

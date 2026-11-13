@@ -31,8 +31,11 @@ export default function ObrasPage() {
         return obras.find(o => o.id !== ignorarId && (o.codigo || '').trim().toUpperCase() === cod) ?? null
     }
 
-    /** O código é a chave da obra em todo o app — guardar sempre em maiúsculas e sem espaço. */
-    const normalizar = (f: typeof form) => ({ ...f, codigo: f.codigo.trim().toUpperCase(), nome: f.nome.trim() })
+    /** O código é guardado COMO FOI DIGITADO (só sem espaço nas pontas): algumas
+     *  obras existem no UAU com o código em minúsculas (ex.: "nes27") e o
+     *  cadastro precisa poder repetir a mesma grafia. Quem compara código no
+     *  app ignora maiúsculas/minúsculas, então os dois jeitos funcionam. */
+    const normalizar = (f: typeof form) => ({ ...f, codigo: f.codigo.trim(), nome: f.nome.trim() })
 
     /** Erro de índice único vira recado em português. */
     const mensagemErro = (msg: string, cod: string) =>
