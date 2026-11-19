@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import { Plus, X, LineChart, Wallet, Pencil, Trash2, CheckCircle2, CalendarDays, Undo2, Printer, Flag } from 'lucide-react'
 import { toast } from 'sonner'
+import SelectObraBusca from './SelectObraBusca'
 import { createClient } from '@/lib/supabase/client'
 import MultiSelect from '@/components/ui/MultiSelect'
 import SearchSelect from '@/components/ui/SearchSelect'
@@ -666,10 +667,11 @@ export default function ControleClient({ obras, medicoesIniciais, podeEditar, co
 
                             <div>
                                 <label style={lbl}>Obra *</label>
-                                <select value={form.obra_id} onChange={e => setForm({ ...form, obra_id: e.target.value })} className="select-field" required>
-                                    <option value="">Selecione a obra</option>
-                                    {obras.map(o => <option key={o.id} value={o.id}>{o.codigo} - {o.nome}</option>)}
-                                </select>
+                                <SelectObraBusca
+                                    obras={obras}
+                                    value={form.obra_id}
+                                    onChange={id => setForm({ ...form, obra_id: id })}
+                                />
                             </div>
 
                             {obraSelecionada && (
